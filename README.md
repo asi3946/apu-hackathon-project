@@ -15,6 +15,78 @@
 - テーマ: ダークモードを基準とし、長時間の作業でも目が疲れにくい配色を採用
 - エディタ構成: 上から順に「タイトル」「タグ欄（カード形式）」「本文（行ごとのブロックリスト）」を配置
 
+## ディレクトリ構造
+## ディレクトリ構造 (Project Structure)
+
+本プロジェクトは Next.js (App Router) を採用しています。
+主なロジックは `src` ディレクトリ配下に集約します。
+
+```text
+.
+├── biome.json                 # Linter/Formatter 設定
+├── next.config.js             # Next.js 設定
+├── package.json
+├── postcss.config.js
+├── tailwind.config.ts         # Tailwind CSS 設定
+├── tsconfig.json
+│
+├── public/                    # 静的ファイル (画像, favicon等)
+│
+├── supabase/                  # Supabase 関連 (Backend担当領域)
+│   ├── functions/             # Edge Functions (AI処理など)
+│   └── migrations/            # DBマイグレーションファイル
+│
+└── src/
+    ├── app/                   # App Router (ページ・ルーティング)
+    │   ├── (auth)/            # 認証関連 (ログイン/登録) - Layout共有用グループ
+    │   │   ├── login/
+    │   │   └── signup/
+    │   ├── (dashboard)/       # メインアプリ画面
+    │   │   ├── layout.tsx     # サイドバーを含む2ペインレイアウト
+    │   │   ├── page.tsx       # ダッシュボード (メモ一覧)
+    │   │   └── memos/
+    │   │       └── [id]/      # メモ編集画面 (エディタ本体)
+    │   ├── api/               # Next.js API Routes (必要な場合のみ)
+    │   ├── globals.css        # グローバルスタイル (Tailwind, Dark mode)
+    │   ├── layout.tsx         # ルートレイアウト
+    │   └── page.tsx           # LP (ランディングページ)
+    │
+    ├── components/            # UIコンポーネント
+    │   ├── ui/                # 汎用 UI パーツ (Button, Dialog, Input等)
+    │   ├── layout/            # レイアウト用 (Sidebar, ResizablePanel等)
+    │   │   ├── AppSidebar.tsx # 左サイドバー
+    │   │   └── SidebarItem.tsx
+    │   ├── editor/            # エディタ特有のコンポーネント (核心部)
+    │   │   ├── EditorRoot.tsx # エディタ全体ラッパー
+    │   │   ├── BlockList.tsx  # ブロックのリスト描画
+    │   │   ├── BlockItem.tsx  # 個別の行 (Text, H1, List等)
+    │   │   ├── VimCursor.tsx  # ノーマルモード用の擬似カーソル
+    │   │   └── TagList.tsx    # タグ入力欄
+    │   └── command/           # コマンドパレット (cmdk)
+    │       └── CommandMenu.tsx # Space+f, /検索 用
+    │
+    ├── hooks/                 # カスタムフック (ロジックの分離)
+    │   ├── useVimKeydown.ts   # Vim操作のキイベントハンドリング
+    │   ├── useBlockOps.ts     # ブロックの分割・結合・移動ロジック
+    │   ├── useAuth.ts         # ユーザー認証状態
+    │   └── useRealtime.ts     # Supabase Realtime 連携 (Presence/Broadcast)
+    │
+    ├── lib/                   # ユーティリティ・設定
+    │   ├── supabase/          # Supabase クライアント初期化
+    │   │   ├── client.ts      # Client Component用
+    │   │   └── server.ts      # Server Component用
+    │   ├── utils.ts           # cn() などのヘルパー関数
+    │   └── constants.ts       # 定数 (デフォルト設定値など)
+    │
+    ├── store/                 # Jotai Atoms (状態管理)
+    │   ├── editorAtom.ts      # ブロックデータ, splitAtom定義
+    │   ├── cursorAtom.ts      # カーソル位置, モード(Normal/Insert)
+    │   └── uiAtom.ts          # サイドバー開閉, ダイアログ状態
+    │
+    └── types/                 # TypeScript 型定義
+        ├── database.types.ts  # Supabase CLIで生成した型
+        └── editor.ts          # Block, BlockType, Cursor等の定義
+```
 ## キーバインド一覧
 - h, l: ブロック内で文字が存在する場合の左右カーソル移動
 - j, k: エディタ内のブロック上下移動（ノーマルモード時）
