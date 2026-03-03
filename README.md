@@ -26,7 +26,7 @@
 
 本プロジェクトは Next.js (App Router) を採用しています。主なロジックは src ディレクトリ配下に集約します。
 
-.
+```
 ├── biome.json                 # Linter/Formatter 設定
 ├── next.config.js             # Next.js 設定
 ├── package.json
@@ -86,7 +86,7 @@
     └── types/                 # 型定義
         ├── database.types.ts  # Supabase自動生成型
         └── editor.ts          # Block, BlockType等の定義
-
+```
 ---
 
 ## 技術スタック
