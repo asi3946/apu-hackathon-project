@@ -1,8 +1,11 @@
-import { atom } from 'jotai';
+import { atom } from "jotai";
+import { EditorSettings } from "@/types";
 
-// エディタで現在編集中のテキスト
-// DBの内容とは別に、リアルタイムな入力をここで管理する
-export const editorContentAtom = atom<string>('');
+// エディタで編集中のテキスト
+export const editorContentAtom = atom<string>("");
 
-// タイトルも同様に
-export const editorTitleAtom = atom<string>('');
+// --- 追加: エディタの設定状態 ---
+// デフォルトは 'standard' (一般ユーザー向け) に設定
+export const editorSettingsAtom = atom<EditorSettings>({
+  type: "standard",
+});
