@@ -22,70 +22,40 @@
 
 ---
 
-## ディレクトリ構造
+## 📂 File Structure
 
-本プロジェクトは Next.js (App Router) を採用しています。主なロジックは src ディレクトリ配下に集約します。
+本プロジェクトは **Next.js (App Router)** をベースに、状態管理に **Jotai**、データベースに **Supabase** を使用しています。
+Vimの挙動制御ロジックとUIコンポーネントを明確に分離しているのが特徴です。
 
-```
-├── biome.json                 # Linter/Formatter 設定
-├── next.config.js             # Next.js 設定
-├── package.json
-├── postcss.config.js
-├── tailwind.config.ts         # Tailwind CSS 設定
-├── tsconfig.json
+```text
+.
+├── src/
+│   ├── app/
+│   │   ├── page.tsx            # エディタのメインページ
+│   │   └── layout.tsx          # アプリケーション全体のレイアウト
+│   │
+│   ├── components/
+│   │   ├── editor/             # Vimエディタの中核コンポーネント
+│   │   │   ├── EditorRoot.tsx    # タイトル入力とエディタ本体の統合
+│   │   │   └── SimpleEditor.tsx  # textareaをVim操作で乗っ取るUI
+│   │   └── layout/             # サイドバーなどの共通レイアウト
+│   │
+│   ├── lib/
+│   │   └── supabase.ts         # Supabaseクライアントの初期化
+│   │
+│   ├── store/                  # Jotai Atoms (状態管理・ロジック)
+│   │   ├── vimAtom.ts          # Vimの物理法則 (移動ロジック, getLineStart等)
+│   │   └── memoAtom.ts         # メモデータのCRUD操作
+│   │
+│   └── types/                  # TypeScript型定義 (スキーマ駆動)
+│       ├── index.ts            # 型のエントリーポイント (Barrel Export)
+│       ├── schema.ts           # DB/ドメインモデル (Memoテーブル等)
+│       ├── editor.ts           # エディタの状態 (Cursor, Mode)
+│       └── api.ts              # AI機能との通信プロトコル (RAG, Tagging)
 │
-├── public/                    # 静的ファイル
-│
-├── supabase/                  # Supabase 関連
-│   ├── functions/             # Edge Functions (AI処理など)
-│   └── migrations/            # DBマイグレーションファイル
-│
-└── src/
-    ├── app/                   # App Router
-    │   ├── (auth)/            # 認証関連
-    │   │   ├── login/
-    │   │   └── signup/
-    │   ├── (dashboard)/       # メインアプリ画面
-    │   │   ├── layout.tsx     # サイドバーを含む2ペインレイアウト
-    │   │   ├── page.tsx       # ダッシュボード
-    │   │   └── memos/
-    │   │       └── [id]/      # メモ編集画面
-    │   ├── api/               # API Routes
-    │   ├── globals.css        # グローバルスタイル
-    │   ├── layout.tsx         # ルートレイアウト
-    │   └── page.tsx           # LP
-    │
-    ├── components/            # UIコンポーネント
-    │   ├── ui/                # 汎用 UI パーツ
-    │   ├── layout/            # レイアウト用
-    │   │   ├── AppSidebar.tsx
-    │   │   └── SidebarItem.tsx
-    │   ├── editor/            # エディタコンポーネント
-    │   │   ├── EditorRoot.tsx
-    │   │   ├── BlockList.tsx
-    │   │   ├── BlockItem.tsx  # 個別の行
-    │   │   └── TagList.tsx    # タグ入力欄
-    │   └── command/           # コマンド・検索UI
-    │       └── CommandMenu.tsx
-    │
-    ├── hooks/                 # カスタムフック
-    │   ├── useBlockOps.ts     # ブロックの分割・結合・移動ロジック
-    │   ├── useAuth.ts         # ユーザー認証
-    │   └── useRealtime.ts     # Supabase Realtime 連携
-    │
-    ├── lib/                   # ユーティリティ
-    │   ├── supabase/          # Supabase クライアント
-    │   ├── utils.ts           # ヘルパー関数
-    │   └── constants.ts       # 定数
-    │
-    ├── store/                 # Jotai Atoms
-    │   ├── editorAtom.ts      # ブロックデータ管理
-    │   ├── selectionAtom.ts   # 選択中のブロック状態
-    │   └── uiAtom.ts          # サイドバー等のUI状態
-    │
-    └── types/                 # 型定義
-        ├── database.types.ts  # Supabase自動生成型
-        └── editor.ts          # Block, BlockType等の定義
+├── .env.local                  # 環境変数 (Supabase URL/Key)
+├── next.config.mjs
+└── package.json
 ```
 ---
 
