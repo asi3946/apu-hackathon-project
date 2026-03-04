@@ -1,24 +1,11 @@
-import { Memo } from './schema';
-
-/**
- * Vimのモード定義
- * 将来的に 'visual' や 'command' が増えてもここで管理
- */
-export type VimMode = 'normal' | 'insert';
-
-/**
- * カーソル位置
- * 行・列ではなく「文字インデックス」で管理するのが今回のキモ
- */
+export type VimMode = "normal" | "insert";
 export type CursorPosition = number;
 
-/**
- * エディタ全体のステート
- * 現在編集中のメモと、Vim的な状態を保持
- */
-export interface EditorState {
-  memo: Memo;            // 現在開いているメモデータ
-  mode: VimMode;         // 現在のVimモード
-  cursor: CursorPosition; // キャレットの位置
-  isDirty: boolean;      // 保存されていない変更があるか
+// --- 追加: エディタの動作モード ---
+export type EditorType = "standard" | "vim";
+
+// --- 追加: エディタ全体の設定スキーマ ---
+export interface EditorSettings {
+  type: EditorType;
+  // 将来的な拡張性: fontSize: number; など
 }
