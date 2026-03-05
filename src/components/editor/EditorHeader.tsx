@@ -5,7 +5,6 @@ import { Loader2, Plus, Save, Tag as TagIcon } from "lucide-react"; // Loader2�
 import { useCallback, useEffect, useState } from "react"; // useState, useEffectを追加
 import { cn } from "@/lib/utils";
 import {
-  editorContentAtom,
   editorTitleAtom,
   memoListAtom,
   saveMemoAtom,
