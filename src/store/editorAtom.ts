@@ -1,5 +1,5 @@
 import { atom } from "jotai";
-import type { EditorSettings } from "@/types/editor"; // または '@/types'
+import type { EditorSettings } from "@/types";
 
 // 1. エディタで現在編集中のテキスト
 export const editorContentAtom = atom<string>("");

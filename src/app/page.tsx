@@ -1,5 +1,5 @@
-import { AppSidebar } from "@/components/layout/AppSidebar";
 import { EditorRoot } from "@/components/editor/EditorRoot";
+import { AppSidebar } from "@/components/layout/AppSidebar";
 
 export default function Home() {
   return (

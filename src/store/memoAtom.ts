@@ -1,6 +1,6 @@
 import { atom } from "jotai";
 import { supabase } from "@/lib/supabase";
-import type { Memo } from "@/types/schema";
+import type { Memo } from "@/types";
 
 // メモのリストを保持するAtom.atomはAtomを定義するときにつかう.
 // atom(初期値,書き込み用関数)
