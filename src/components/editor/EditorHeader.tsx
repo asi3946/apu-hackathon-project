@@ -1,7 +1,8 @@
 "use client";
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { Plus, Save, Tag as TagIcon } from "lucide-react";
+import { Loader2, Plus, Save, Tag as TagIcon } from "lucide-react"; // Loader2を追加
+import { useCallback, useEffect, useState } from "react"; // useState, useEffectを追加
 import { cn } from "@/lib/utils";
 import {
   editorContentAtom,
@@ -12,31 +13,44 @@ import {
 } from "@/store";
 
 export function EditorHeader() {
-  // --- State ---
-  // useAtomeはstateのどちらもを取得.useAtomeValueは値だけ.useSetAtomは関数だけ.
   const [title, setTitle] = useAtom(editorTitleAtom);
   const content = useAtomValue(editorContentAtom);
   const selectedId = useAtomValue(selectedMemoIdAtom);
   const memos = useAtomValue(memoListAtom);
-
-  // --- Actions ---
   const saveMemo = useSetAtom(saveMemoAtom);
 
-  // 現在選択されているメモからタグを取得（まだStoreが未完成なら一旦空配列）
+  // 保存中の状態を管理
+  const [isSaving, setIsSaving] = useState(false);
+
   const currentMemo = memos.find((m) => m.id === selectedId);
   const tags = currentMemo?.tags || [];
 
-  const handleSave = async () => {
-    if (selectedId) {
+  const handleSave = useCallback(async () => {
+    if (selectedId && !isSaving) {
+      setIsSaving(true);
       await saveMemo({ id: selectedId, title, content });
-      // 保存完了のフィードバック（本来はトースト通知などが望ましい）
-      console.log("Saved successfully");
+
+      setTimeout(() => {
+        setIsSaving(false);
+      }, 500);
     }
-  };
+  }, [selectedId, title, content, isSaving, saveMemo]); // handleSaveの中で使っている変数を列挙
+
+  // Ctrl+S / Cmd+S で保存するショートカット
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleSave]); // handleSave が変わった時だけ再実行される
 
   return (
     <div className="flex flex-col gap-4 mb-6 px-8 pt-8 max-w-4xl mx-auto w-full group">
-      {/* 1. タイトル行 */}
       <div className="flex justify-between items-center gap-4">
         <input
           type="text"
@@ -46,11 +60,10 @@ export function EditorHeader() {
           className="text-4xl font-bold text-[#1f1f1f] placeholder:text-gray-200 outline-none bg-transparent flex-1"
         />
 
-        {/* 保存ボタン (Gemini風) */}
         <button
           type="button"
           onClick={handleSave}
-          disabled={!selectedId}
+          disabled={!selectedId || isSaving}
           className={cn(
             "p-2 rounded-full transition-all duration-200",
             selectedId
@@ -59,11 +72,14 @@ export function EditorHeader() {
           )}
           title="保存 (Ctrl+S)"
         >
-          <Save className="w-6 h-6" />
+          {isSaving ? (
+            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+          ) : (
+            <Save className="w-6 h-6" />
+          )}
         </button>
       </div>
 
-      {/* 2. タグエリア (Notion風長方形) */}
       <div className="flex flex-wrap items-center gap-2 min-h-8">
         {tags.length > 0 ? (
           tags.map((tag) => (
@@ -79,7 +95,6 @@ export function EditorHeader() {
           <span className="text-sm text-gray-300 italic">タグなし</span>
         )}
 
-        {/* タグ追加ボタン */}
         <button
           type="button"
           className="flex items-center gap-1 px-2 py-0.5 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-all border border-transparent hover:border-gray-200"
@@ -89,7 +104,6 @@ export function EditorHeader() {
         </button>
       </div>
 
-      {/* セパレーター */}
       <hr className="border-gray-100 mt-2 w-full" />
     </div>
   );
