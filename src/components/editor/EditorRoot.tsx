@@ -20,7 +20,7 @@ export function EditorRoot() {
   const vimMode = useAtomValue(modeAtom);
   const settings = useAtomValue(editorSettingsAtom);
 
-  // サイドバーで選択されたメモが変わるたびに、エディタの状態を更新する
+  // エディタの更新.
   useEffect(() => {
     if (currentMemo) {
       setEditorContent(currentMemo.content);
@@ -35,7 +35,6 @@ export function EditorRoot() {
     <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
       {/* 1. タイトルとタグを表示するヘッダー */}
       <EditorHeader />
-      bg-linear-to-r
       {/* 2. 実際に文字を入力するエリア */}
       <div className="flex-1 overflow-y-auto px-8 pb-8 max-w-4xl mx-auto w-full relative">
         <SimpleEditor />

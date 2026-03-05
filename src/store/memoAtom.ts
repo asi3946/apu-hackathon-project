@@ -36,8 +36,8 @@ export const fetchMemosAtom = atom(null, async (get, set) => {
     }
   }
 });
-
 // 2. メモを保存するAction
+// exportだから、()の中に引数を渡すらしい.
 export const saveMemoAtom = atom(
   null,
   async (get, set, payload: { id: string; title: string; content: string }) => {
@@ -53,8 +53,10 @@ export const saveMemoAtom = atom(
       console.error("Error saving memo:", error);
       return;
     }
-
     // 成功したらローカルのStateも更新する
+    // useStateの記述と同様に、第一引数にsetStateがあったら、(prev)は中身部分を指す.
+    // prev.mapはすべてのメモに対してループを回して、変更点をmemoに入れなおしている.
+    // O(n)は結構時間かかりそう.
     set(memoListAtom, (prev) =>
       prev.map((memo) =>
         memo.id === id ? { ...memo, title, content, updated_at } : memo,
@@ -62,3 +64,32 @@ export const saveMemoAtom = atom(
     );
   },
 );
+export const createMemoAtom = atom(null, async (get, set) => {
+  const { data, error } = await supabase
+    .from("memos")
+    .insert([
+      {
+        title: "",
+        content: "",
+        tags: [],
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("メモの作成に失敗しました:", error);
+    return;
+  }
+
+  if (data) {
+    // 既存のメモリストを取得
+    const currentList = get(memoListAtom);
+
+    // 作成した新しいメモをリストの先頭に追加して状態を更新
+    set(memoListAtom, [data as Memo, ...currentList]);
+
+    // エディタの表示を新しく作成したメモに切り替える
+    set(selectedMemoIdAtom, data.id);
+  }
+});
