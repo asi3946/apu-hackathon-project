@@ -5,6 +5,7 @@ import { FileText, Plus, Search, Settings } from "lucide-react"; // アイコン
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
+  createMemoAtom,
   editorSettingsAtom,
   fetchMemosAtom,
   memoListAtom,
@@ -15,8 +16,8 @@ export function AppSidebar() {
   const [settings, setSettings] = useAtom(editorSettingsAtom);
   const [memos] = useAtom(memoListAtom);
   const [selectedId, setSelectedId] = useAtom(selectedMemoIdAtom);
-
   const fetchMemos = useSetAtom(fetchMemosAtom);
+  const createMemo = useSetAtom(createMemoAtom);
 
   useEffect(() => {
     fetchMemos();
@@ -29,12 +30,17 @@ export function AppSidebar() {
     }));
   };
 
+  const handleCreateMemo = async () => {
+    await createMemo();
+  };
+
   return (
     <aside className="w-64 h-screen bg-[#f0f4f9] flex flex-col border-r border-gray-200 text-[#444746]">
       {/* 上部: 新規作成 & 検索 */}
       <div className="p-4 space-y-4">
         <button
           type="button"
+          onClick={handleCreateMemo}
           className="flex items-center gap-2 bg-[#dde3ea] hover:bg-[#d0d7de] text-[#1f1f1f] px-4 py-3 rounded-2xl transition-colors font-medium text-sm w-fit"
         >
           <Plus className="w-5 h-5" />

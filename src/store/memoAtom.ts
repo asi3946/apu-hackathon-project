@@ -64,3 +64,32 @@ export const saveMemoAtom = atom(
     );
   },
 );
+export const createMemoAtom = atom(null, async (get, set) => {
+  const { data, error } = await supabase
+    .from("memos")
+    .insert([
+      {
+        title: "",
+        content: "",
+        tags: [],
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    console.error("メモの作成に失敗しました:", error);
+    return;
+  }
+
+  if (data) {
+    // 既存のメモリストを取得
+    const currentList = get(memoListAtom);
+
+    // 作成した新しいメモをリストの先頭に追加して状態を更新
+    set(memoListAtom, [data as Memo, ...currentList]);
+
+    // エディタの表示を新しく作成したメモに切り替える
+    set(selectedMemoIdAtom, data.id);
+  }
+});
