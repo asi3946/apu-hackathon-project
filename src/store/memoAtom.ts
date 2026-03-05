@@ -68,15 +68,10 @@ export const saveMemoAtom = atom(null, async (get, set) => {
 });
 
 export const createMemoAtom = atom(null, async (get, set) => {
+  // DBの記述的に何も渡さなくてもメモデータが作られる.
   const { data, error } = await supabase
     .from("memos")
-    .insert([
-      {
-        title: "",
-        content: "",
-        tags: [],
-      },
-    ])
+    .insert([{}])
     .select()
     .single();
 
