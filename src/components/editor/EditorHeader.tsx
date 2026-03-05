@@ -2,7 +2,7 @@
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Loader2, Plus, Save, Tag as TagIcon } from "lucide-react"; // Loader2を追加
-import { useCallback, useEffect, useState } from "react"; // useState, useEffectを追加
+import { useCallback, useEffect, useRef, useState } from "react"; // useState, useEffectを追加
 import { cn } from "@/lib/utils";
 import {
   editorTitleAtom,
@@ -22,7 +22,7 @@ export function EditorHeader() {
 
   const currentMemo = memos.find((m) => m.id === selectedId);
   const tags = currentMemo?.tags || [];
-
+  // useCallbackによってselectedId, isSaving, saveMemoのいずれかが変わった時だけ、関数の実体を更新する.
   const handleSave = useCallback(async () => {
     if (selectedId && !isSaving) {
       setIsSaving(true);
@@ -32,20 +32,28 @@ export function EditorHeader() {
         setIsSaving(false);
       }, 500);
     }
-  }, [selectedId, isSaving, saveMemo]); // handleSaveの中で使っている変数を列挙
+  }, [selectedId, isSaving, saveMemo]);
+
+  // この記述でuseRefはhandleSaveの位置を保持し続ける.
+  const saveRef = useRef(handleSave);
+  // handleSaveでsaveRefのcurrentを更新する.
+  useEffect(() => {
+    saveRef.current = handleSave;
+  }, [handleSave]);
 
   // Ctrl+S / Cmd+S で保存するショートカット
+  // useRefを使うことでaddEventListenerというカロリーの高いものを一度呼び出すだけでよくなった.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
-        handleSave();
+        saveRef.current();
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleSave]); // handleSave が変わった時だけ再実行される
+  }, []);
 
   return (
     <div className="flex flex-col gap-4 mb-6 px-8 pt-8 max-w-4xl mx-auto w-full group">
