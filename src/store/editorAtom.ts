@@ -1,11 +1,13 @@
 import { atom } from "jotai";
-import { EditorSettings } from "@/types";
+import type { EditorSettings } from "@/types/editor"; // または '@/types'
 
-// エディタで編集中のテキスト
+// 1. エディタで現在編集中のテキスト
 export const editorContentAtom = atom<string>("");
 
-// --- 追加: エディタの設定状態 ---
-// デフォルトは 'standard' (一般ユーザー向け) に設定
+// 2. エディタで現在編集中のタイトル
+export const editorTitleAtom = atom<string>("");
+
+// 3. エディタの設定（Vimモードか標準モードか）
 export const editorSettingsAtom = atom<EditorSettings>({
-  type: "standard",
+  type: "standard", // デフォルトは標準モード
 });

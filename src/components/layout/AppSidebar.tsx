@@ -1,15 +1,25 @@
 "use client";
 
-import { useAtom } from "jotai";
-import { Plus, Search, Settings, FileText } from "lucide-react"; // アイコン
-import { editorSettingsAtom } from "@/store/editorAtom";
-import { memoListAtom, selectedMemoIdAtom } from "@/store/memoAtom";
+import { useAtom, useSetAtom } from "jotai";
+import { FileText, Plus, Search, Settings } from "lucide-react"; // アイコン
+import { useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { editorSettingsAtom } from "@/store/editorAtom";
+import {
+  fetchMemosAtom,
+  memoListAtom,
+  selectedMemoIdAtom,
+} from "@/store/memoAtom";
 
 export function AppSidebar() {
   const [settings, setSettings] = useAtom(editorSettingsAtom);
-  const [memos] = useAtom(memoListAtom); // 現在はダミーデータ
+  const [memos] = useAtom(memoListAtom);
   const [selectedId, setSelectedId] = useAtom(selectedMemoIdAtom);
+
+  const fetchMemos = useSetAtom(fetchMemosAtom);
+  useEffect(() => {
+    fetchMemos();
+  }, [fetchMemos]);
 
   const toggleEditorType = () => {
     setSettings((prev) => ({
