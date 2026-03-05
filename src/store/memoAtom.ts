@@ -1,22 +1,10 @@
 import { atom } from "jotai";
-import { Memo } from "@/types";
+import { supabase } from "@/lib/supabase";
+import type { Memo } from "@/types/schema";
 
-// ダミーデータ (Schema準拠)
-const initialMemos: Memo[] = [
-  {
-    id: "memo-1",
-    user_id: "dummy-user",
-    title: "Vim操作チートシート",
-    content:
-      "h: 左\nj: 下\nk: 上\nl: 右\n0: 行頭\n$: 行末\ni: インサートモード",
-    tags: ["vim", "help"],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
-
-export const memoListAtom = atom<Memo[]>(initialMemos);
-export const selectedMemoIdAtom = atom<string | null>("memo-1");
+// メモのリストを保持するAtom
+export const memoListAtom = atom<Memo[]>([]);
+export const selectedMemoIdAtom = atom<string | null>(null);
 
 // 選択中のメモを取得する派生Atom
 export const currentMemoAtom = atom((get) => {
@@ -24,3 +12,52 @@ export const currentMemoAtom = atom((get) => {
   const selectedId = get(selectedMemoIdAtom);
   return memos.find((m) => m.id === selectedId) || null;
 });
+
+// --- Actions (非同期処理) ---
+
+// 1. メモ一覧を取得するAction
+export const fetchMemosAtom = atom(null, async (get, set) => {
+  const { data, error } = await supabase
+    .from("memos")
+    .select("*")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching memos:", error);
+    return;
+  }
+
+  if (data) {
+    set(memoListAtom, data as Memo[]);
+    // リストが空でなければ、最初のメモを選択状態にする
+    if (data.length > 0 && !get(selectedMemoIdAtom)) {
+      set(selectedMemoIdAtom, data[0].id);
+    }
+  }
+});
+
+// 2. メモを保存するAction
+export const saveMemoAtom = atom(
+  null,
+  async (get, set, payload: { id: string; title: string; content: string }) => {
+    const { id, title, content } = payload;
+    const updated_at = new Date().toISOString();
+
+    const { error } = await supabase
+      .from("memos")
+      .update({ title, content, updated_at })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error saving memo:", error);
+      return;
+    }
+
+    // 成功したらローカルのStateも更新する
+    set(memoListAtom, (prev) =>
+      prev.map((memo) =>
+        memo.id === id ? { ...memo, title, content, updated_at } : memo,
+      ),
+    );
+  },
+);
