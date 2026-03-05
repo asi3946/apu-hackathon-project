@@ -14,7 +14,6 @@ import {
 
 export function EditorHeader() {
   const [title, setTitle] = useAtom(editorTitleAtom);
-  const content = useAtomValue(editorContentAtom);
   const selectedId = useAtomValue(selectedMemoIdAtom);
   const memos = useAtomValue(memoListAtom);
   const saveMemo = useSetAtom(saveMemoAtom);
@@ -28,13 +27,13 @@ export function EditorHeader() {
   const handleSave = useCallback(async () => {
     if (selectedId && !isSaving) {
       setIsSaving(true);
-      await saveMemo({ id: selectedId, title, content });
+      await saveMemo();
 
       setTimeout(() => {
         setIsSaving(false);
       }, 500);
     }
-  }, [selectedId, title, content, isSaving, saveMemo]); // handleSaveの中で使っている変数を列挙
+  }, [selectedId, isSaving, saveMemo]); // handleSaveの中で使っている変数を列挙
 
   // Ctrl+S / Cmd+S で保存するショートカット
   useEffect(() => {
