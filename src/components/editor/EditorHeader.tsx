@@ -62,7 +62,7 @@ export function EditorHeader() {
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="無題"
+          placeholder="no title"
           className="text-4xl font-bold text-[#1f1f1f] placeholder:text-gray-200 outline-none bg-transparent flex-1"
         />
 
