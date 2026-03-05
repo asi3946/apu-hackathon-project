@@ -3,15 +3,17 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Plus, Save, Tag as TagIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { editorContentAtom, editorTitleAtom } from "@/store/editorAtom";
 import {
+  editorContentAtom,
+  editorTitleAtom,
   memoListAtom,
   saveMemoAtom,
   selectedMemoIdAtom,
-} from "@/store/memoAtom";
+} from "@/store";
 
 export function EditorHeader() {
   // --- State ---
+  // useAtomeはstateのどちらもを取得.useAtomeValueは値だけ.useSetAtomは関数だけ.
   const [title, setTitle] = useAtom(editorTitleAtom);
   const content = useAtomValue(editorContentAtom);
   const selectedId = useAtomValue(selectedMemoIdAtom);
@@ -62,7 +64,7 @@ export function EditorHeader() {
       </div>
 
       {/* 2. タグエリア (Notion風長方形) */}
-      <div className="flex flex-wrap items-center gap-2 min-h-[32px]">
+      <div className="flex flex-wrap items-center gap-2 min-h-8">
         {tags.length > 0 ? (
           tags.map((tag) => (
             <div

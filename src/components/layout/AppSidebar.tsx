@@ -4,12 +4,12 @@ import { useAtom, useSetAtom } from "jotai";
 import { FileText, Plus, Search, Settings } from "lucide-react"; // アイコン
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { editorSettingsAtom } from "@/store/editorAtom";
 import {
+  editorSettingsAtom,
   fetchMemosAtom,
   memoListAtom,
   selectedMemoIdAtom,
-} from "@/store/memoAtom";
+} from "@/store";
 
 export function AppSidebar() {
   const [settings, setSettings] = useAtom(editorSettingsAtom);

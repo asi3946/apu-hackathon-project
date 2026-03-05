@@ -4,12 +4,12 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
+  currentMemoAtom,
   editorContentAtom,
   editorSettingsAtom,
   editorTitleAtom,
-} from "@/store/editorAtom";
-import { currentMemoAtom } from "@/store/memoAtom";
-import { modeAtom } from "@/store/vimAtom";
+  modeAtom,
+} from "@/store";
 import { EditorHeader } from "./EditorHeader";
 import { SimpleEditor } from "./SimpleEditor";
 
@@ -35,12 +35,11 @@ export function EditorRoot() {
     <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
       {/* 1. タイトルとタグを表示するヘッダー */}
       <EditorHeader />
-
+      bg-linear-to-r
       {/* 2. 実際に文字を入力するエリア */}
       <div className="flex-1 overflow-y-auto px-8 pb-8 max-w-4xl mx-auto w-full relative">
         <SimpleEditor />
       </div>
-
       {/* 3. モードに応じた視覚的フィードバック（下部のライン） */}
       <div
         className={cn(
@@ -48,11 +47,10 @@ export function EditorRoot() {
           !isVim
             ? "bg-transparent"
             : isInsert
-              ? "bg-gradient-to-r from-blue-500 via-purple-500 to-red-500"
+              ? "bg-linear-to-r from-blue-500 via-purple-500 to-red-500"
               : "bg-gray-800",
         )}
       />
-
       {/* Vimモード時のみ右下に表示されるバッジ */}
       {isVim && (
         <div

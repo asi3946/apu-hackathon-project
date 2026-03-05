@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useEffect, useRef } from "react";
+import { cn } from "@/lib/utils";
 import {
-  modeAtom,
   cursorAtom,
+  editorContentAtom,
+  editorSettingsAtom,
+  jumpToLineEndAtom,
+  jumpToLineStartAtom,
+  modeAtom,
   moveDownAtom,
-  moveUpAtom,
   moveLeftAtom,
   moveRightAtom,
-  jumpToLineStartAtom,
-  jumpToLineEndAtom,
-} from "@/store/vimAtom";
-import { editorContentAtom, editorSettingsAtom } from "@/store/editorAtom";
-import { cn } from "@/lib/utils";
+  moveUpAtom,
+} from "@/store";
 
 export function SimpleEditor() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);

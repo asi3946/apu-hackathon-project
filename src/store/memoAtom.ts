@@ -2,11 +2,12 @@ import { atom } from "jotai";
 import { supabase } from "@/lib/supabase";
 import type { Memo } from "@/types/schema";
 
-// メモのリストを保持するAtom
+// メモのリストを保持するAtom.atomはAtomを定義するときにつかう.
+// atom(初期値,書き込み用関数)
 export const memoListAtom = atom<Memo[]>([]);
 export const selectedMemoIdAtom = atom<string | null>(null);
 
-// 選択中のメモを取得する派生Atom
+// 選択中のメモを取得する派生Atom.読み取り専用.
 export const currentMemoAtom = atom((get) => {
   const memos = get(memoListAtom);
   const selectedId = get(selectedMemoIdAtom);
@@ -15,7 +16,7 @@ export const currentMemoAtom = atom((get) => {
 
 // --- Actions (非同期処理) ---
 
-// 1. メモ一覧を取得するAction
+// 1. メモ一覧を取得するAction.派生Atom.書き込み専用.
 export const fetchMemosAtom = atom(null, async (get, set) => {
   const { data, error } = await supabase
     .from("memos")
