@@ -20,11 +20,16 @@ export function EditorRoot() {
   const vimMode = useAtomValue(modeAtom);
   const settings = useAtomValue(editorSettingsAtom);
 
-  // エディタの更新.
+  // エディタの更新（null対策を追加）
   useEffect(() => {
     if (currentMemo) {
-      setEditorContent(currentMemo.content);
-      setEditorTitle(currentMemo.title);
+      // nullの場合は空文字をセットしてReactのエラーを防ぐ
+      setEditorContent(currentMemo.content || "");
+      setEditorTitle(currentMemo.title || "");
+    } else {
+      // メモが選択されていない状態
+      setEditorContent("");
+      setEditorTitle("");
     }
   }, [currentMemo, setEditorContent, setEditorTitle]);
 
@@ -33,13 +38,10 @@ export function EditorRoot() {
 
   return (
     <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
-      {/* 1. タイトルとタグを表示するヘッダー */}
       <EditorHeader />
-      {/* 2. 実際に文字を入力するエリア */}
       <div className="flex-1 overflow-y-auto px-8 pb-8 max-w-4xl mx-auto w-full relative">
         <SimpleEditor />
       </div>
-      {/* 3. モードに応じた視覚的フィードバック（下部のライン） */}
       <div
         className={cn(
           "absolute bottom-0 left-0 w-full h-1 transition-all duration-300",
@@ -50,7 +52,6 @@ export function EditorRoot() {
               : "bg-gray-800",
         )}
       />
-      {/* Vimモード時のみ右下に表示されるバッジ */}
       {isVim && (
         <div
           className={cn(

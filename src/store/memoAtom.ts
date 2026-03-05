@@ -1,7 +1,7 @@
 import { atom } from "jotai";
 import { supabase } from "@/lib/supabase";
+import { editorContentAtom, editorTitleAtom } from "@/store";
 import type { Memo } from "@/types";
-
 // メモのリストを保持するAtom.atomはAtomを定義するときにつかう.
 // atom(初期値,書き込み用関数)
 export const memoListAtom = atom<Memo[]>([]);
@@ -37,33 +37,36 @@ export const fetchMemosAtom = atom(null, async (get, set) => {
   }
 });
 // 2. メモを保存するAction
-// exportだから、()の中に引数を渡すらしい.
-export const saveMemoAtom = atom(
-  null,
-  async (get, set, payload: { id: string; title: string; content: string }) => {
-    const { id, title, content } = payload;
-    const updated_at = new Date().toISOString();
+// store/memoAtom.ts (または該当のファイル)
+export const saveMemoAtom = atom(null, async (get, set) => {
+  // コンポーネントからではなく、JotaiのAtomから直接最新の値を取得する
+  const id = get(selectedMemoIdAtom);
+  const title = get(editorTitleAtom);
+  const content = get(editorContentAtom);
 
-    const { error } = await supabase
-      .from("memos")
-      .update({ title, content, updated_at })
-      .eq("id", id);
+  // IDがない（メモが選択されていない）場合は何もしない
+  if (!id) return;
 
-    if (error) {
-      console.error("Error saving memo:", error);
-      return;
-    }
-    // 成功したらローカルのStateも更新する
-    // useStateの記述と同様に、第一引数にsetStateがあったら、(prev)は中身部分を指す.
-    // prev.mapはすべてのメモに対してループを回して、変更点をmemoに入れなおしている.
-    // O(n)は結構時間かかりそう.
-    set(memoListAtom, (prev) =>
-      prev.map((memo) =>
-        memo.id === id ? { ...memo, title, content, updated_at } : memo,
-      ),
-    );
-  },
-);
+  const updated_at = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("memos")
+    .update({ title, content, updated_at })
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error saving memo:", error);
+    return;
+  }
+
+  // 成功したらローカルのリストも更新
+  set(memoListAtom, (prev) =>
+    prev.map((memo) =>
+      memo.id === id ? { ...memo, title, content, updated_at } : memo,
+    ),
+  );
+});
+
 export const createMemoAtom = atom(null, async (get, set) => {
   const { data, error } = await supabase
     .from("memos")
