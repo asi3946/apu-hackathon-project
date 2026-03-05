@@ -17,6 +17,7 @@ export function AppSidebar() {
   const [selectedId, setSelectedId] = useAtom(selectedMemoIdAtom);
 
   const fetchMemos = useSetAtom(fetchMemosAtom);
+
   useEffect(() => {
     fetchMemos();
   }, [fetchMemos]);

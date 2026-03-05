@@ -36,8 +36,8 @@ export const fetchMemosAtom = atom(null, async (get, set) => {
     }
   }
 });
-
 // 2. メモを保存するAction
+// exportだから、()の中に引数を渡すらしい.
 export const saveMemoAtom = atom(
   null,
   async (get, set, payload: { id: string; title: string; content: string }) => {
@@ -53,8 +53,10 @@ export const saveMemoAtom = atom(
       console.error("Error saving memo:", error);
       return;
     }
-
     // 成功したらローカルのStateも更新する
+    // useStateの記述と同様に、第一引数にsetStateがあったら、(prev)は中身部分を指す.
+    // prev.mapはすべてのメモに対してループを回して、変更点をmemoに入れなおしている.
+    // O(n)は結構時間かかりそう.
     set(memoListAtom, (prev) =>
       prev.map((memo) =>
         memo.id === id ? { ...memo, title, content, updated_at } : memo,
