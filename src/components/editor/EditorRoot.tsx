@@ -20,7 +20,7 @@ export function EditorRoot() {
   const vimMode = useAtomValue(modeAtom);
   const settings = useAtomValue(editorSettingsAtom);
 
-  // サイドバーで選択されたメモが変わるたびに、エディタの状態を更新する
+  // エディタの更新.
   useEffect(() => {
     if (currentMemo) {
       setEditorContent(currentMemo.content);
