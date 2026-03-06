@@ -60,7 +60,7 @@ export function AppSidebar() {
         </div>
       </div>
 
-      {/* 中部: メモリスト (タイトルのみ) */}
+      {/* 中部: メモリスト */}
       <div className="flex-1 overflow-y-auto px-2 py-2">
         <div className="text-xs font-medium text-gray-500 px-4 mb-2">最近</div>
         <div className="space-y-1">
@@ -68,7 +68,7 @@ export function AppSidebar() {
             <div
               key={memo.id}
               className={cn(
-                "w-full px-4 py-2 rounded-full flex items-center justify-between transition-colors group",
+                "w-full rounded-full flex items-center justify-between transition-colors group", // ここから px-4 py-2 を削除しました
                 selectedId === memo.id
                   ? "bg-[#c2e7ff] text-[#001d35] font-medium"
                   : "hover:bg-[#e1e5ea]",
@@ -77,7 +77,7 @@ export function AppSidebar() {
               <button
                 type="button"
                 onClick={() => setSelectedId(memo.id)}
-                className="flex-1 text-left text-sm truncate flex items-center gap-2"
+                className="flex-1 text-left text-sm truncate flex items-center gap-2 pl-4 py-2 rounded-l-full" // ここに pl-4 py-2 を追加しました
               >
                 <FileText className="w-4 h-4 shrink-0 opacity-50" />
                 {memo.title || "無題のメモ"}
@@ -88,7 +88,7 @@ export function AppSidebar() {
                   e.stopPropagation();
                   deleteMemo(memo.id);
                 }}
-                className="text-xs text-red-500 opacity-0 group-hover:opacity-100 transition-opacity px-2 hover:text-red-700"
+                className="text-xs text-red-500 opacity-0 group-hover:opacity-100 transition-opacity pr-4 py-2 hover:text-red-700 rounded-r-full" // ここに pr-4 py-2 を追加しました
               >
                 削除
               </button>
