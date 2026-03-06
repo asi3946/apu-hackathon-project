@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
   createMemoAtom,
+  deleteMemoAtom,
   editorSettingsAtom,
   fetchMemosAtom,
   memoListAtom,
@@ -18,6 +19,7 @@ export function AppSidebar() {
   const [selectedId, setSelectedId] = useAtom(selectedMemoIdAtom);
   const fetchMemos = useSetAtom(fetchMemosAtom);
   const createMemo = useSetAtom(createMemoAtom);
+  const deleteMemo = useSetAtom(deleteMemoAtom);
 
   useEffect(() => {
     fetchMemos();
@@ -63,20 +65,34 @@ export function AppSidebar() {
         <div className="text-xs font-medium text-gray-500 px-4 mb-2">最近</div>
         <div className="space-y-1">
           {memos.map((memo) => (
-            <button
-              type="button"
+            <div
               key={memo.id}
-              onClick={() => setSelectedId(memo.id)}
               className={cn(
-                "w-full text-left px-4 py-2 rounded-full text-sm truncate flex items-center gap-2 transition-colors",
+                "w-full px-4 py-2 rounded-full flex items-center justify-between transition-colors group",
                 selectedId === memo.id
-                  ? "bg-[#c2e7ff] text-[#001d35] font-medium" // 選択中 (Gemini Blue)
+                  ? "bg-[#c2e7ff] text-[#001d35] font-medium"
                   : "hover:bg-[#e1e5ea]",
               )}
             >
-              <FileText className="w-4 h-4 shrink-0 opacity-50" />
-              {memo.title || "無題のメモ"}
-            </button>
+              <button
+                type="button"
+                onClick={() => setSelectedId(memo.id)}
+                className="flex-1 text-left text-sm truncate flex items-center gap-2"
+              >
+                <FileText className="w-4 h-4 shrink-0 opacity-50" />
+                {memo.title || "無題のメモ"}
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteMemo(memo.id);
+                }}
+                className="text-xs text-red-500 opacity-0 group-hover:opacity-100 transition-opacity px-2 hover:text-red-700"
+              >
+                削除
+              </button>
+            </div>
           ))}
         </div>
       </div>

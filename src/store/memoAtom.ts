@@ -91,3 +91,21 @@ export const createMemoAtom = atom(null, async (get, set) => {
     set(selectedMemoIdAtom, data.id);
   }
 });
+
+export const deleteMemoAtom = atom(null, async (get, set, memoId: string) => {
+  const { error } = await supabase.from("memos").delete().eq("id", memoId);
+
+  if (error) {
+    console.error("メモの削除に失敗しました:", error);
+    return;
+  }
+
+  const currentList = get(memoListAtom);
+  const filteredList = currentList.filter((memo) => memo.id !== memoId);
+  set(memoListAtom, filteredList);
+
+  const selectedId = get(selectedMemoIdAtom);
+  if (selectedId === memoId) {
+    set(selectedMemoIdAtom, null);
+  }
+});
