@@ -9,7 +9,7 @@ import {
   editorSettingsAtom,
   editorTitleAtom,
   modeAtom,
-} from "@/store";
+} from "@/store/models";
 import { EditorHeader } from "./EditorHeader";
 import { SimpleEditor } from "./SimpleEditor";
 

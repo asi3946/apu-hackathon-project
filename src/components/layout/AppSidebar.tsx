@@ -10,7 +10,7 @@ import {
   fetchMemosAtom,
   memoListAtom,
   selectedMemoIdAtom,
-} from "@/store";
+} from "@/store/models";
 
 export function AppSidebar() {
   const [settings, setSettings] = useAtom(editorSettingsAtom);

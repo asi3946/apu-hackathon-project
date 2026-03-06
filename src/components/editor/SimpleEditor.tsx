@@ -14,7 +14,7 @@ import {
   moveLeftAtom,
   moveRightAtom,
   moveUpAtom,
-} from "@/store";
+} from "@/store/models";
 
 export function SimpleEditor() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
