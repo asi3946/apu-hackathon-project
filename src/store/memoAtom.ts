@@ -1,7 +1,7 @@
 import { atom } from "jotai";
 import { supabase } from "@/lib/supabase";
 import { editorContentAtom, editorTitleAtom } from "@/store";
-import type { Memo } from "@/types";
+import type { Memo } from "@/types/models";
 // メモのリストを保持するAtom.atomはAtomを定義するときにつかう.
 // atom(初期値,書き込み用関数)
 export const memoListAtom = atom<Memo[]>([]);

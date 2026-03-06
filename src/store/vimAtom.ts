@@ -1,5 +1,5 @@
 import { atom } from "jotai";
-import type { VimMode, CursorPosition } from "@/types";
+import type { CursorPosition, VimMode } from "@/types/models";
 
 // --- State ---
 export const modeAtom = atom<VimMode>("normal");
