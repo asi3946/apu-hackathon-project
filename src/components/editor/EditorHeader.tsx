@@ -26,6 +26,8 @@ export function EditorHeader() {
   // タグ入力用のステート
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  // input要素を参照するためのref
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // useCallbackによってselectedId, isSaving, saveMemoのいずれかが変わった時だけ、関数の実体を更新する.
   const handleSave = useCallback(async () => {
@@ -80,6 +82,12 @@ export function EditorHeader() {
       setIsAddingTag(false);
     }
   };
+
+  useEffect(() => {
+    if (isAddingTag && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isAddingTag]);
 
   // タグ削除処理
   const removeTag = (tagToRemove: string) => {
@@ -141,12 +149,12 @@ export function EditorHeader() {
 
         {isAddingTag ? (
           <input
+            ref={inputRef}
             type="text"
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={handleKeyDownTag}
             onBlur={handleAddTag}
-            autoFocus
             placeholder="Add tag"
             className="px-2 py-0.5 text-sm border border-blue-300 rounded-md outline-none w-24 bg-white"
           />
