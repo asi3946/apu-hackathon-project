@@ -1,7 +1,11 @@
 import { atom } from "jotai";
 import { supabase } from "@/lib/supabase";
-import { editorContentAtom, editorTitleAtom } from "@/store/models";
 import type { Memo } from "@/types/models";
+import {
+  editorContentAtom,
+  editorTagsAtom,
+  editorTitleAtom,
+} from "./editorAtom";
 // メモのリストを保持するAtom.atomはAtomを定義するときにつかう.
 // atom(初期値,書き込み用関数)
 export const memoListAtom = atom<Memo[]>([]);
@@ -43,6 +47,7 @@ export const saveMemoAtom = atom(null, async (get, set) => {
   const id = get(selectedMemoIdAtom);
   const title = get(editorTitleAtom);
   const content = get(editorContentAtom);
+  const tags = get(editorTagsAtom);
 
   // IDがない（メモが選択されていない）場合は何もしない
   if (!id) return;
@@ -51,7 +56,7 @@ export const saveMemoAtom = atom(null, async (get, set) => {
 
   const { error } = await supabase
     .from("memos")
-    .update({ title, content, updated_at })
+    .update({ title, content, tags, updated_at })
     .eq("id", id);
 
   if (error) {
