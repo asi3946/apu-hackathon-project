@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 import {
   editorTagsAtom,
   editorTitleAtom,
-  memoListAtom,
   saveMemoAtom,
   selectedMemoIdAtom,
 } from "@/store/models";
@@ -17,7 +16,6 @@ export function EditorHeader() {
   const [title, setTitle] = useAtom(editorTitleAtom);
   const [tags, setTags] = useAtom(editorTagsAtom);
   const selectedId = useAtomValue(selectedMemoIdAtom);
-  const memos = useAtomValue(memoListAtom);
   const saveMemo = useSetAtom(saveMemoAtom);
 
   // 保存中の状態を管理

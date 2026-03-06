@@ -67,7 +67,7 @@ export const saveMemoAtom = atom(null, async (get, set) => {
   // 成功したらローカルのリストも更新
   set(memoListAtom, (prev) =>
     prev.map((memo) =>
-      memo.id === id ? { ...memo, title, content, updated_at } : memo,
+      memo.id === id ? { ...memo, title, content, tags, updated_at } : memo,
     ),
   );
 });
