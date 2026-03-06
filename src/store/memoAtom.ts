@@ -1,6 +1,6 @@
 import { atom } from "jotai";
 import { supabase } from "@/lib/supabase";
-import { editorContentAtom, editorTitleAtom } from "@/store";
+import { editorContentAtom, editorTitleAtom } from "@/store/models";
 import type { Memo } from "@/types/models";
 // メモのリストを保持するAtom.atomはAtomを定義するときにつかう.
 // atom(初期値,書き込み用関数)
@@ -89,5 +89,23 @@ export const createMemoAtom = atom(null, async (get, set) => {
 
     // エディタの表示を新しく作成したメモに切り替える
     set(selectedMemoIdAtom, data.id);
+  }
+});
+
+export const deleteMemoAtom = atom(null, async (get, set, memoId: string) => {
+  const { error } = await supabase.from("memos").delete().eq("id", memoId);
+
+  if (error) {
+    console.error("メモの削除に失敗しました:", error);
+    return;
+  }
+
+  const currentList = get(memoListAtom);
+  const filteredList = currentList.filter((memo) => memo.id !== memoId);
+  set(memoListAtom, filteredList);
+
+  const selectedId = get(selectedMemoIdAtom);
+  if (selectedId === memoId) {
+    set(selectedMemoIdAtom, null);
   }
 });

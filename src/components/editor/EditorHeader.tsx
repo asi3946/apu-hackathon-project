@@ -9,7 +9,7 @@ import {
   memoListAtom,
   saveMemoAtom,
   selectedMemoIdAtom,
-} from "@/store";
+} from "@/store/models";
 
 export function EditorHeader() {
   const [title, setTitle] = useAtom(editorTitleAtom);
