@@ -1,7 +1,7 @@
 "use client";
 
 import { useAtom, useSetAtom } from "jotai";
-import { FileText, Plus, Search, Settings } from "lucide-react"; // アイコン
+import { FileText, Plus, Search, Settings, Trash2 } from "lucide-react"; // アイコン
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
@@ -88,9 +88,9 @@ export function AppSidebar() {
                   e.stopPropagation();
                   deleteMemo(memo.id);
                 }}
-                className="text-xs text-red-500 opacity-0 group-hover:opacity-100 transition-opacity pr-4 py-2 hover:text-red-700 rounded-r-full" // ここに pr-4 py-2 を追加しました
+                className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity pr-4 pl-2 py-2 hover:text-red-600 rounded-r-full flex items-center justify-center"
               >
-                削除
+                <Trash2 className="w-4 h-4" />
               </button>
             </div>
           ))}
