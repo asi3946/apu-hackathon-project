@@ -7,6 +7,7 @@ import {
   currentMemoAtom,
   editorContentAtom,
   editorSettingsAtom,
+  editorTagsAtom,
   editorTitleAtom,
   modeAtom,
 } from "@/store/models";
@@ -17,6 +18,7 @@ export function EditorRoot() {
   const currentMemo = useAtomValue(currentMemoAtom);
   const setEditorContent = useSetAtom(editorContentAtom);
   const setEditorTitle = useSetAtom(editorTitleAtom);
+  const setEditorTags = useSetAtom(editorTagsAtom);
   const vimMode = useAtomValue(modeAtom);
   const settings = useAtomValue(editorSettingsAtom);
 
@@ -26,12 +28,14 @@ export function EditorRoot() {
       // nullの場合は空文字をセットしてReactのエラーを防ぐ
       setEditorContent(currentMemo.content || "");
       setEditorTitle(currentMemo.title || "");
+      setEditorTags(currentMemo.tags || []);
     } else {
       // メモが選択されていない状態
       setEditorContent("");
       setEditorTitle("");
+      setEditorTags([]);
     }
-  }, [currentMemo, setEditorContent, setEditorTitle]);
+  }, [currentMemo, setEditorContent, setEditorTitle, setEditorTags]);
 
   const isVim = settings.type === "vim";
   const isInsert = isVim && vimMode === "insert";
