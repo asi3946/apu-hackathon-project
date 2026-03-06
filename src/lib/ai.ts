@@ -1,5 +1,3 @@
-import { Memo } from "./schema";
-
 // --- 1. RAG検索 (Search) ---
 
 export interface AISearchRequest {

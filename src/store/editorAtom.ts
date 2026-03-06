@@ -1,5 +1,12 @@
 import { atom } from "jotai";
-import type { EditorSettings } from "@/types";
+
+export type VimMode = "normal" | "insert";
+export type EditorType = "standard" | "vim";
+
+export interface EditorSettings {
+  type: EditorType;
+  // 将来的な拡張性: fontSize?: number; など
+}
 
 // 1. エディタで現在編集中のテキスト
 export const editorContentAtom = atom<string>("");
