@@ -1,10 +1,12 @@
 "use client";
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   cursorAtom,
+  deleteCharAtom,
+  deleteLineAtom,
   editorContentAtom,
   editorSettingsAtom,
   jumpToLineEndAtom,
@@ -24,6 +26,11 @@ export function SimpleEditor() {
   const [vimMode, setVimMode] = useAtom(modeAtom);
   const [cursor, setCursor] = useAtom(cursorAtom);
   const settings = useAtomValue(editorSettingsAtom); // 設定値を取得
+  const deleteChar = useSetAtom(deleteCharAtom);
+  const deleteLine = useSetAtom(deleteLineAtom);
+
+  // 「d」などのコマンド待ち状態を保持するState
+  const [pendingCommand, setPendingCommand] = useState<string>("");
 
   // Actions
   const moveDown = useSetAtom(moveDownAtom);
@@ -52,11 +59,8 @@ export function SimpleEditor() {
   // Key Handlers
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
-
-    // Standardモードなら何もしない（ブラウザ標準動作）
     if (settings.type === "standard") return;
 
-    // --- Vim Mode Logic ---
     if (vimMode === "insert") {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -66,29 +70,57 @@ export function SimpleEditor() {
     }
 
     if (vimMode === "normal") {
-      e.preventDefault(); // 文字入力をブロック
+      e.preventDefault();
+
+      // Escを押したらコマンド待ちをキャンセル
+      if (e.key === "Escape") {
+        setPendingCommand("");
+        return;
+      }
 
       switch (e.key) {
         case "h":
           moveLeft(content);
+          setPendingCommand("");
           break;
         case "j":
           moveDown(content);
+          setPendingCommand("");
           break;
         case "k":
           moveUp(content);
+          setPendingCommand("");
           break;
         case "l":
           moveRight(content);
+          setPendingCommand("");
           break;
         case "0":
           jumpStart(content);
+          setPendingCommand("");
           break;
         case "$":
           jumpEnd(content);
+          setPendingCommand("");
           break;
         case "i":
           setVimMode("insert");
+          setPendingCommand("");
+          break;
+        case "x":
+          deleteChar();
+          setPendingCommand("");
+          break;
+        case "d":
+          if (pendingCommand === "d") {
+            deleteLine();
+            setPendingCommand("");
+          } else {
+            setPendingCommand("d");
+          }
+          break;
+        default:
+          setPendingCommand("");
           break;
       }
     }
