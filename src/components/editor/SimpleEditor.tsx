@@ -36,13 +36,18 @@ export function SimpleEditor() {
   // Sync: Atom -> DOM
   useEffect(() => {
     const textarea = textareaRef.current;
-    // Vimモード時のみ、Atomのカーソル位置を強制適用
     if (textarea && settings.type === "vim") {
-      textarea.setSelectionRange(cursor, cursor);
-      // フォーカスが外れると入力できなくなるのを防ぐため、あえてfocus()は外すか、必要に応じて呼ぶ
-      // textarea.focus();
+      if (vimMode === "normal") {
+        // Normalモード: 1文字だけ「選択状態」にしてブロックカーソルを偽装する
+        // 最後の文字を超えないように Math.min でガード
+        const endPos = Math.min(cursor + 1, content.length);
+        textarea.setSelectionRange(cursor, endPos);
+      } else {
+        // Insertモード: 通常の縦線キャレット
+        textarea.setSelectionRange(cursor, cursor);
+      }
     }
-  }, [cursor, settings.type]);
+  }, [cursor, vimMode, settings.type, content.length]); // 依存配列に vimMode と content.length を追加
 
   // Key Handlers
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
