@@ -43,7 +43,7 @@ export function EditorRoot() {
   return (
     <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
       <EditorHeader />
-      <div className="flex-1 overflow-y-auto px-8 pb-8 max-w-4xl mx-auto w-full relative">
+      <div className="flex-1 overflow-y-auto px-8 pb-8 max-w-6xl mx-auto w-full relative [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <SimpleEditor />
       </div>
       <div

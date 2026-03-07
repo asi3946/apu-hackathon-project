@@ -93,7 +93,7 @@ export function EditorHeader() {
   };
 
   return (
-    <div className="flex flex-col gap-4 mb-6 px-8 pt-8 max-w-4xl mx-auto w-full group">
+    <div className="flex flex-col gap-4 mb-6 px-8 pt-8 max-w-6xl mx-auto w-full group">
       <div className="flex justify-between items-center gap-4">
         <input
           type="text"
