@@ -100,7 +100,7 @@ export function EditorHeader() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="no title"
-          className="text-4xl font-bold text-[#1f1f1f] placeholder:text-gray-200 outline-none bg-transparent flex-1"
+          className="text-4xl font-bold text-gray-800 placeholder:text-gray-200 outline-none bg-transparent flex-1"
         />
 
         <button
