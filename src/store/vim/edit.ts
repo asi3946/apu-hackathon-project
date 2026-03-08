@@ -62,7 +62,7 @@ export const deleteLineAtom = atom(null, (get, set) => {
   } else {
     // 途中の行の場合（行頭から改行コードまでを削除）
     newText = text.slice(0, lineStart) + text.slice(nextNewLine + 1);
-    newCursor = lineStart; // カーソルはそのままの位置（＝押し上げられた次の行の先頭）
+    newCursor = lineStart;
   }
 
   set(editorContentAtom, newText);
@@ -72,21 +72,82 @@ export const deleteLineAtom = atom(null, (get, set) => {
   set(saveHistoryAtom);
 });
 
-// Visualモードの選択範囲を削除する（x または d 用）
+// Visual / VisualLine モードの選択範囲を削除する
 export const deleteVisualSelectionAtom = atom(null, (get, set) => {
   const text = get(editorContentAtom);
   const cursor = get(cursorAtom);
   const visualStart = get(visualStartAtom);
+  const vimMode = get(modeAtom);
 
   if (visualStart === null) return;
 
-  const start = Math.min(visualStart, cursor);
-  const end = Math.max(visualStart, cursor) + 1; // 最後の文字も含めるために +1
+  let start = 0;
+  let end = 0;
+
+  if (vimMode === "visual") {
+    start = Math.min(visualStart, cursor);
+    end = Math.max(visualStart, cursor) + 1;
+  } else if (vimMode === "visualLine") {
+    const pos1 = Math.min(visualStart, cursor);
+    const pos2 = Math.max(visualStart, cursor);
+    const searchPos = pos1 - 1;
+    const lastNewLine = text.lastIndexOf("\n", searchPos < 0 ? 0 : searchPos);
+    start = lastNewLine === -1 ? 0 : lastNewLine + 1;
+    const nextNewLine = text.indexOf("\n", pos2);
+    end = nextNewLine === -1 ? text.length : nextNewLine + 1;
+  } else {
+    return;
+  }
 
   const newText = text.slice(0, start) + text.slice(end);
 
   set(editorContentAtom, newText);
-  set(cursorAtom, start); // カーソルは削除した範囲の先頭へ
-  set(visualStartAtom, null); // 選択状態をリセット
-  set(modeAtom, "normal"); // Normalモードに戻る
+  set(cursorAtom, start);
+  set(visualStartAtom, null);
+  set(modeAtom, "normal");
+});
+
+// Visual / VisualLine モードの選択範囲のテキストを取得してNormalモードに戻る (y用)
+export const getVisualSelectionTextAtom = atom(null, (get, set) => {
+  const text = get(editorContentAtom);
+  const cursor = get(cursorAtom);
+  const visualStart = get(visualStartAtom);
+  const vimMode = get(modeAtom);
+
+  if (visualStart === null) return "";
+
+  let start = 0;
+  let end = 0;
+
+  if (vimMode === "visual") {
+    start = Math.min(visualStart, cursor);
+    end = Math.max(visualStart, cursor) + 1;
+  } else if (vimMode === "visualLine") {
+    const pos1 = Math.min(visualStart, cursor);
+    const pos2 = Math.max(visualStart, cursor);
+    const searchPos = pos1 - 1;
+    const lastNewLine = text.lastIndexOf("\n", searchPos < 0 ? 0 : searchPos);
+    start = lastNewLine === -1 ? 0 : lastNewLine + 1;
+    const nextNewLine = text.indexOf("\n", pos2);
+    end = nextNewLine === -1 ? text.length : nextNewLine + 1;
+  }
+
+  set(visualStartAtom, null);
+  set(modeAtom, "normal");
+
+  return text.slice(start, end);
+});
+
+// Normalモードの1行分のテキストを取得する (yy用)
+export const getLineTextAtom = atom(null, (get, set) => {
+  const text = get(editorContentAtom);
+  const cursor = get(cursorAtom);
+
+  const searchPos = cursor - 1;
+  const lastNewLine = text.lastIndexOf("\n", searchPos < 0 ? 0 : searchPos);
+  const lineStart = lastNewLine === -1 ? 0 : lastNewLine + 1;
+  const nextNewLine = text.indexOf("\n", lineStart);
+  const lineEnd = nextNewLine === -1 ? text.length : nextNewLine + 1;
+
+  return text.slice(lineStart, lineEnd);
 });
