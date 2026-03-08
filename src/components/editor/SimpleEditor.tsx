@@ -16,6 +16,9 @@ import {
   moveLeftAtom,
   moveRightAtom,
   moveUpAtom,
+  redoAtom,
+  saveHistoryAtom,
+  undoAtom,
 } from "@/store/models";
 
 export function SimpleEditor() {
@@ -25,9 +28,12 @@ export function SimpleEditor() {
   const [content, setContent] = useAtom(editorContentAtom);
   const [vimMode, setVimMode] = useAtom(modeAtom);
   const [cursor, setCursor] = useAtom(cursorAtom);
-  const settings = useAtomValue(editorSettingsAtom); // 設定値を取得
+  const settings = useAtomValue(editorSettingsAtom);
   const deleteChar = useSetAtom(deleteCharAtom);
   const deleteLine = useSetAtom(deleteLineAtom);
+  const saveHistory = useSetAtom(saveHistoryAtom);
+  const undo = useSetAtom(undoAtom);
+  const redo = useSetAtom(redoAtom);
 
   // 「d」などのコマンド待ち状態を保持するState
   const [pendingCommand, setPendingCommand] = useState<string>("");
@@ -54,7 +60,7 @@ export function SimpleEditor() {
         textarea.setSelectionRange(cursor, cursor);
       }
     }
-  }, [cursor, vimMode, settings.type, content.length]); // 依存配列に vimMode と content.length を追加
+  }, [cursor, vimMode, settings.type, content.length]);
 
   // Key Handlers
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -65,6 +71,7 @@ export function SimpleEditor() {
       if (e.key === "Escape") {
         e.preventDefault();
         setVimMode("normal");
+        saveHistory(); // Insertモードを抜ける時に履歴を保存
       }
       return;
     }
@@ -72,7 +79,13 @@ export function SimpleEditor() {
     if (vimMode === "normal") {
       e.preventDefault();
 
-      // Escを押したらコマンド待ちをキャンセル
+      // Ctrl + R (Redo)
+      if (e.ctrlKey && e.key.toLowerCase() === "r") {
+        redo();
+        setPendingCommand("");
+        return;
+      }
+
       if (e.key === "Escape") {
         setPendingCommand("");
         return;
@@ -108,16 +121,24 @@ export function SimpleEditor() {
           setPendingCommand("");
           break;
         case "x":
+          saveHistory(); // 削除する「直前の状態」を保存！
           deleteChar();
+          saveHistory(); // 削除した「直後の状態」も保存！
           setPendingCommand("");
           break;
         case "d":
           if (pendingCommand === "d") {
+            saveHistory(); // 削除する「直前の状態」を保存！
             deleteLine();
+            saveHistory(); // 削除した「直後の状態」も保存！
             setPendingCommand("");
           } else {
             setPendingCommand("d");
           }
+          break;
+        case "u":
+          undo();
+          setPendingCommand("");
           break;
         default:
           setPendingCommand("");
@@ -144,15 +165,12 @@ export function SimpleEditor() {
       onKeyDown={handleKeyDown}
       placeholder="ここにメモを入力..."
       className={cn(
-        // ベーススタイル: 枠線なし、リサイズ不可、親要素いっぱいに広げる
         "w-full h-full resize-none outline-none bg-transparent",
-        "font-mono text-lg leading-relaxed", // 行間を少し広げて読みやすく
-        "text-[#1f1f1f] placeholder:text-gray-300", // Geminiカラー (ダークグレー文字)
-
-        // Vimモード時の選択範囲（Selection）の色を変えてモード感を出す小技
+        "font-mono text-lg leading-relaxed",
+        "text-[#1f1f1f] placeholder:text-gray-300",
         settings.type === "vim" && vimMode === "normal"
-          ? "selection:bg-green-200 selection:text-black" // Normal: 緑っぽい選択色
-          : "selection:bg-blue-100 selection:text-black", // Insert/Standard: 青っぽい選択色
+          ? "selection:bg-green-200 selection:text-black"
+          : "selection:bg-blue-100 selection:text-black",
       )}
       spellCheck={false}
     />

@@ -1,6 +1,7 @@
 import { atom } from "jotai";
-import { editorContentAtom } from "../editorAtom"; // ※ファイルパスは実際の構成に合わせてください
+import { editorContentAtom } from "@/store/models";
 import { cursorAtom, getLineLength, getLineStart } from "./core";
+import { saveHistoryAtom } from "./history";
 
 // x (1文字削除)
 export const deleteCharAtom = atom(null, (get, set) => {
@@ -13,6 +14,8 @@ export const deleteCharAtom = atom(null, (get, set) => {
   if (text[pos] === "\n") return;
 
   // カーソル位置の文字を1つ抜いて結合
+  // sliceは第一引数の位置から第二引数の手前までを取り出す.
+  // 第一引数しかないときは、第一引数から最後まで.
   const newText = text.slice(0, pos) + text.slice(pos + 1);
   set(editorContentAtom, newText);
 
@@ -22,6 +25,8 @@ export const deleteCharAtom = atom(null, (get, set) => {
   if (pos > lineStart && pos >= lineStart + lineLength) {
     set(cursorAtom, pos - 1);
   }
+  // 削除完了後に履歴を保存
+  set(saveHistoryAtom);
 });
 
 // dd (1行削除)
@@ -56,4 +61,7 @@ export const deleteLineAtom = atom(null, (get, set) => {
 
   set(editorContentAtom, newText);
   set(cursorAtom, newCursor);
+
+  // 削除完了後に履歴を保存
+  set(saveHistoryAtom);
 });
