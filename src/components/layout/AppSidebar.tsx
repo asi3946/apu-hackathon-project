@@ -37,7 +37,7 @@ export function AppSidebar() {
   };
 
   return (
-    <aside className="w-77 h-screen bg-gray-100 flex flex-col border-r border-gray-200 text-gray-500">
+    <aside className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600">
       {/* 上部: 新規作成 & 検索 */}
       <div className="p-4 space-y-4">
         {/* Gemini風の検索バー */}
@@ -53,7 +53,7 @@ export function AppSidebar() {
         <button
           type="button"
           onClick={handleCreateMemo}
-          className="flex items-center gap-2  hover:bg-gray-200 px-4 py-3 rounded-2xl transition-colors font-medium text-sm w-fit"
+          className="flex items-center gap-2  hover:bg-gray-200 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
         >
           <Plus className="w-5 h-5" />
           <span className="pr-2">メモを新規作成</span>
@@ -68,27 +68,30 @@ export function AppSidebar() {
             <div
               key={memo.id}
               className={cn(
-                "w-full rounded-full flex items-center justify-between transition-colors group",
+                "w-full rounded-full flex items-center transition-colors group relative", // justify-betweenを消し、配置を微調整
                 selectedId === memo.id
-                  ? "bg-blue-100 text-gray-700 font-medium"
-                  : "hover:bg-[#e1e5ea]",
+                  ? "bg-blue-100 text-[#0e42a0] font-medium"
+                  : "hover:bg-[#d3e3fd] text-gray-700",
               )}
             >
               <button
                 type="button"
                 onClick={() => setSelectedId(memo.id)}
-                className="flex-1 text-left text-sm truncate flex items-center gap-2 pl-4 py-2 rounded-l-full"
+                className="flex-1 min-w-0 flex items-center gap-2 pl-8 py-2 rounded-l-full text-left"
               >
-                <FileText className="w-4 h-4 shrink-0 opacity-50" />
-                {memo.title || "無題のメモ"}
+                <span className="truncate text-sm font-medium">
+                  {memo.title || "無題のメモ"}
+                </span>
               </button>
+
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   deleteMemo(memo.id);
                 }}
-                className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity pr-4 pl-2 py-2 hover:text-red-600 rounded-r-full flex items-center justify-center"
+                className="hidden group-hover:flex shrink-0 text-red-400 pr-3 pl-2 py-2 hover:text-red-600 rounded-r-full items-center justify-center transition-colors"
+                title="削除"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
