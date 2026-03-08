@@ -194,6 +194,53 @@ export function SimpleEditor() {
             setPendingCommand("d");
           }
           break;
+        case "y":
+          if (vimMode === "visual" && visualStart !== null) {
+            const start = Math.min(visualStart, cursor);
+            const end = Math.max(visualStart, cursor) + 1;
+            const textToCopy = content.slice(start, end);
+            navigator.clipboard.writeText(textToCopy);
+
+            setVimMode("normal");
+            setVisualStart(null);
+            setPendingCommand("");
+          } else if (pendingCommand === "y") {
+            const searchPos = cursor - 1;
+            const lastNewLine = content.lastIndexOf(
+              "\n",
+              searchPos < 0 ? 0 : searchPos,
+            );
+            const lineStart = lastNewLine === -1 ? 0 : lastNewLine + 1;
+            const nextNewLine = content.indexOf("\n", lineStart);
+            const lineEnd =
+              nextNewLine === -1 ? content.length : nextNewLine + 1;
+
+            const textToCopy = content.slice(lineStart, lineEnd);
+            navigator.clipboard.writeText(textToCopy);
+
+            setPendingCommand("");
+          } else {
+            setPendingCommand("y");
+          }
+          break;
+        case "p":
+          navigator.clipboard
+            .readText()
+            .then((clipText) => {
+              if (!clipText) return;
+
+              saveHistory();
+              const newText =
+                content.slice(0, cursor) + clipText + content.slice(cursor);
+              setContent(newText);
+              setCursor(cursor + clipText.length);
+              saveHistory();
+            })
+            .catch((err) => {
+              console.error("クリップボードの読み取りに失敗しました", err);
+            });
+          setPendingCommand("");
+          break;
         case "u":
           undo();
           setPendingCommand("");
