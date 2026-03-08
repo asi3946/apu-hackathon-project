@@ -41,6 +41,7 @@ export function SimpleEditor() {
 
   // 「d」などのコマンド待ち状態を保持するState
   const [pendingCommand, setPendingCommand] = useState<string>("");
+  const [insertPending, setInsertPending] = useState<string>("");
 
   // Actions
   const moveDown = useSetAtom(moveDownAtom);
@@ -73,6 +74,30 @@ export function SimpleEditor() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
     if (settings.type === "standard") return;
+
+    if (vimMode === "insert") {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setVimMode("normal");
+        saveHistory();
+        setInsertPending("");
+      } else if (e.key === "k" && insertPending === "j") {
+        e.preventDefault(); // k の入力を防ぐ
+        // 直前に入力された j を削除する
+        const newText = content.slice(0, cursor - 1) + content.slice(cursor);
+        setContent(newText);
+        setCursor(cursor - 1);
+
+        setVimMode("normal");
+        saveHistory();
+        setInsertPending("");
+      } else if (e.key === "j") {
+        setInsertPending("j");
+      } else {
+        setInsertPending("");
+      }
+      return;
+    }
 
     // ▼ ここを normal と visual 両方で反応するように変更
     if (vimMode === "normal" || vimMode === "visual") {
