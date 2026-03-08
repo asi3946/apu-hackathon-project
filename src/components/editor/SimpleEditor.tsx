@@ -7,7 +7,6 @@ import {
   cursorAtom,
   deleteCharAtom,
   deleteLineAtom,
-  deleteVisualSelectionAtom,
   editorContentAtom,
   editorSettingsAtom,
   jumpToLineEndAtom,
@@ -26,7 +25,6 @@ import {
 export function SimpleEditor() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // State
   const [content, setContent] = useAtom(editorContentAtom);
   const [vimMode, setVimMode] = useAtom(modeAtom);
   const [cursor, setCursor] = useAtom(cursorAtom);
@@ -37,13 +35,10 @@ export function SimpleEditor() {
   const undo = useSetAtom(undoAtom);
   const redo = useSetAtom(redoAtom);
   const [visualStart, setVisualStart] = useAtom(visualStartAtom);
-  const deleteVisualSelection = useSetAtom(deleteVisualSelectionAtom);
 
-  // 「d」などのコマンド待ち状態を保持するState
   const [pendingCommand, setPendingCommand] = useState<string>("");
   const [insertPending, setInsertPending] = useState<string>("");
 
-  // Actions
   const moveDown = useSetAtom(moveDownAtom);
   const moveUp = useSetAtom(moveUpAtom);
   const moveLeft = useSetAtom(moveLeftAtom);
@@ -51,26 +46,42 @@ export function SimpleEditor() {
   const jumpStart = useSetAtom(jumpToLineStartAtom);
   const jumpEnd = useSetAtom(jumpToLineEndAtom);
 
-  // Sync: Atom -> DOM
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea && settings.type === "vim") {
       if (vimMode === "normal") {
         const endPos = Math.min(cursor + 1, content.length);
         textarea.setSelectionRange(cursor, endPos);
-      } else if (vimMode === "visual" && visualStart !== null) {
-        // --- Visualモード: 開始位置と現在位置を計算して範囲選択 ---
-        // カーソルが開始位置より上（前）に移動した場合も考慮して Math.min/max を使います
-        const start = Math.min(visualStart, cursor);
-        const end = Math.max(visualStart, cursor) + 1; // 最後の文字も含めるために +1
-        textarea.setSelectionRange(start, end);
+      } else if (
+        (vimMode === "visual" || vimMode === "visualLine") &&
+        visualStart !== null
+      ) {
+        if (vimMode === "visual") {
+          const start = Math.min(visualStart, cursor);
+          const end = Math.max(visualStart, cursor) + 1;
+          textarea.setSelectionRange(start, end);
+        } else {
+          const pos1 = Math.min(visualStart, cursor);
+          const pos2 = Math.max(visualStart, cursor);
+
+          const searchPos = pos1 - 1;
+          const lastNewLine = content.lastIndexOf(
+            "\n",
+            searchPos < 0 ? 0 : searchPos,
+          );
+          const start = lastNewLine === -1 ? 0 : lastNewLine + 1;
+
+          const nextNewLine = content.indexOf("\n", pos2);
+          const end = nextNewLine === -1 ? content.length : nextNewLine + 1;
+
+          textarea.setSelectionRange(start, end);
+        }
       } else {
         textarea.setSelectionRange(cursor, cursor);
       }
     }
-  }, [cursor, vimMode, settings.type, content.length, visualStart]);
+  }, [cursor, vimMode, settings.type, content, visualStart]);
 
-  // Key Handlers
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
     if (settings.type === "standard") return;
@@ -82,8 +93,7 @@ export function SimpleEditor() {
         saveHistory();
         setInsertPending("");
       } else if (e.key === "k" && insertPending === "j") {
-        e.preventDefault(); // k の入力を防ぐ
-        // 直前に入力された j を削除する
+        e.preventDefault();
         const newText = content.slice(0, cursor - 1) + content.slice(cursor);
         setContent(newText);
         setCursor(cursor - 1);
@@ -99,16 +109,17 @@ export function SimpleEditor() {
       return;
     }
 
-    // ▼ ここを normal と visual 両方で反応するように変更
-    if (vimMode === "normal" || vimMode === "visual") {
+    if (
+      vimMode === "normal" ||
+      vimMode === "visual" ||
+      vimMode === "visualLine"
+    ) {
       e.preventDefault();
 
-      // Ctrl + R (Redo)
       if (e.ctrlKey && e.key.toLowerCase() === "r") {
         redo();
         setPendingCommand("");
-        // Visualモード中にRedoした場合はNormalに戻す
-        if (vimMode === "visual") {
+        if (vimMode === "visual" || vimMode === "visualLine") {
           setVimMode("normal");
           setVisualStart(null);
         }
@@ -117,8 +128,7 @@ export function SimpleEditor() {
 
       if (e.key === "Escape") {
         setPendingCommand("");
-        // VisualモードならNormalに戻る
-        if (vimMode === "visual") {
+        if (vimMode === "visual" || vimMode === "visualLine") {
           setVimMode("normal");
           setVisualStart(null);
         }
@@ -151,11 +161,20 @@ export function SimpleEditor() {
           setPendingCommand("");
           break;
         case "v":
-          if (vimMode === "normal") {
+          if (vimMode === "normal" || vimMode === "visualLine") {
             setVimMode("visual");
-            setVisualStart(cursor); // 今のカーソル位置を選択開始位置として記録
+            setVisualStart(cursor);
           } else {
-            // すでにVisualモードならNormalに戻る（トグル）
+            setVimMode("normal");
+            setVisualStart(null);
+          }
+          setPendingCommand("");
+          break;
+        case "V":
+          if (vimMode === "normal" || vimMode === "visual") {
+            setVimMode("visualLine");
+            setVisualStart(cursor);
+          } else {
             setVimMode("normal");
             setVisualStart(null);
           }
@@ -166,38 +185,72 @@ export function SimpleEditor() {
           setPendingCommand("");
           break;
         case "x":
-          saveHistory(); // 削除する直前を保存
-          if (vimMode === "visual") {
-            deleteVisualSelection();
-          } else {
-            deleteChar();
-          }
-          saveHistory(); // 削除した直後を保存
-          setPendingCommand("");
-          break;
-
         case "d":
-          if (vimMode === "visual") {
-            // Visualモード時は dd ではなく d 1回で選択範囲を削除する
+          if (vimMode === "visual" || vimMode === "visualLine") {
+            if (visualStart !== null) {
+              saveHistory();
+              let start: number, end: number;
+              if (vimMode === "visual") {
+                start = Math.min(visualStart, cursor);
+                end = Math.max(visualStart, cursor) + 1;
+              } else {
+                const pos1 = Math.min(visualStart, cursor);
+                const pos2 = Math.max(visualStart, cursor);
+                const searchPos = pos1 - 1;
+                const lastNewLine = content.lastIndexOf(
+                  "\n",
+                  searchPos < 0 ? 0 : searchPos,
+                );
+                start = lastNewLine === -1 ? 0 : lastNewLine + 1;
+                const nextNewLine = content.indexOf("\n", pos2);
+                end = nextNewLine === -1 ? content.length : nextNewLine + 1;
+              }
+
+              const newText = content.slice(0, start) + content.slice(end);
+              setContent(newText);
+              setCursor(start);
+
+              setVimMode("normal");
+              setVisualStart(null);
+              saveHistory();
+            }
+            setPendingCommand("");
+          } else if (e.key === "x") {
             saveHistory();
-            deleteVisualSelection();
+            deleteChar();
             saveHistory();
             setPendingCommand("");
           } else if (pendingCommand === "d") {
-            // Normalモード時で、前回も d が押されていたら行削除
             saveHistory();
             deleteLine();
             saveHistory();
             setPendingCommand("");
           } else {
-            // Normalモード時で、1回目の d の場合
             setPendingCommand("d");
           }
           break;
         case "y":
-          if (vimMode === "visual" && visualStart !== null) {
-            const start = Math.min(visualStart, cursor);
-            const end = Math.max(visualStart, cursor) + 1;
+          if (
+            (vimMode === "visual" || vimMode === "visualLine") &&
+            visualStart !== null
+          ) {
+            let start: number, end: number;
+            if (vimMode === "visual") {
+              start = Math.min(visualStart, cursor);
+              end = Math.max(visualStart, cursor) + 1;
+            } else {
+              const pos1 = Math.min(visualStart, cursor);
+              const pos2 = Math.max(visualStart, cursor);
+              const searchPos = pos1 - 1;
+              const lastNewLine = content.lastIndexOf(
+                "\n",
+                searchPos < 0 ? 0 : searchPos,
+              );
+              start = lastNewLine === -1 ? 0 : lastNewLine + 1;
+              const nextNewLine = content.indexOf("\n", pos2);
+              end = nextNewLine === -1 ? content.length : nextNewLine + 1;
+            }
+
             const textToCopy = content.slice(start, end);
             navigator.clipboard.writeText(textToCopy);
 
@@ -258,10 +311,11 @@ export function SimpleEditor() {
   };
 
   const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    // Visualモード中はAtomのカーソル計算が絶対。
-    // ネイティブの選択イベントによるカーソルの強制上書きをブロックする。
-    if (settings.type === "vim" && vimMode === "visual") return;
-
+    if (
+      settings.type === "vim" &&
+      (vimMode === "visual" || vimMode === "visualLine")
+    )
+      return;
     setCursor(e.currentTarget.selectionStart);
   };
 
