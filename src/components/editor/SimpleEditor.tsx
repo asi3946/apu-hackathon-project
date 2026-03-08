@@ -7,6 +7,7 @@ import {
   cursorAtom,
   deleteCharAtom,
   deleteLineAtom,
+  deleteVisualSelectionAtom,
   editorContentAtom,
   editorSettingsAtom,
   jumpToLineEndAtom,
@@ -19,6 +20,7 @@ import {
   redoAtom,
   saveHistoryAtom,
   undoAtom,
+  visualStartAtom,
 } from "@/store/models";
 
 export function SimpleEditor() {
@@ -34,6 +36,8 @@ export function SimpleEditor() {
   const saveHistory = useSetAtom(saveHistoryAtom);
   const undo = useSetAtom(undoAtom);
   const redo = useSetAtom(redoAtom);
+  const [visualStart, setVisualStart] = useAtom(visualStartAtom);
+  const deleteVisualSelection = useSetAtom(deleteVisualSelectionAtom);
 
   // 「d」などのコマンド待ち状態を保持するState
   const [pendingCommand, setPendingCommand] = useState<string>("");
@@ -51,43 +55,48 @@ export function SimpleEditor() {
     const textarea = textareaRef.current;
     if (textarea && settings.type === "vim") {
       if (vimMode === "normal") {
-        // Normalモード: 1文字だけ「選択状態」にしてブロックカーソルを偽装する
-        // 最後の文字を超えないように Math.min でガード
         const endPos = Math.min(cursor + 1, content.length);
         textarea.setSelectionRange(cursor, endPos);
+      } else if (vimMode === "visual" && visualStart !== null) {
+        // --- Visualモード: 開始位置と現在位置を計算して範囲選択 ---
+        // カーソルが開始位置より上（前）に移動した場合も考慮して Math.min/max を使います
+        const start = Math.min(visualStart, cursor);
+        const end = Math.max(visualStart, cursor) + 1; // 最後の文字も含めるために +1
+        textarea.setSelectionRange(start, end);
       } else {
-        // Insertモード: 通常の縦線キャレット
         textarea.setSelectionRange(cursor, cursor);
       }
     }
-  }, [cursor, vimMode, settings.type, content.length]);
+  }, [cursor, vimMode, settings.type, content.length, visualStart]);
 
   // Key Handlers
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
     if (settings.type === "standard") return;
 
-    if (vimMode === "insert") {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setVimMode("normal");
-        saveHistory(); // Insertモードを抜ける時に履歴を保存
-      }
-      return;
-    }
-
-    if (vimMode === "normal") {
+    // ▼ ここを normal と visual 両方で反応するように変更
+    if (vimMode === "normal" || vimMode === "visual") {
       e.preventDefault();
 
       // Ctrl + R (Redo)
       if (e.ctrlKey && e.key.toLowerCase() === "r") {
         redo();
         setPendingCommand("");
+        // Visualモード中にRedoした場合はNormalに戻す
+        if (vimMode === "visual") {
+          setVimMode("normal");
+          setVisualStart(null);
+        }
         return;
       }
 
       if (e.key === "Escape") {
         setPendingCommand("");
+        // VisualモードならNormalに戻る
+        if (vimMode === "visual") {
+          setVimMode("normal");
+          setVisualStart(null);
+        }
         return;
       }
 
@@ -116,23 +125,47 @@ export function SimpleEditor() {
           jumpEnd(content);
           setPendingCommand("");
           break;
+        case "v":
+          if (vimMode === "normal") {
+            setVimMode("visual");
+            setVisualStart(cursor); // 今のカーソル位置を選択開始位置として記録
+          } else {
+            // すでにVisualモードならNormalに戻る（トグル）
+            setVimMode("normal");
+            setVisualStart(null);
+          }
+          setPendingCommand("");
+          break;
         case "i":
           setVimMode("insert");
           setPendingCommand("");
           break;
         case "x":
-          saveHistory(); // 削除する「直前の状態」を保存！
-          deleteChar();
-          saveHistory(); // 削除した「直後の状態」も保存！
+          saveHistory(); // 削除する直前を保存
+          if (vimMode === "visual") {
+            deleteVisualSelection();
+          } else {
+            deleteChar();
+          }
+          saveHistory(); // 削除した直後を保存
           setPendingCommand("");
           break;
+
         case "d":
-          if (pendingCommand === "d") {
-            saveHistory(); // 削除する「直前の状態」を保存！
+          if (vimMode === "visual") {
+            // Visualモード時は dd ではなく d 1回で選択範囲を削除する
+            saveHistory();
+            deleteVisualSelection();
+            saveHistory();
+            setPendingCommand("");
+          } else if (pendingCommand === "d") {
+            // Normalモード時で、前回も d が押されていたら行削除
+            saveHistory();
             deleteLine();
-            saveHistory(); // 削除した「直後の状態」も保存！
+            saveHistory();
             setPendingCommand("");
           } else {
+            // Normalモード時で、1回目の d の場合
             setPendingCommand("d");
           }
           break;
@@ -153,6 +186,10 @@ export function SimpleEditor() {
   };
 
   const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    // Visualモード中はAtomのカーソル計算が絶対。
+    // ネイティブの選択イベントによるカーソルの強制上書きをブロックする。
+    if (settings.type === "vim" && vimMode === "visual") return;
+
     setCursor(e.currentTarget.selectionStart);
   };
 

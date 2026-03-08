@@ -1,2 +1,2 @@
-export type VimMode = "normal" | "insert";
+export type VimMode = "normal" | "insert" | "visual";
 export type CursorPosition = number;

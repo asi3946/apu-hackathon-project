@@ -1,6 +1,12 @@
 import { atom } from "jotai";
 import { editorContentAtom } from "@/store/models";
-import { cursorAtom, getLineLength, getLineStart } from "./core";
+import {
+  cursorAtom,
+  getLineLength,
+  getLineStart,
+  modeAtom,
+  visualStartAtom,
+} from "./core";
 import { saveHistoryAtom } from "./history";
 
 // x (1文字削除)
@@ -64,4 +70,23 @@ export const deleteLineAtom = atom(null, (get, set) => {
 
   // 削除完了後に履歴を保存
   set(saveHistoryAtom);
+});
+
+// Visualモードの選択範囲を削除する（x または d 用）
+export const deleteVisualSelectionAtom = atom(null, (get, set) => {
+  const text = get(editorContentAtom);
+  const cursor = get(cursorAtom);
+  const visualStart = get(visualStartAtom);
+
+  if (visualStart === null) return;
+
+  const start = Math.min(visualStart, cursor);
+  const end = Math.max(visualStart, cursor) + 1; // 最後の文字も含めるために +1
+
+  const newText = text.slice(0, start) + text.slice(end);
+
+  set(editorContentAtom, newText);
+  set(cursorAtom, start); // カーソルは削除した範囲の先頭へ
+  set(visualStartAtom, null); // 選択状態をリセット
+  set(modeAtom, "normal"); // Normalモードに戻る
 });

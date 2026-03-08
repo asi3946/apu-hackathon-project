@@ -1,8 +1,9 @@
 import { atom } from "jotai";
-import type { CursorPosition, VimMode } from "@/types/models"; // 適切な型パスに合わせてください
+import type { CursorPosition, VimMode } from "@/types/models";
 
 // --- State ---
 export const modeAtom = atom<VimMode>("normal");
+export const visualStartAtom = atom<number | null>(null);
 export const cursorAtom = atom<CursorPosition>(0);
 
 // --- 物理法則 (Core Helpers) ---

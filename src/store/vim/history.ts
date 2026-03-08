@@ -1,5 +1,5 @@
 import { atom } from "jotai";
-import { editorContentAtom } from "@/store/models"; // パスは適宜合わせてください
+import { editorContentAtom } from "@/store/models";
 import { cursorAtom } from "./core";
 
 export interface HistoryRecord {
