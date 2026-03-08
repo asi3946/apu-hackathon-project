@@ -25,10 +25,10 @@ export function SimpleEditor() {
       className={cn(
         "w-full h-full resize-none outline-none bg-transparent",
         "font-mono text-lg leading-relaxed",
-        "text-[#1f1f1f] placeholder:text-gray-300",
-        settings.type === "vim" && vimMode === "normal"
-          ? "selection:bg-green-200 selection:text-black"
-          : "selection:bg-blue-100 selection:text-black",
+        "text-gray-800 placeholder:text-gray-300",
+        settings.type === "vim" &&
+          vimMode === "normal" &&
+          "selection:bg-gray-800 selection:text-white",
       )}
       spellCheck={false}
     />
