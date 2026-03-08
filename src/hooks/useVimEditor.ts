@@ -41,6 +41,7 @@ export function useVimEditor() {
 
   const [pendingCommand, setPendingCommand] = useState<string>("");
   const [insertPending, setInsertPending] = useState<string>("");
+  const [showCursor, setShowCursor] = useState(true);
 
   const moveDown = useSetAtom(moveDownAtom);
   const moveUp = useSetAtom(moveUpAtom);
@@ -50,10 +51,26 @@ export function useVimEditor() {
   const jumpEnd = useSetAtom(jumpToLineEndAtom);
 
   useEffect(() => {
+    if (vimMode !== "normal") {
+      setShowCursor(true); // Normal以外（Insertなど）では常に表示
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setShowCursor((prev) => !prev);
+    }, 530); // Vimの標準に近い点滅速度（約0.5秒）
+
+    return () => clearInterval(timer);
+  }, [vimMode]);
+
+  useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea && settings.type === "vim") {
       if (vimMode === "normal") {
-        const endPos = Math.min(cursor + 1, content.length);
+        // showCursor が false の時は範囲を 0 (cursor, cursor) にして消す！
+        const endPos = showCursor
+          ? Math.min(cursor + 1, content.length)
+          : cursor;
         textarea.setSelectionRange(cursor, endPos);
       } else if (
         (vimMode === "visual" || vimMode === "visualLine") &&
@@ -83,7 +100,7 @@ export function useVimEditor() {
         textarea.setSelectionRange(cursor, cursor);
       }
     }
-  }, [cursor, vimMode, settings.type, content, visualStart]);
+  }, [cursor, vimMode, settings.type, content, visualStart, showCursor]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
