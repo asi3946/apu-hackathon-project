@@ -1,7 +1,7 @@
 "use client";
 
 import { useAtom, useSetAtom } from "jotai";
-import { FileText, Plus, Search, Settings, Trash2 } from "lucide-react"; // アイコン
+import { Plus, Search, Settings, Trash2 } from "lucide-react";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
