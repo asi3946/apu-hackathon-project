@@ -1,11 +1,14 @@
 import { atom } from "jotai";
-import { supabase } from "@/lib/supabase";
 import type { Memo } from "@/types/models";
+import { createClient } from "@/utils/supabase/client";
 import {
   editorContentAtom,
   editorTagsAtom,
   editorTitleAtom,
 } from "./editorAtom";
+
+const supabase = createClient();
+
 // メモのリストを保持するAtom.atomはAtomを定義するときにつかう.
 // atom(初期値,書き込み用関数)
 export const memoListAtom = atom<Memo[]>([]);

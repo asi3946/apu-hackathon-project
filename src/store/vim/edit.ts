@@ -139,7 +139,7 @@ export const getVisualSelectionTextAtom = atom(null, (get, set) => {
 });
 
 // Normalモードの1行分のテキストを取得する (yy用)
-export const getLineTextAtom = atom(null, (get, set) => {
+export const getLineTextAtom = atom(null, (get, _set) => {
   const text = get(editorContentAtom);
   const cursor = get(cursorAtom);
 
