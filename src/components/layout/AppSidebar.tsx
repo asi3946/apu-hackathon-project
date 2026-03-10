@@ -3,7 +3,7 @@
 import { useAtom, useSetAtom } from "jotai";
 import { Plus, Search, Settings, Trash2 } from "lucide-react";
 import { useEffect } from "react";
-import { LoginButton } from "@/components/auth/LoginButton";
+import { SidebarAuth } from "@/components/auth/SidebarAuth";
 import { cn } from "@/lib/utils";
 import {
   createMemoAtom,
@@ -41,7 +41,7 @@ export function AppSidebar() {
     <aside className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600">
       {/* 上部: 新規作成 & 検索 */}
       <div className="p-4 space-y-4">
-        <LoginButton></LoginButton>
+        <SidebarAuth></SidebarAuth>
         {/* Gemini風の検索バー */}
         <div className="relative group">
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500 group-focus-within:text-blue-600" />
