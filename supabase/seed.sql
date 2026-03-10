@@ -19,7 +19,8 @@ INSERT INTO auth.users (
   '',
   '',
   ''
-);
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- 認証情報の紐付け
 INSERT INTO auth.identities (
