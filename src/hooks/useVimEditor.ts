@@ -7,6 +7,8 @@ import {
   deleteVisualSelectionAtom,
   editorContentAtom,
   editorSettingsAtom,
+  getLineEnd,
+  getLineStart,
   getLineTextAtom,
   getVisualSelectionTextAtom,
   insertNewLineAboveAtom,
@@ -60,6 +62,8 @@ export function useVimEditor() {
     const textarea = textareaRef.current;
     if (textarea && settings.type === "vim") {
       if (vimMode === "normal") {
+        // 一番端にカーソルが来たとき文字を囲えないから.minを使って判定.
+        // 現在のコードだとnomalモードでカーソルが端に来ることはないはず.
         const endPos = Math.min(cursor + 1, content.length);
         textarea.setSelectionRange(cursor, endPos);
       } else if (
@@ -71,18 +75,15 @@ export function useVimEditor() {
           const end = Math.max(visualStart, cursor) + 1;
           textarea.setSelectionRange(start, end);
         } else {
+          // visualLine モード
           const pos1 = Math.min(visualStart, cursor);
           const pos2 = Math.max(visualStart, cursor);
 
-          const searchPos = pos1 - 1;
-          const lastNewLine = content.lastIndexOf(
-            "\n",
-            searchPos < 0 ? 0 : searchPos,
-          );
-          const start = lastNewLine === -1 ? 0 : lastNewLine + 1;
+          const start = getLineStart(content, pos1);
 
-          const nextNewLine = content.indexOf("\n", pos2);
-          const end = nextNewLine === -1 ? content.length : nextNewLine + 1;
+          const lineEndPos = getLineEnd(content, pos2);
+          const end =
+            lineEndPos === content.length ? content.length : lineEndPos + 1;
 
           textarea.setSelectionRange(start, end);
         }
@@ -103,27 +104,35 @@ export function useVimEditor() {
 
     if (vimMode === "insert") {
       if (e.key === "Escape") {
+        // e.preventDefaultはデフォルトの操作を止める.
         e.preventDefault();
-        ignoreSelectRef.current = true; // プログラムによる変更を開始
+        ignoreSelectRef.current = true; // vimモードによる変更を開始
 
         setVimMode("normal");
         saveHistory();
         setInsertPending("");
         if (cursor > 0) setCursor(cursor - 1);
+        // 直前のキーがjの時かつkが来たとき.
       } else if (e.key === "k" && insertPending === "j") {
         e.preventDefault();
 
         if (textarea) {
-          ignoreSelectRef.current = true; // プログラムによる変更を開始
-
+          ignoreSelectRef.current = true; // vimモードによる変更を開始
+          // textarea.selectionStartは標準機能.選択カーソルの最初をかえす.
           const currentCursor = textarea.selectionStart;
+          // textarea.valueは内容.
           const currentContent = textarea.value;
-
+          // if文の中身が分かってないのかも.
           if (currentContent.charAt(currentCursor - 1) === "j") {
+            // currentCursor-1以降を取得した後、currentContextから始まる部分を取るとき、
+            // "ABCDjEF"でjの後ろにカーソルがある,つまりEが選択中.currentCursorは5.
+            // 0以上4未満を取り出し、ABCD.その後、5以上の部分を取り出し、EF.
+            // 4であるjだけが消去される.
             const newText =
               currentContent.slice(0, currentCursor - 1) +
               currentContent.slice(currentCursor);
             setContent(newText);
+            // nomalモードに戻るため,-2.
             setCursor(Math.max(0, currentCursor - 2));
           } else {
             setCursor(Math.max(0, currentCursor - 1));
@@ -133,6 +142,7 @@ export function useVimEditor() {
         setVimMode("normal");
         saveHistory();
         setInsertPending("");
+        // jが押されたときここが実行される.
       } else if (e.key === "j") {
         setInsertPending("j");
       } else {
@@ -152,6 +162,7 @@ export function useVimEditor() {
       if (e.ctrlKey && e.key.toLowerCase() === "r") {
         redo();
         setPendingCommand("");
+        // visualとかの時はnomalに戻す.VisualStartをnullにする処理を書かなきゃいけない.
         if (vimMode === "visual" || vimMode === "visualLine") {
           setVimMode("normal");
           setVisualStart(null);
@@ -168,30 +179,27 @@ export function useVimEditor() {
         return;
       }
 
+      // 次のpendingCommandの状態を保持する変数。基本はリセット（空文字）.
+      let nextPending = "";
+
       switch (e.key) {
         case "h":
           moveLeft(content);
-          setPendingCommand("");
           break;
         case "j":
           moveDown(content);
-          setPendingCommand("");
           break;
         case "k":
           moveUp(content);
-          setPendingCommand("");
           break;
         case "l":
           moveRight(content);
-          setPendingCommand("");
           break;
         case "0":
           jumpStart(content);
-          setPendingCommand("");
           break;
         case "$":
           jumpEnd(content);
-          setPendingCommand("");
           break;
         case "v":
           if (vimMode === "normal" || vimMode === "visualLine") {
@@ -201,7 +209,6 @@ export function useVimEditor() {
             setVimMode("normal");
             setVisualStart(null);
           }
-          setPendingCommand("");
           break;
         case "V":
           if (vimMode === "normal" || vimMode === "visual") {
@@ -211,64 +218,56 @@ export function useVimEditor() {
             setVimMode("normal");
             setVisualStart(null);
           }
-          setPendingCommand("");
           break;
         case "i":
           setVimMode("insert");
-          setPendingCommand("");
           break;
         case "a":
           setCursor(cursor + 1);
           setVimMode("insert");
-          setPendingCommand("");
           break;
         case "A":
           setVimMode("insert");
           jumpEnd(content);
-          setPendingCommand("");
           break;
         case "o":
           saveHistory();
           insertNewLineBelow();
-          setPendingCommand("");
           break;
         case "O":
           saveHistory();
           insertNewLineAbove();
-          setPendingCommand("");
           break;
+        // xまたはdの時という記述.
         case "x":
         case "d":
           if (vimMode === "visual" || vimMode === "visualLine") {
             saveHistory();
             deleteVisualSelection();
             saveHistory();
-            setPendingCommand("");
           } else if (e.key === "x") {
             saveHistory();
             deleteChar();
             saveHistory();
-            setPendingCommand("");
           } else if (pendingCommand === "d") {
             saveHistory();
             deleteLine();
             saveHistory();
-            setPendingCommand("");
           } else {
-            setPendingCommand("d");
+            // dが1回押された時だけ、保留として状態をセットする
+            nextPending = "d";
           }
           break;
         case "y":
           if (vimMode === "visual" || vimMode === "visualLine") {
             const textToCopy = getVisualSelectionText();
             if (textToCopy) navigator.clipboard.writeText(textToCopy);
-            setPendingCommand("");
           } else if (pendingCommand === "y") {
             const textToCopy = getLineText();
             if (textToCopy) navigator.clipboard.writeText(textToCopy);
-            setPendingCommand("");
           } else {
-            setPendingCommand("y");
+            // yが1回押された時だけ、保留として状態をセットする
+            nextPending = "y";
           }
           break;
         case "p":
@@ -278,8 +277,8 @@ export function useVimEditor() {
               if (!clipText) return;
 
               saveHistory();
-              const newText =
-                content.slice(0, cursor) + clipText + content.slice(cursor);
+              // リンター対策のため、テンプレートリテラルで結合
+              const newText = `${content.slice(0, cursor)}${clipText}${content.slice(cursor)}`;
               setContent(newText);
               setCursor(cursor + clipText.length);
               saveHistory();
@@ -287,16 +286,15 @@ export function useVimEditor() {
             .catch((err) => {
               console.error("クリップボードの読み取りに失敗しました", err);
             });
-          setPendingCommand("");
           break;
         case "u":
           undo();
-          setPendingCommand("");
           break;
         default:
-          setPendingCommand("");
           break;
       }
+      // switch文を抜けた後、1回だけ状態を更新する
+      setPendingCommand(nextPending);
     }
   };
 
@@ -304,16 +302,17 @@ export function useVimEditor() {
     setContent(e.target.value);
     setCursor(e.target.selectionStart);
   };
-
+  // vimモードでマウスを使ったときにAtomに変更が渡されるようにするための記述.
   const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
     // プログラムで変更処理中の一瞬は、ブラウザネイティブの誤ったSelectイベントを無視する
     if (ignoreSelectRef.current) return;
-
+    // visualモードの時はブラウザネイティブのイベントを無視.
     if (
       settings.type === "vim" &&
       (vimMode === "visual" || vimMode === "visualLine")
     )
       return;
+    // ブラウザネイティブのイベントを受け入れ.
     setCursor(e.currentTarget.selectionStart);
   };
 

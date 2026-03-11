@@ -2,6 +2,7 @@ import { atom } from "jotai";
 import { editorContentAtom } from "@/store/models";
 import {
   cursorAtom,
+  getLineEnd,
   getLineLength,
   getLineStart,
   modeAtom,
@@ -12,10 +13,12 @@ import {
 export const deleteCharAtom = atom(null, (get, set) => {
   const text = get(editorContentAtom);
   const pos = get(cursorAtom);
-
+  // pos >= text.lengthの状況になることはvimではないが、
+  // reactで問題が起きる可能性があるため、
   if (text.length === 0 || pos >= text.length) return;
 
-  // Vimの仕様：'x' は改行コード(\n)を削除して行を繋げることはしない
+  // Vimの仕様：'x' は改行コード(\n)を削除して行を繋げることはしない.
+  // 空行の上にカーソルがあるときにこれが必要.
   if (text[pos] === "\n") return;
 
   // カーソル位置の文字を1つ抜いて結合
@@ -24,9 +27,13 @@ export const deleteCharAtom = atom(null, (get, set) => {
   const newText = text.slice(0, pos) + text.slice(pos + 1);
   set(editorContentAtom, newText);
 
-  // 行末の文字を消した場合、カーソルが「無い文字」の上に取り残されるのを防ぐため左へずらす
+  // 行末の文字を消した場合、カーソルが「無い文字」の上に取り残されるのを防ぐため左へずらす.
   const lineStart = getLineStart(newText, pos);
   const lineLength = getLineLength(newText, lineStart);
+  // pos > lineStartはpos = 0,lineStart + lineLength = 0 + 0の時
+  // set (cursorAtom, - 1)となる事態を防ぐ.
+  // pos >= lineStart + lineLengthの>=の理由は行末の文字を消したとき、
+  // lineStartとlineLengthの値とposは等しくなるから.===でも成り立ちはする.
   if (pos > lineStart && pos >= lineStart + lineLength) {
     set(cursorAtom, pos - 1);
   }
@@ -52,13 +59,15 @@ export const deleteLineAtom = atom(null, (get, set) => {
       newText = "";
       newCursor = 0;
     } else {
-      // 1つ前の改行コードから最後までを削除（前の行の末尾へカーソル移動）
+      // 1つ前の改行コードから最後までを削除
       newText = text.slice(0, lineStart - 1);
+      // 前の行の文字（lineStart - 2）を基準にして、その行の「先頭」へカーソルを移動
       newCursor = getLineStart(newText, lineStart - 2);
     }
   } else {
     // 途中の行の場合（行頭から改行コードまでを削除）
     newText = text.slice(0, lineStart) + text.slice(nextNewLine + 1);
+    // 下の行が自動的に上がってくるため、CursorはlineStartにすればよい.
     newCursor = lineStart;
   }
 
@@ -82,13 +91,17 @@ export const deleteVisualSelectionAtom = atom(null, (get, set) => {
     start = Math.min(visualStart, cursor);
     end = Math.max(visualStart, cursor) + 1;
   } else if (vimMode === "visualLine") {
+    // pos1 = visualStart,pos2=cursorとしないのは、
+    // cursorが右、下ではなく、左、上のようにうごくことがあるから.
     const pos1 = Math.min(visualStart, cursor);
     const pos2 = Math.max(visualStart, cursor);
-    const searchPos = pos1 - 1;
-    const lastNewLine = text.lastIndexOf("\n", searchPos < 0 ? 0 : searchPos);
-    start = lastNewLine === -1 ? 0 : lastNewLine + 1;
-    const nextNewLine = text.indexOf("\n", pos2);
-    end = nextNewLine === -1 ? text.length : nextNewLine + 1;
+
+    start = getLineStart(text, pos1);
+
+    const lineEndPos = getLineEnd(text, pos2);
+    // visualLineの削除やコピーでは「改行文字(\n)」も含める必要があるため、
+    // ファイル末尾(text.length)でなければ +1 して改行文字を範囲に含める
+    end = lineEndPos === text.length ? text.length : lineEndPos + 1;
   } else {
     return;
   }
@@ -119,11 +132,11 @@ export const getVisualSelectionTextAtom = atom(null, (get, set) => {
   } else if (vimMode === "visualLine") {
     const pos1 = Math.min(visualStart, cursor);
     const pos2 = Math.max(visualStart, cursor);
-    const searchPos = pos1 - 1;
-    const lastNewLine = text.lastIndexOf("\n", searchPos < 0 ? 0 : searchPos);
-    start = lastNewLine === -1 ? 0 : lastNewLine + 1;
-    const nextNewLine = text.indexOf("\n", pos2);
-    end = nextNewLine === -1 ? text.length : nextNewLine + 1;
+
+    start = getLineStart(text, pos1);
+
+    const lineEndPos = getLineEnd(text, pos2);
+    end = lineEndPos === text.length ? text.length : lineEndPos + 1;
   }
 
   set(visualStartAtom, null);
@@ -137,13 +150,14 @@ export const getLineTextAtom = atom(null, (get, _set) => {
   const text = get(editorContentAtom);
   const cursor = get(cursorAtom);
 
-  const searchPos = cursor - 1;
-  const lastNewLine = text.lastIndexOf("\n", searchPos < 0 ? 0 : searchPos);
-  const lineStart = lastNewLine === -1 ? 0 : lastNewLine + 1;
-  const nextNewLine = text.indexOf("\n", lineStart);
-  const lineEnd = nextNewLine === -1 ? text.length : nextNewLine + 1;
+  // core.ts の関数を使って行の先頭と末尾を取得
+  const lineStart = getLineStart(text, cursor);
+  const lineEndPos = getLineEnd(text, cursor);
 
-  return text.slice(lineStart, lineEnd);
+  // yy は改行文字も含めてコピーするため、ファイル末尾でなければ +1 する
+  const end = lineEndPos === text.length ? text.length : lineEndPos + 1;
+
+  return text.slice(lineStart, end);
 });
 
 // o (下の行にインサート)
@@ -151,9 +165,10 @@ export const insertNewLineBelowAtom = atom(null, (get, set) => {
   const text = get(editorContentAtom);
   const currentPos = get(cursorAtom);
 
-  const nextNewLine = text.indexOf("\n", currentPos);
-  const insertPos = nextNewLine === -1 ? text.length : nextNewLine;
-
+  const insertPos = getLineEnd(text, currentPos);
+  // "ABCDEF"という文字列でinsertPos=3の時、
+  // 最初のtext.sliceでCまで切り取り、\nが追加.\nの添字が3となる.
+  // Dの添字が4となり、"ABC\nDEF"という文字列となる.
   const newText = `${text.slice(0, insertPos)}\n${text.slice(insertPos)}`;
 
   set(editorContentAtom, newText);
@@ -166,9 +181,7 @@ export const insertNewLineAboveAtom = atom(null, (get, set) => {
   const text = get(editorContentAtom);
   const currentPos = get(cursorAtom);
 
-  const searchPos = currentPos - 1;
-  const lastNewLine = text.lastIndexOf("\n", searchPos < 0 ? 0 : searchPos);
-  const insertPos = lastNewLine === -1 ? 0 : lastNewLine + 1;
+  const insertPos = getLineStart(text, currentPos);
 
   const newText = `${text.slice(0, insertPos)}\n${text.slice(insertPos)}`;
 
