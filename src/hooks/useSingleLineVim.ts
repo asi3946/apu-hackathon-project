@@ -4,11 +4,16 @@ export function useSingleLineVim(
   value: string,
   onChange: (val: string) => void,
   onExit?: () => void,
+  onNavigate?: (direction: "up" | "down") => void,
 ) {
   const inputRef = useRef<HTMLInputElement>(null);
   const ignoreSelectRef = useRef(false);
-  const [vimMode, setVimMode] = useState<"normal" | "insert">("normal");
+  const [vimMode, setVimMode] = useState<"normal" | "insert" | "visual">(
+    "normal",
+  );
   const [cursor, setCursor] = useState(0);
+  const [visualStart, setVisualStart] = useState<number | null>(null);
+
   const [pendingCommand, setPendingCommand] = useState("");
 
   const [history, setHistory] = useState<string[]>([value]);
@@ -54,7 +59,11 @@ export function useSingleLineVim(
     const input = inputRef.current;
     if (!input) return;
 
-    if (vimMode === "normal") {
+    if (vimMode === "visual" && visualStart !== null) {
+      const start = Math.min(visualStart, cursor);
+      const end = Math.max(visualStart, cursor) + 1;
+      input.setSelectionRange(start, end);
+    } else if (vimMode === "normal") {
       const endPos = Math.min(cursor + 1, value.length);
       if (value.length === 0) {
         input.setSelectionRange(0, 0);
@@ -65,7 +74,7 @@ export function useSingleLineVim(
       input.setSelectionRange(cursor, cursor);
     }
     ignoreSelectRef.current = false;
-  }, [cursor, vimMode, value]);
+  }, [cursor, vimMode, value, visualStart]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.nativeEvent.isComposing) return;
@@ -134,12 +143,33 @@ export function useSingleLineVim(
     if (e.ctrlKey && e.key.toLowerCase() === "r") {
       redo();
       setPendingCommand("");
+      if (vimMode === "visual") {
+        setVimMode("normal");
+        setVisualStart(null);
+      }
+      return;
+    }
+
+    if (e.key === "Escape") {
+      setPendingCommand("");
+      if (vimMode === "visual") {
+        setVimMode("normal");
+        setVisualStart(null);
+      } else if (onExit) {
+        onExit();
+      }
       return;
     }
 
     let nextPending = "";
 
     switch (e.key) {
+      case "K":
+        if (onNavigate) onNavigate("up");
+        break;
+      case "J":
+        if (onNavigate) onNavigate("down");
+        break;
       case "h":
         setCursor((prev) => Math.max(0, prev - 1));
         break;
@@ -154,29 +184,55 @@ export function useSingleLineVim(
       case "$":
         setCursor(Math.max(0, value.length - 1));
         break;
+      case "v":
+        if (vimMode === "normal") {
+          setVimMode("visual");
+          setVisualStart(cursor);
+        } else {
+          setVimMode("normal");
+          setVisualStart(null);
+        }
+        break;
+      case "V":
+        setVimMode("visual");
+        setVisualStart(0);
+        setCursor(Math.max(0, value.length - 1));
+        break;
       case "i":
         setVimMode("insert");
+        setVisualStart(null);
         break;
       case "a":
         setCursor((prev) => Math.min(value.length, prev + 1));
         setVimMode("insert");
+        setVisualStart(null);
         break;
       case "A":
         setCursor(value.length);
         setVimMode("insert");
+        setVisualStart(null);
         break;
       case "x":
-        if (value.length > 0) {
+      case "d":
+        if (vimMode === "visual" && visualStart !== null) {
+          const start = Math.min(visualStart, cursor);
+          const end = Math.max(visualStart, cursor) + 1;
+          const newVal = value.slice(0, start) + value.slice(end);
+          onChange(newVal);
+          setCursor(
+            Math.max(0, start > newVal.length ? newVal.length - 1 : start),
+          );
+          pushHistory(newVal);
+          setVimMode("normal");
+          setVisualStart(null);
+        } else if (e.key === "x" && value.length > 0) {
           const newVal = value.slice(0, cursor) + value.slice(cursor + 1);
           onChange(newVal);
           if (cursor >= newVal.length) {
             setCursor(Math.max(0, newVal.length - 1));
           }
           pushHistory(newVal);
-        }
-        break;
-      case "d":
-        if (pendingCommand === "d") {
+        } else if (pendingCommand === "d") {
           onChange("");
           setCursor(0);
           pushHistory("");
@@ -184,10 +240,37 @@ export function useSingleLineVim(
           nextPending = "d";
         }
         break;
+      case "y":
+        if (vimMode === "visual" && visualStart !== null) {
+          const start = Math.min(visualStart, cursor);
+          const end = Math.max(visualStart, cursor) + 1;
+          const textToCopy = value.slice(start, end);
+          navigator.clipboard.writeText(textToCopy);
+          setVimMode("normal");
+          setVisualStart(null);
+        } else if (pendingCommand === "y") {
+          navigator.clipboard.writeText(value);
+        } else {
+          nextPending = "y";
+        }
+        break;
+      case "p":
+        navigator.clipboard
+          .readText()
+          .then((clipText) => {
+            if (!clipText) return;
+            const newVal = `${value.slice(0, cursor)}${clipText}${value.slice(cursor)}`;
+            onChange(newVal);
+            setCursor(cursor + clipText.length);
+            pushHistory(newVal);
+          })
+          .catch((err) => {
+            console.error("クリップボードの読み取りに失敗しました", err);
+          });
+        break;
       case "u":
         undo();
         break;
-      case "Escape":
       case "Enter":
         if (onExit) onExit();
         break;
@@ -203,7 +286,11 @@ export function useSingleLineVim(
 
   const handleSelect = (e: React.SyntheticEvent<HTMLInputElement>) => {
     if (ignoreSelectRef.current) return;
-    if (vimMode === "normal") return;
+
+    // 修正: インサートモードの時（マウスでクリックして入力位置を変えたい時）以外は、
+    // ブラウザの自動選択イベントによるカーソルの上書きを完全に無視する
+    if (vimMode !== "insert") return;
+
     setCursor(e.currentTarget.selectionStart || 0);
   };
 

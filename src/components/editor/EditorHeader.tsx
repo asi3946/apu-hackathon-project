@@ -2,9 +2,7 @@
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Loader2, Plus, Save, Tag as TagIcon, X } from "lucide-react";
-import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-// 軽量Vimフックをインポート
 import { useSingleLineVim } from "@/hooks/useSingleLineVim";
 import { cn } from "@/lib/utils";
 import {
@@ -20,16 +18,9 @@ export function EditorHeader() {
   const selectedId = useAtomValue(selectedMemoIdAtom);
   const saveMemo = useSetAtom(saveMemoAtom);
 
-  // 保存中の状態を管理
   const [isSaving, setIsSaving] = useState(false);
-
-  // タグ入力用のステート
-  const [isAddingTag, setIsAddingTag] = useState(false);
   const [tagInput, setTagInput] = useState("");
-  // input要素を参照するためのref
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  // useCallbackによってselectedId, isSaving, saveMemoのいずれかが変わった時だけ、関数の実体を更新する.
   const handleSave = useCallback(async () => {
     if (selectedId && !isSaving) {
       setIsSaving(true);
@@ -41,15 +32,11 @@ export function EditorHeader() {
     }
   }, [selectedId, isSaving, saveMemo]);
 
-  // この記述でuseRefはhandleSaveの位置を保持し続ける.
   const saveRef = useRef(handleSave);
-  // handleSaveでsaveRefのcurrentを更新する.
   useEffect(() => {
     saveRef.current = handleSave;
   }, [handleSave]);
 
-  // Ctrl+S / Cmd+S で保存するショートカット
-  // useRefを使うことでaddEventListenerというカロリーの高いものを一度呼び出すだけでよくなった.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
@@ -61,46 +48,59 @@ export function EditorHeader() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  // 新規追加: タイトル用の軽量Vimフックを呼び出す
-  // EscapeやEnterを押した時にメインエディタにフォーカスを戻す処理をonExitとして渡す
+  // タイトルvim操作で移動するための記述.
   const {
     inputRef: titleInputRef,
+    vimMode: titleVimMode,
     handleKeyDown: handleTitleKeyDown,
     handleChange: handleTitleChange,
     handleSelect: handleTitleSelect,
-  } = useSingleLineVim(title, setTitle, () => {
-    document.querySelector("textarea")?.focus();
-  });
+  } = useSingleLineVim(
+    title,
+    setTitle,
+    () => {
+      document.querySelector("textarea")?.focus();
+    },
+    (direction) => {
+      if (direction === "down") {
+        document.getElementById("memo-tag-input")?.focus();
+      }
+    },
+  );
 
-  // タグ追加処理
   const handleAddTag = () => {
     const trimmed = tagInput.trim();
     if (trimmed && !tags.includes(trimmed)) {
       setTags([...tags, trimmed]);
     }
     setTagInput("");
-    setIsAddingTag(false);
   };
 
-  // タグ入力中のキーボード操作
-  const handleKeyDownTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleAddTag();
-    } else if (e.key === "Escape") {
-      setTagInput("");
-      setIsAddingTag(false);
-    }
-  };
+  const {
+    inputRef: tagInputRef,
+    vimMode: tagVimMode,
+    handleKeyDown: handleTagKeyDown,
+    handleChange: handleTagChange,
+    handleSelect: handleTagSelect,
+  } = useSingleLineVim(
+    tagInput,
+    setTagInput,
+    () => {
+      if (tagInput.trim()) {
+        handleAddTag();
+      } else {
+        document.querySelector("textarea")?.focus();
+      }
+    },
+    (direction) => {
+      if (direction === "up") {
+        document.getElementById("memo-title-input")?.focus();
+      } else if (direction === "down") {
+        document.querySelector("textarea")?.focus();
+      }
+    },
+  );
 
-  useEffect(() => {
-    if (isAddingTag && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isAddingTag]);
-
-  // タグ削除処理
   const removeTag = (tagToRemove: string) => {
     setTags(tags.filter((tag) => tag !== tagToRemove));
   };
@@ -110,14 +110,20 @@ export function EditorHeader() {
       <div className="flex justify-between items-center gap-4">
         <input
           id="memo-title-input"
-          ref={titleInputRef} // 追加: useSingleLineVimのrefを紐付け
+          ref={titleInputRef}
           type="text"
           value={title}
-          onChange={handleTitleChange} // 変更: useSingleLineVimのハンドラに置き換え
-          onKeyDown={handleTitleKeyDown} // 変更: useSingleLineVimのハンドラに置き換え
-          onSelect={handleTitleSelect} // 追加: useSingleLineVimのハンドラを紐付け
+          readOnly={titleVimMode === "normal" || titleVimMode === "visual"}
+          onChange={handleTitleChange}
+          onKeyDown={handleTitleKeyDown}
+          onSelect={handleTitleSelect}
           placeholder="no title"
-          className="text-4xl font-bold text-gray-800 placeholder:text-gray-200 outline-none bg-transparent flex-1"
+          className={cn(
+            "text-4xl font-bold text-gray-800 placeholder:text-gray-200 outline-none flex-1 transition-all rounded-md px-2 -ml-2",
+            titleVimMode === "normal" || titleVimMode === "visual"
+              ? "caret-transparent bg-transparent selection:bg-gray-800 selection:text-white"
+              : "bg-white border-b-2 border-blue-300",
+          )}
         />
 
         <button
@@ -162,29 +168,26 @@ export function EditorHeader() {
           <span className="text-sm text-gray-300 italic">タグなし</span>
         )}
 
-        {isAddingTag ? (
+        <div className="relative flex items-center">
+          <Plus className="absolute left-2 w-3 h-3 text-gray-400 pointer-events-none" />
           <input
             id="memo-tag-input"
-            ref={inputRef}
+            ref={tagInputRef}
             type="text"
             value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={handleKeyDownTag}
-            onBlur={handleAddTag}
-            placeholder="Add tag"
-            className="px-2 py-0.5 text-sm border border-blue-300 rounded-md outline-none w-24 bg-white"
+            readOnly={tagVimMode === "normal" || tagVimMode === "visual"}
+            onChange={handleTagChange}
+            onKeyDown={handleTagKeyDown}
+            onSelect={handleTagSelect}
+            placeholder="Add Tag"
+            className={cn(
+              "pl-6 pr-2 py-0.5 text-sm text-gray-600 placeholder:text-gray-400 border rounded-md outline-none w-28 transition-all",
+              tagVimMode === "normal" || tagVimMode === "visual"
+                ? "caret-transparent border-transparent hover:border-gray-200 hover:bg-gray-100 bg-transparent focus:bg-blue-50 focus:ring-2 focus:ring-blue-200 selection:bg-gray-800 selection:text-white"
+                : "bg-white border-blue-300 shadow-sm focus:ring-2 focus:ring-blue-200",
+            )}
           />
-        ) : (
-          <button
-            id="memo-add-tag-button"
-            type="button"
-            onClick={() => setIsAddingTag(true)}
-            className="flex items-center gap-1 px-2 py-0.5 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-all border border-transparent hover:border-gray-200"
-          >
-            <Plus className="w-3 h-3" />
-            <span>Add Tag</span>
-          </button>
-        )}
+        </div>
       </div>
 
       <hr className="border-gray-100 mt-2 w-full" />
