@@ -37,12 +37,69 @@ export function AppSidebar() {
     await createMemo();
   };
 
+  const handleKeyDownSidebar = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.target instanceof HTMLInputElement) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        document.querySelector("textarea")?.focus();
+      }
+      return;
+    }
+
+    if (e.key === "Escape" || e.key === "l" || e.key === "L") {
+      e.preventDefault();
+      document.querySelector("textarea")?.focus();
+      return;
+    }
+
+    if (e.key === "j" || e.key === "k") {
+      e.preventDefault();
+
+      const memoBtns = Array.from(
+        document.querySelectorAll('[data-memo-btn="true"]'),
+      ) as HTMLElement[];
+      if (memoBtns.length === 0) return;
+
+      const currentIndex = memoBtns.findIndex(
+        (btn) => btn === document.activeElement,
+      );
+
+      if (currentIndex === -1) {
+        const activeBtn = document.querySelector(
+          '[data-active="true"]',
+        ) as HTMLElement;
+        (activeBtn || memoBtns[0]).focus();
+      } else {
+        let nextIndex = e.key === "j" ? currentIndex + 1 : currentIndex - 1;
+        if (nextIndex >= memoBtns.length) nextIndex = memoBtns.length - 1;
+        if (nextIndex < 0) nextIndex = 0;
+        memoBtns[nextIndex].focus();
+      }
+    }
+  };
+
+  const handleFocus = (e: React.FocusEvent<HTMLElement>) => {
+    if (e.target === e.currentTarget) {
+      const activeBtn = document.querySelector(
+        '[data-active="true"]',
+      ) as HTMLElement;
+      const firstBtn = document.querySelector(
+        '[data-memo-btn="true"]',
+      ) as HTMLElement;
+      (activeBtn || firstBtn)?.focus();
+    }
+  };
+
   return (
-    <aside className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600">
-      {/* 上部: 新規作成 & 検索 */}
+    <aside
+      id="app-sidebar"
+      tabIndex={-1}
+      onKeyDown={handleKeyDownSidebar}
+      onFocus={handleFocus}
+      className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none transition-shadow"
+    >
       <div className="p-4 space-y-4">
         <SidebarAuth></SidebarAuth>
-        {/* Gemini風の検索バー */}
         <div className="relative group">
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500 group-focus-within:text-blue-600" />
           <input
@@ -62,7 +119,6 @@ export function AppSidebar() {
         </button>
       </div>
 
-      {/* 中部: メモリスト */}
       <div className="flex-1 overflow-y-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="text-xs font-medium px-4 mb-2">最近</div>
         <div className="space-y-1">
@@ -70,16 +126,19 @@ export function AppSidebar() {
             <div
               key={memo.id}
               className={cn(
-                "w-full rounded-full flex items-center transition-colors group relative", // justify-betweenを消し、配置を微調整
+                "w-full rounded-full flex items-center transition-colors group relative",
                 selectedId === memo.id
                   ? "bg-blue-100 text-[#0e42a0] font-medium"
                   : "hover:bg-[#d3e3fd] text-gray-700",
+                "focus-within:ring-2 focus-within:ring-blue-400",
               )}
             >
               <button
                 type="button"
+                data-memo-btn="true"
+                data-active={selectedId === memo.id}
                 onClick={() => setSelectedId(memo.id)}
-                className="flex-1 min-w-0 flex items-center gap-2 pl-8 py-2 rounded-l-full text-left"
+                className="flex-1 min-w-0 flex items-center gap-2 pl-8 py-2 rounded-l-full text-left outline-none"
               >
                 <span className="truncate text-sm font-medium">
                   {memo.title || "無題のメモ"}
@@ -92,7 +151,7 @@ export function AppSidebar() {
                   e.stopPropagation();
                   deleteMemo(memo.id);
                 }}
-                className="hidden group-hover:flex shrink-0 text-red-400 pr-3 pl-2 py-2 hover:text-red-600 rounded-r-full items-center justify-center transition-colors"
+                className="hidden group-hover:flex shrink-0 text-red-400 pr-3 pl-2 py-2 hover:text-red-600 rounded-r-full items-center justify-center transition-colors outline-none focus:ring-2 focus:ring-red-400"
                 title="削除"
               >
                 <Trash2 className="w-4 h-4" />
@@ -102,7 +161,6 @@ export function AppSidebar() {
         </div>
       </div>
 
-      {/* 下部: 設定 (Vimモード切替) */}
       <div className="p-4 mt-auto border-t border-gray-200">
         <button
           type="button"

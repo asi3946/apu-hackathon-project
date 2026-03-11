@@ -5,6 +5,7 @@ import {
   editorContentAtom,
   editorSettingsAtom,
   modeAtom,
+  selectedMemoIdAtom,
   visualStartAtom,
 } from "@/store/models";
 import { getLineEnd, getLineStart } from "@/store/vim/core"; // パスはディレクトリ構成に合わせて調整してください
@@ -21,6 +22,8 @@ export function useVimEditor() {
   const [cursor, setCursor] = useAtom(cursorAtom);
   const settings = useAtomValue(editorSettingsAtom);
   const [visualStart] = useAtom(visualStartAtom);
+
+  const selectedId = useAtomValue(selectedMemoIdAtom);
 
   // 切り出したカスタムフックを呼び出す
   const { handleKeyDown } = useVimKeyHandler(textareaRef, ignoreSelectRef);
@@ -62,6 +65,19 @@ export function useVimEditor() {
       ignoreSelectRef.current = false;
     }
   }, [cursor, vimMode, settings.type, content, visualStart]);
+
+  useEffect(() => {
+    if (selectedId) {
+      setCursor(0);
+
+      // DOMの描画が少し遅れるケースを考慮して、わずかな遅延（非同期）でフォーカスを当てる
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }, 0);
+    }
+  }, [selectedId, setCursor]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value);

@@ -1,9 +1,11 @@
 "use client";
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { Loader2, Plus, Save, Tag as TagIcon, X } from "lucide-react"; // Loader2を追加
-import type React from "react"; // useState, useEffectを追加
+import { Loader2, Plus, Save, Tag as TagIcon, X } from "lucide-react";
+import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+// 軽量Vimフックをインポート
+import { useSingleLineVim } from "@/hooks/useSingleLineVim";
 import { cn } from "@/lib/utils";
 import {
   editorTagsAtom,
@@ -60,6 +62,17 @@ export function EditorHeader() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // 新規追加: タイトル用の軽量Vimフックを呼び出す
+  // EscapeやEnterを押した時にメインエディタにフォーカスを戻す処理をonExitとして渡す
+  const {
+    inputRef: titleInputRef,
+    handleKeyDown: handleTitleKeyDown,
+    handleChange: handleTitleChange,
+    handleSelect: handleTitleSelect,
+  } = useSingleLineVim(title, setTitle, () => {
+    document.querySelector("textarea")?.focus();
+  });
+
   // タグ追加処理
   const handleAddTag = () => {
     const trimmed = tagInput.trim();
@@ -96,9 +109,13 @@ export function EditorHeader() {
     <div className="flex flex-col gap-4 w-full group">
       <div className="flex justify-between items-center gap-4">
         <input
+          id="memo-title-input"
+          ref={titleInputRef} // 追加: useSingleLineVimのrefを紐付け
           type="text"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={handleTitleChange} // 変更: useSingleLineVimのハンドラに置き換え
+          onKeyDown={handleTitleKeyDown} // 変更: useSingleLineVimのハンドラに置き換え
+          onSelect={handleTitleSelect} // 追加: useSingleLineVimのハンドラを紐付け
           placeholder="no title"
           className="text-4xl font-bold text-gray-800 placeholder:text-gray-200 outline-none bg-transparent flex-1"
         />
@@ -147,6 +164,7 @@ export function EditorHeader() {
 
         {isAddingTag ? (
           <input
+            id="memo-tag-input"
             ref={inputRef}
             type="text"
             value={tagInput}
@@ -158,6 +176,7 @@ export function EditorHeader() {
           />
         ) : (
           <button
+            id="memo-add-tag-button"
             type="button"
             onClick={() => setIsAddingTag(true)}
             className="flex items-center gap-1 px-2 py-0.5 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-all border border-transparent hover:border-gray-200"

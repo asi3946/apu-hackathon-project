@@ -256,6 +256,25 @@ export function useVimKeyHandler(
       case "u":
         undo();
         break;
+      case "K":
+        e.preventDefault();
+        document.getElementById("memo-title-input")?.focus();
+        break;
+      case "J": {
+        e.preventDefault();
+        const tagInput = document.getElementById("memo-tag-input");
+        const tagButton = document.getElementById("memo-add-tag-button");
+        if (tagInput) {
+          tagInput.focus();
+        } else if (tagButton) {
+          tagButton.click(); // ボタンをクリックしてinput要素を展開させる
+        }
+        break;
+      }
+      case "H":
+        e.preventDefault();
+        document.getElementById("app-sidebar")?.focus();
+        break;
       default:
         break;
     }
