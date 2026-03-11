@@ -1,6 +1,5 @@
 import { atom } from "jotai";
 
-export type VimMode = "normal" | "insert";
 export type EditorType = "standard" | "vim";
 
 export interface EditorSettings {

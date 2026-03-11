@@ -35,6 +35,7 @@ export const saveHistoryAtom = atom(null, (get, set) => {
   }
 
   set(historyAtom, newHistory);
+  // lengthは0以上だからIndexに合わせるため、-1.
   set(historyIndexAtom, newHistory.length - 1);
 });
 
