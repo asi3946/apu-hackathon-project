@@ -7,7 +7,6 @@ import {
   modeAtom,
   visualStartAtom,
 } from "./core";
-import { saveHistoryAtom } from "./history";
 
 // x (1文字削除)
 export const deleteCharAtom = atom(null, (get, set) => {
@@ -31,8 +30,6 @@ export const deleteCharAtom = atom(null, (get, set) => {
   if (pos > lineStart && pos >= lineStart + lineLength) {
     set(cursorAtom, pos - 1);
   }
-  // 削除完了後に履歴を保存
-  set(saveHistoryAtom);
 });
 
 // dd (1行削除)
@@ -67,9 +64,6 @@ export const deleteLineAtom = atom(null, (get, set) => {
 
   set(editorContentAtom, newText);
   set(cursorAtom, newCursor);
-
-  // 削除完了後に履歴を保存
-  set(saveHistoryAtom);
 });
 
 // Visual / VisualLine モードの選択範囲を削除する
@@ -150,4 +144,35 @@ export const getLineTextAtom = atom(null, (get, _set) => {
   const lineEnd = nextNewLine === -1 ? text.length : nextNewLine + 1;
 
   return text.slice(lineStart, lineEnd);
+});
+
+// o (下の行にインサート)
+export const insertNewLineBelowAtom = atom(null, (get, set) => {
+  const text = get(editorContentAtom);
+  const currentPos = get(cursorAtom);
+
+  const nextNewLine = text.indexOf("\n", currentPos);
+  const insertPos = nextNewLine === -1 ? text.length : nextNewLine;
+
+  const newText = `${text.slice(0, insertPos)}\n${text.slice(insertPos)}`;
+
+  set(editorContentAtom, newText);
+  set(cursorAtom, insertPos + 1);
+  set(modeAtom, "insert");
+});
+
+// O (上の行にインサート)
+export const insertNewLineAboveAtom = atom(null, (get, set) => {
+  const text = get(editorContentAtom);
+  const currentPos = get(cursorAtom);
+
+  const searchPos = currentPos - 1;
+  const lastNewLine = text.lastIndexOf("\n", searchPos < 0 ? 0 : searchPos);
+  const insertPos = lastNewLine === -1 ? 0 : lastNewLine + 1;
+
+  const newText = `${text.slice(0, insertPos)}\n${text.slice(insertPos)}`;
+
+  set(editorContentAtom, newText);
+  set(cursorAtom, insertPos);
+  set(modeAtom, "insert");
 });
