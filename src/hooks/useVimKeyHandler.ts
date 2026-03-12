@@ -5,7 +5,6 @@ import {
   deleteCharAtom,
   deleteLineAtom,
   deleteVisualSelectionAtom,
-  editorContentAtom,
   editorSettingsAtom,
   getLineTextAtom,
   getVisualSelectionTextAtom,
@@ -23,12 +22,18 @@ import {
   undoAtom,
   visualStartAtom,
 } from "@/store/models";
+// activeTextAtom は core.ts から読み込むように変更
+import { activeTextAtom } from "@/store/vim/core";
 
 export function useVimKeyHandler(
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>,
+  // textarea だけでなく、title や tag 用の input も受け取れるように型を拡張
+  elementRef: React.RefObject<HTMLTextAreaElement | HTMLInputElement | null>,
   ignoreSelectRef: React.RefObject<boolean>,
+  // 入力欄の上下移動用のコールバックを追加
+  onNavigate?: (direction: "up" | "down") => void,
 ) {
-  const [content, setContent] = useAtom(editorContentAtom);
+  // editorContentAtom ではなく、現在アクティブな入力欄のテキストを自動で引っ張ってくる activeTextAtom を使用
+  const [content, setContent] = useAtom(activeTextAtom);
   const [vimMode, setVimMode] = useAtom(modeAtom);
   const [cursor, setCursor] = useAtom(cursorAtom);
   const settings = useAtomValue(editorSettingsAtom);
@@ -59,8 +64,8 @@ export function useVimKeyHandler(
 
   // インサートモード用の処理
   const handleInsertMode = (
-    e: React.KeyboardEvent<HTMLTextAreaElement>,
-    textarea: HTMLTextAreaElement | null,
+    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+    element: HTMLTextAreaElement | HTMLInputElement | null,
   ) => {
     if (e.key === "Escape") {
       if (jkTimeoutRef.current) clearTimeout(jkTimeoutRef.current);
@@ -68,22 +73,33 @@ export function useVimKeyHandler(
       e.preventDefault();
       ignoreSelectRef.current = true; // vimモードによる変更を開始
 
+      if (element) {
+        const currentCursor = element.selectionStart || 0;
+        const currentContent = element.value;
+        // 行の先頭（直前が改行か、0文字目）なら左に戻らない
+        const isLineStart =
+          currentCursor === 0 ||
+          currentContent.charAt(currentCursor - 1) === "\n";
+        setCursor(isLineStart ? currentCursor : Math.max(0, currentCursor - 1));
+      } else {
+        if (cursor > 0) setCursor(cursor - 1);
+      }
+
       setVimMode("normal");
       saveHistory();
       setInsertPending("");
-      if (cursor > 0) setCursor(cursor - 1);
       // 直前のキーがjの時かつkが来たとき.
     } else if (e.key === "k" && insertPending === "j") {
       if (jkTimeoutRef.current) clearTimeout(jkTimeoutRef.current);
       e.preventDefault();
 
-      if (textarea) {
+      if (element) {
         ignoreSelectRef.current = true; // vimモードによる変更を開始
         // textarea.selectionStartは標準機能.選択カーソルの最初をかえす.
-        const currentCursor = textarea.selectionStart;
+        const currentCursor = element.selectionStart || 0;
         // textarea.valueは内容.
-        const currentContent = textarea.value;
-        // if文の中身が分かってないのかも.
+        const currentContent = element.value;
+
         if (currentContent.charAt(currentCursor - 1) === "j") {
           // currentCursor-1以降を取得した後、currentContextから始まる部分を取るとき、
           // "ABCDjEF"でjの後ろにカーソルがある,つまりEが選択中.currentCursorは5.
@@ -93,10 +109,21 @@ export function useVimKeyHandler(
             currentContent.slice(0, currentCursor - 1) +
             currentContent.slice(currentCursor);
           setContent(newText);
-          // nomalモードに戻るため,-2.
-          setCursor(Math.max(0, currentCursor - 2));
+          // nomalモードに戻るため,-2。ただし行の先頭（jの直前が改行、または0文字目）にいる場合は-1にとどめる。
+          const isLineStart =
+            currentCursor - 1 === 0 ||
+            currentContent.charAt(currentCursor - 2) === "\n";
+          setCursor(
+            Math.max(0, isLineStart ? currentCursor - 1 : currentCursor - 2),
+          );
         } else {
-          setCursor(Math.max(0, currentCursor - 1));
+          // 行の先頭（直前が改行か、0文字目）なら左に戻らない
+          const isLineStart =
+            currentCursor === 0 ||
+            currentContent.charAt(currentCursor - 1) === "\n";
+          setCursor(
+            Math.max(0, isLineStart ? currentCursor : currentCursor - 1),
+          );
         }
       }
 
@@ -120,7 +147,7 @@ export function useVimKeyHandler(
 
   // ノーマル・ビジュアルモード用の処理
   const handleNormalVisualMode = (
-    e: React.KeyboardEvent<HTMLTextAreaElement>,
+    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
   ) => {
     e.preventDefault();
     ignoreSelectRef.current = true; // ノーマル/ビジュアルモードのキーボード操作も全てフラグで保護
@@ -150,22 +177,23 @@ export function useVimKeyHandler(
 
     switch (e.key) {
       case "h":
-        moveLeft(content);
+        // movement.ts側でactiveTextAtomを自動取得するようになったため引数は不要
+        moveLeft();
         break;
       case "j":
-        moveDown(content);
+        moveDown();
         break;
       case "k":
-        moveUp(content);
+        moveUp();
         break;
       case "l":
-        moveRight(content);
+        moveRight();
         break;
       case "0":
-        jumpStart(content);
+        jumpStart();
         break;
       case "$":
-        jumpEnd(content);
+        jumpEnd();
         break;
       case "v":
         if (vimMode === "normal" || vimMode === "visualLine") {
@@ -194,7 +222,7 @@ export function useVimKeyHandler(
         break;
       case "A":
         setVimMode("insert");
-        jumpEnd(content);
+        jumpEnd();
         break;
       case "o":
         saveHistory();
@@ -237,16 +265,24 @@ export function useVimKeyHandler(
         }
         break;
       case "p":
+      case "P":
         navigator.clipboard
           .readText()
           .then((clipText) => {
             if (!clipText) return;
 
             saveHistory();
+
+            // 小文字のpならカーソルの後ろ(右)、大文字のPならカーソルの前(左)
+            const insertPos =
+              e.key === "p" && content.length > 0 ? cursor + 1 : cursor;
+
             // リンター対策のため、テンプレートリテラルで結合
-            const newText = `${content.slice(0, cursor)}${clipText}${content.slice(cursor)}`;
+            const newText = `${content.slice(0, insertPos)}${clipText}${content.slice(insertPos)}`;
             setContent(newText);
-            setCursor(cursor + clipText.length);
+
+            // カーソル位置はペーストした文字列の最後の文字に合わせる
+            setCursor(Math.max(0, insertPos + clipText.length - 1));
             saveHistory();
           })
           .catch((err) => {
@@ -258,19 +294,19 @@ export function useVimKeyHandler(
         break;
       case "K":
         e.preventDefault();
-        document.getElementById("memo-title-input")?.focus();
-        break;
-      case "J": {
-        e.preventDefault();
-        const tagInput = document.getElementById("memo-tag-input");
-        const tagButton = document.getElementById("memo-add-tag-button");
-        if (tagInput) {
-          tagInput.focus();
-        } else if (tagButton) {
-          tagButton.click(); // ボタンをクリックしてinput要素を展開させる
+        // コンポーネント側から onNavigate が渡されていればそれを実行し、なければフォールバック
+        if (onNavigate) {
+          onNavigate("up");
+        } else {
+          document.getElementById("memo-tag-input")?.focus();
         }
         break;
-      }
+      case "J":
+        e.preventDefault();
+        if (onNavigate) {
+          onNavigate("down");
+        }
+        break;
       case "H":
         e.preventDefault();
         document.getElementById("app-sidebar")?.focus();
@@ -282,14 +318,16 @@ export function useVimKeyHandler(
     setPendingCommand(nextPending);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+  ) => {
     if (e.nativeEvent.isComposing) return;
     if (settings.type === "standard") return;
 
-    const textarea = textareaRef.current;
+    const element = elementRef.current;
 
     if (vimMode === "insert") {
-      handleInsertMode(e, textarea);
+      handleInsertMode(e, element);
     } else if (
       vimMode === "normal" ||
       vimMode === "visual" ||

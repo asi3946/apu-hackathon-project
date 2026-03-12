@@ -1,11 +1,17 @@
 import { atom } from "jotai";
-import { modeAtom } from "../models";
-import { cursorAtom, getLineLength, getLineStart } from "./core";
+import {
+  activeTextAtom,
+  cursorAtom,
+  getLineLength,
+  getLineStart,
+  modeAtom,
+} from "./core";
 
 // --- Vim Logic (Actions) ---
 
 // j (下移動)
-export const moveDownAtom = atom(null, (get, set, text: string) => {
+export const moveDownAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
   const currentPos = get(cursorAtom);
   const mode = get(modeAtom);
   const lineStart = getLineStart(text, currentPos);
@@ -14,6 +20,7 @@ export const moveDownAtom = atom(null, (get, set, text: string) => {
 
   const nextNewLine = text.indexOf("\n", currentPos);
   if (nextNewLine === -1) return; // 次の行がない
+
   // '\n'の次の位置.
   const nextLineStart = nextNewLine + 1;
   const nextLineLength = getLineLength(text, nextLineStart);
@@ -23,12 +30,14 @@ export const moveDownAtom = atom(null, (get, set, text: string) => {
   // visualモードの時は改行を含めたいため,nextLineLengthをそのまま採用.
   const maxCol =
     mode === "normal" ? Math.max(0, nextLineLength - 1) : nextLineLength;
+
   // 次の行のどの位置に動くかをminで判定.col採用の時はそのまま下.maxColの時は次の行の一番後ろにカーソルが来る.
   set(cursorAtom, nextLineStart + Math.min(col, maxCol));
 });
 
 // k (上移動)
-export const moveUpAtom = atom(null, (get, set, text: string) => {
+export const moveUpAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
   const currentPos = get(cursorAtom);
   const mode = get(modeAtom);
   const lineStart = getLineStart(text, currentPos);
@@ -47,7 +56,8 @@ export const moveUpAtom = atom(null, (get, set, text: string) => {
 });
 
 // h (左移動)
-export const moveLeftAtom = atom(null, (get, set, text: string) => {
+export const moveLeftAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
   const current = get(cursorAtom);
   const lineStart = getLineStart(text, current);
   // 行をまたいで移動しないための記述.
@@ -57,9 +67,11 @@ export const moveLeftAtom = atom(null, (get, set, text: string) => {
 });
 
 // l (右移動)
-export const moveRightAtom = atom(null, (get, set, text: string) => {
+export const moveRightAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
   const current = get(cursorAtom);
   const mode = get(modeAtom);
+
   // 次の改行位置を求める.
   const nextNewLine = text.indexOf("\n", current);
   const lineEnd = nextNewLine === -1 ? text.length : nextNewLine;
@@ -73,13 +85,15 @@ export const moveRightAtom = atom(null, (get, set, text: string) => {
 });
 
 // 0 (行頭へジャンプ)
-export const jumpToLineStartAtom = atom(null, (get, set, text: string) => {
+export const jumpToLineStartAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
   const current = get(cursorAtom);
   set(cursorAtom, getLineStart(text, current));
 });
 
 // $ (行末へジャンプ)
-export const jumpToLineEndAtom = atom(null, (get, set, text: string) => {
+export const jumpToLineEndAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
   const current = get(cursorAtom);
   const mode = get(modeAtom);
   const lineStart = getLineStart(text, current);

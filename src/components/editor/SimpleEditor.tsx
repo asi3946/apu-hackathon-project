@@ -1,7 +1,9 @@
 "use client";
 
+import { useSetAtom } from "jotai";
 import { useVimEditor } from "@/hooks/useVimEditor";
 import { cn } from "@/lib/utils";
+import { activeEditorAtom } from "@/store/editorAtom";
 
 export function SimpleEditor() {
   const {
@@ -14,6 +16,8 @@ export function SimpleEditor() {
     handleKeyDown,
   } = useVimEditor();
 
+  const setActiveEditor = useSetAtom(activeEditorAtom);
+
   return (
     <textarea
       ref={textareaRef}
@@ -21,6 +25,7 @@ export function SimpleEditor() {
       onChange={handleChange}
       onSelect={handleSelect}
       onKeyDown={handleKeyDown}
+      onFocus={() => setActiveEditor("content")}
       placeholder="ここにメモを入力..."
       className={cn(
         "w-full h-full resize-none outline-none bg-transparent",
