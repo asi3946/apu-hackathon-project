@@ -237,16 +237,24 @@ export function useVimKeyHandler(
         }
         break;
       case "p":
+      case "P":
         navigator.clipboard
           .readText()
           .then((clipText) => {
             if (!clipText) return;
 
             saveHistory();
+
+            // 小文字のpならカーソルの後ろ(右)、大文字のPならカーソルの前(左)
+            const insertPos =
+              e.key === "p" && content.length > 0 ? cursor + 1 : cursor;
+
             // リンター対策のため、テンプレートリテラルで結合
-            const newText = `${content.slice(0, cursor)}${clipText}${content.slice(cursor)}`;
+            const newText = `${content.slice(0, insertPos)}${clipText}${content.slice(insertPos)}`;
             setContent(newText);
-            setCursor(cursor + clipText.length);
+
+            // カーソル位置はペーストした文字列の最後の文字に合わせる
+            setCursor(Math.max(0, insertPos + clipText.length - 1));
             saveHistory();
           })
           .catch((err) => {

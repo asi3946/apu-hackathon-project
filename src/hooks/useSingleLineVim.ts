@@ -255,13 +255,37 @@ export function useSingleLineVim(
         }
         break;
       case "p":
+      case "P":
         navigator.clipboard
           .readText()
           .then((clipText) => {
             if (!clipText) return;
-            const newVal = `${value.slice(0, cursor)}${clipText}${value.slice(cursor)}`;
+            let newVal = "";
+            let newCursor = 0;
+
+            if (vimMode === "visual" && visualStart !== null) {
+              const start = Math.min(visualStart, cursor);
+              const end = Math.max(visualStart, cursor) + 1;
+              newVal = value.slice(0, start) + clipText + value.slice(end);
+              newCursor = start + clipText.length - 1;
+              setVimMode("normal");
+              setVisualStart(null);
+            } else {
+              if (e.key === "p") {
+                const insertPos = value.length === 0 ? 0 : cursor + 1;
+                newVal =
+                  value.slice(0, insertPos) + clipText + value.slice(insertPos);
+                newCursor = insertPos + clipText.length - 1;
+              } else {
+                const insertPos = cursor;
+                newVal =
+                  value.slice(0, insertPos) + clipText + value.slice(insertPos);
+                newCursor = insertPos + clipText.length - 1;
+              }
+            }
+
             onChange(newVal);
-            setCursor(cursor + clipText.length);
+            setCursor(Math.max(0, newCursor));
             pushHistory(newVal);
           })
           .catch((err) => {
