@@ -68,10 +68,21 @@ export function useVimKeyHandler(
       e.preventDefault();
       ignoreSelectRef.current = true; // vimモードによる変更を開始
 
+      if (textarea) {
+        const currentCursor = textarea.selectionStart;
+        const currentContent = textarea.value;
+        // 行の先頭（直前が改行か、0文字目）なら左に戻らない
+        const isLineStart =
+          currentCursor === 0 ||
+          currentContent.charAt(currentCursor - 1) === "\n";
+        setCursor(isLineStart ? currentCursor : Math.max(0, currentCursor - 1));
+      } else {
+        if (cursor > 0) setCursor(cursor - 1);
+      }
+
       setVimMode("normal");
       saveHistory();
       setInsertPending("");
-      if (cursor > 0) setCursor(cursor - 1);
       // 直前のキーがjの時かつkが来たとき.
     } else if (e.key === "k" && insertPending === "j") {
       if (jkTimeoutRef.current) clearTimeout(jkTimeoutRef.current);
@@ -83,7 +94,7 @@ export function useVimKeyHandler(
         const currentCursor = textarea.selectionStart;
         // textarea.valueは内容.
         const currentContent = textarea.value;
-        // if文の中身が分かってないのかも.
+
         if (currentContent.charAt(currentCursor - 1) === "j") {
           // currentCursor-1以降を取得した後、currentContextから始まる部分を取るとき、
           // "ABCDjEF"でjの後ろにカーソルがある,つまりEが選択中.currentCursorは5.
@@ -93,10 +104,21 @@ export function useVimKeyHandler(
             currentContent.slice(0, currentCursor - 1) +
             currentContent.slice(currentCursor);
           setContent(newText);
-          // nomalモードに戻るため,-2.
-          setCursor(Math.max(0, currentCursor - 2));
+          // nomalモードに戻るため,-2。ただし行の先頭（jの直前が改行、または0文字目）にいる場合は-1にとどめる。
+          const isLineStart =
+            currentCursor - 1 === 0 ||
+            currentContent.charAt(currentCursor - 2) === "\n";
+          setCursor(
+            Math.max(0, isLineStart ? currentCursor - 1 : currentCursor - 2),
+          );
         } else {
-          setCursor(Math.max(0, currentCursor - 1));
+          // 行の先頭（直前が改行か、0文字目）なら左に戻らない
+          const isLineStart =
+            currentCursor === 0 ||
+            currentContent.charAt(currentCursor - 1) === "\n";
+          setCursor(
+            Math.max(0, isLineStart ? currentCursor : currentCursor - 1),
+          );
         }
       }
 
