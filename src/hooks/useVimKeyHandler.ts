@@ -23,7 +23,7 @@ import {
   visualStartAtom,
 } from "@/store/models";
 // activeTextAtom は core.ts から読み込むように変更
-import { activeTextAtom } from "@/store/vim/core";
+import { activeTextAtom, commandTextAtom } from "@/store/vim/core";
 
 export function useVimKeyHandler(
   // textarea だけでなく、title や tag 用の input も受け取れるように型を拡張
@@ -49,6 +49,7 @@ export function useVimKeyHandler(
   const getLineText = useSetAtom(getLineTextAtom);
   const insertNewLineBelow = useSetAtom(insertNewLineBelowAtom);
   const insertNewLineAbove = useSetAtom(insertNewLineAboveAtom);
+  const setCommandText = useSetAtom(commandTextAtom);
 
   const moveDown = useSetAtom(moveDownAtom);
   const moveUp = useSetAtom(moveUpAtom);
@@ -310,6 +311,15 @@ export function useVimKeyHandler(
       case "H":
         e.preventDefault();
         document.getElementById("app-sidebar")?.focus();
+        break;
+      case ":":
+        e.preventDefault();
+        setCommandText("");
+        setVimMode("command");
+        // レンダリング後にinputへフォーカスを移す
+        setTimeout(() => {
+          document.getElementById("vim-command-input")?.focus();
+        }, 0);
         break;
       default:
         break;

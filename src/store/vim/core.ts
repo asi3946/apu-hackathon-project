@@ -131,3 +131,5 @@ export const getLineLength = (text: string, lineStart: number) => {
   const lineEnd = getLineEnd(text, lineStart);
   return lineEnd - lineStart;
 };
+
+export const commandTextAtom = atom<string>("");
