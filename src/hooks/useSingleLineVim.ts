@@ -1,4 +1,6 @@
+import { useAtomValue } from "jotai";
 import { useEffect, useRef, useState } from "react";
+import { editorSettingsAtom } from "@/store/models";
 
 export function useSingleLineVim(
   value: string,
@@ -6,6 +8,9 @@ export function useSingleLineVim(
   onExit?: () => void,
   onNavigate?: (direction: "up" | "down") => void,
 ) {
+  // ここで直接設定を読み込む
+  const settings = useAtomValue(editorSettingsAtom);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const ignoreSelectRef = useRef(false);
   const [vimMode, setVimMode] = useState<"normal" | "insert" | "visual">(
@@ -56,6 +61,9 @@ export function useSingleLineVim(
   };
 
   useEffect(() => {
+    // Standardモード時はカーソルの強制上書き（Vimのブロックカーソル表現）を停止
+    if (settings.type === "standard") return;
+
     const input = inputRef.current;
     if (!input) return;
 
@@ -74,10 +82,19 @@ export function useSingleLineVim(
       input.setSelectionRange(cursor, cursor);
     }
     ignoreSelectRef.current = false;
-  }, [cursor, vimMode, value, visualStart]);
+  }, [cursor, vimMode, value, visualStart, settings.type]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.nativeEvent.isComposing) return;
+
+    // Standardモード時はVimのキーバインドを無視し、Enter/Escapeの基本操作だけ行う
+    if (settings.type === "standard") {
+      if (e.key === "Enter" || e.key === "Escape") {
+        e.preventDefault();
+        if (onExit) onExit();
+      }
+      return;
+    }
 
     if (vimMode === "insert") {
       if (e.key === "Escape") {
@@ -310,11 +327,9 @@ export function useSingleLineVim(
 
   const handleSelect = (e: React.SyntheticEvent<HTMLInputElement>) => {
     if (ignoreSelectRef.current) return;
-
-    // 修正: インサートモードの時（マウスでクリックして入力位置を変えたい時）以外は、
-    // ブラウザの自動選択イベントによるカーソルの上書きを完全に無視する
+    // Standardモード時もブラウザの自動選択イベントへの介入を停止
+    if (settings.type === "standard") return;
     if (vimMode !== "insert") return;
-
     setCursor(e.currentTarget.selectionStart || 0);
   };
 

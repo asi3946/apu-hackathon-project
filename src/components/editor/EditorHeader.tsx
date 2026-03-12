@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSingleLineVim } from "@/hooks/useSingleLineVim";
 import { cn } from "@/lib/utils";
 import {
+  editorSettingsAtom,
   editorTagsAtom,
   editorTitleAtom,
   saveMemoAtom,
@@ -17,6 +18,7 @@ export function EditorHeader() {
   const [tags, setTags] = useAtom(editorTagsAtom);
   const selectedId = useAtomValue(selectedMemoIdAtom);
   const saveMemo = useSetAtom(saveMemoAtom);
+  const settings = useAtomValue(editorSettingsAtom);
 
   const [isSaving, setIsSaving] = useState(false);
   const [tagInput, setTagInput] = useState("");
@@ -48,7 +50,7 @@ export function EditorHeader() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
-  // タイトルvim操作で移動するための記述.
+
   const {
     inputRef: titleInputRef,
     vimMode: titleVimMode,
@@ -113,16 +115,30 @@ export function EditorHeader() {
           ref={titleInputRef}
           type="text"
           value={title}
-          readOnly={titleVimMode === "normal" || titleVimMode === "visual"}
+          readOnly={
+            settings.type === "vim" &&
+            (titleVimMode === "normal" || titleVimMode === "visual")
+          }
           onChange={handleTitleChange}
-          onKeyDown={handleTitleKeyDown}
+          onKeyDown={(e) => {
+            if (settings.type === "standard") {
+              if (e.key === "Enter" || e.key === "Escape") {
+                e.preventDefault();
+                document.querySelector("textarea")?.focus();
+              }
+            } else {
+              handleTitleKeyDown(e);
+            }
+          }}
           onSelect={handleTitleSelect}
           placeholder="no title"
           className={cn(
-            "text-4xl font-bold text-gray-800 placeholder:text-gray-200 outline-none flex-1 transition-all rounded-md px-2 -ml-2",
-            titleVimMode === "normal" || titleVimMode === "visual"
-              ? "caret-transparent bg-transparent selection:bg-gray-800 selection:text-white"
-              : "bg-white border-b-2 border-blue-300",
+            "text-4xl font-bold text-gray-800 placeholder:text-gray-200 outline-none flex-1 transition-all rounded-md px-2 -ml-2 bg-transparent",
+            "border border-transparent hover:border-gray-200 hover:bg-gray-100 focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-200",
+            settings.type === "vim" &&
+              (titleVimMode === "normal" || titleVimMode === "visual")
+              ? "caret-transparent selection:bg-gray-800 selection:text-white"
+              : "",
           )}
         />
 
@@ -175,16 +191,32 @@ export function EditorHeader() {
             ref={tagInputRef}
             type="text"
             value={tagInput}
-            readOnly={tagVimMode === "normal" || tagVimMode === "visual"}
+            readOnly={
+              settings.type === "vim" &&
+              (tagVimMode === "normal" || tagVimMode === "visual")
+            }
             onChange={handleTagChange}
-            onKeyDown={handleTagKeyDown}
+            onKeyDown={(e) => {
+              if (settings.type === "standard") {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddTag();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  document.querySelector("textarea")?.focus();
+                }
+              } else {
+                handleTagKeyDown(e);
+              }
+            }}
             onSelect={handleTagSelect}
             placeholder="Add Tag"
             className={cn(
-              "pl-6 pr-2 py-0.5 text-sm text-gray-600 placeholder:text-gray-400 border rounded-md outline-none w-28 transition-all",
-              tagVimMode === "normal" || tagVimMode === "visual"
-                ? "caret-transparent border-transparent hover:border-gray-200 hover:bg-gray-100 bg-transparent focus:bg-blue-50 focus:ring-2 focus:ring-blue-200 selection:bg-gray-800 selection:text-white"
-                : "bg-white border-blue-300 shadow-sm focus:ring-2 focus:ring-blue-200",
+              "pl-6 pr-2 py-0.5 text-sm text-gray-600 placeholder:text-gray-400 border border-transparent rounded-md outline-none w-28 transition-all bg-transparent hover:border-gray-200 hover:bg-gray-100 focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-200",
+              settings.type === "vim" &&
+                (tagVimMode === "normal" || tagVimMode === "visual")
+                ? "caret-transparent selection:bg-gray-800 selection:text-white"
+                : "",
             )}
           />
         </div>
