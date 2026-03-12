@@ -3,8 +3,9 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { Loader2, Plus, Save, Tag as TagIcon, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSingleLineVim } from "@/hooks/useSingleLineVim";
+import { useVimKeyHandler } from "@/hooks/useVimKeyHandler";
 import { cn } from "@/lib/utils";
+import { activeEditorAtom, editorTagInputAtom } from "@/store/editorAtom";
 import {
   editorSettingsAtom,
   editorTagsAtom,
@@ -12,22 +13,31 @@ import {
   saveMemoAtom,
   selectedMemoIdAtom,
 } from "@/store/models";
+import { cursorAtom, modeAtom, visualStartAtom } from "@/store/vim/core";
 
 export function EditorHeader() {
   const [title, setTitle] = useAtom(editorTitleAtom);
   const [tags, setTags] = useAtom(editorTagsAtom);
+  const [tagInput, setTagInput] = useAtom(editorTagInputAtom);
+  const [activeEditor, setActiveEditor] = useAtom(activeEditorAtom);
   const selectedId = useAtomValue(selectedMemoIdAtom);
   const saveMemo = useSetAtom(saveMemoAtom);
   const settings = useAtomValue(editorSettingsAtom);
+  const vimMode = useAtomValue(modeAtom);
+  const cursor = useAtomValue(cursorAtom);
+  const visualStart = useAtomValue(visualStartAtom);
+  const setCursor = useSetAtom(cursorAtom);
 
   const [isSaving, setIsSaving] = useState(false);
-  const [tagInput, setTagInput] = useState("");
+
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const tagInputRef = useRef<HTMLInputElement>(null);
+  const ignoreSelectRef = useRef(false);
 
   const handleSave = useCallback(async () => {
     if (selectedId && !isSaving) {
       setIsSaving(true);
       await saveMemo();
-
       setTimeout(() => {
         setIsSaving(false);
       }, 500);
@@ -46,23 +56,13 @@ export function EditorHeader() {
         saveRef.current();
       }
     };
-
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const {
-    inputRef: titleInputRef,
-    vimMode: titleVimMode,
-    handleKeyDown: handleTitleKeyDown,
-    handleChange: handleTitleChange,
-    handleSelect: handleTitleSelect,
-  } = useSingleLineVim(
-    title,
-    setTitle,
-    () => {
-      document.querySelector("textarea")?.focus();
-    },
+  const { handleKeyDown: handleTitleKeyDown } = useVimKeyHandler(
+    titleInputRef,
+    ignoreSelectRef,
     (direction) => {
       if (direction === "down") {
         document.getElementById("memo-tag-input")?.focus();
@@ -70,30 +70,9 @@ export function EditorHeader() {
     },
   );
 
-  const handleAddTag = () => {
-    const trimmed = tagInput.trim();
-    if (trimmed && !tags.includes(trimmed)) {
-      setTags([...tags, trimmed]);
-    }
-    setTagInput("");
-  };
-
-  const {
-    inputRef: tagInputRef,
-    vimMode: tagVimMode,
-    handleKeyDown: handleTagKeyDown,
-    handleChange: handleTagChange,
-    handleSelect: handleTagSelect,
-  } = useSingleLineVim(
-    tagInput,
-    setTagInput,
-    () => {
-      if (tagInput.trim()) {
-        handleAddTag();
-      } else {
-        document.querySelector("textarea")?.focus();
-      }
-    },
+  const { handleKeyDown: handleTagKeyDown } = useVimKeyHandler(
+    tagInputRef,
+    ignoreSelectRef,
     (direction) => {
       if (direction === "up") {
         document.getElementById("memo-title-input")?.focus();
@@ -102,6 +81,78 @@ export function EditorHeader() {
       }
     },
   );
+
+  useEffect(() => {
+    if (settings.type === "standard") return;
+    const input =
+      activeEditor === "title"
+        ? titleInputRef.current
+        : activeEditor === "tags"
+          ? tagInputRef.current
+          : null;
+    if (!input) return;
+
+    const value =
+      activeEditor === "title"
+        ? title
+        : activeEditor === "tags"
+          ? tagInput
+          : "";
+
+    if (vimMode === "visual" && visualStart !== null) {
+      const start = Math.min(visualStart, cursor);
+      const end = Math.max(visualStart, cursor) + 1;
+      input.setSelectionRange(start, end);
+    } else if (vimMode === "normal") {
+      const endPos = Math.min(cursor + 1, value.length);
+      if (value.length === 0) {
+        input.setSelectionRange(0, 0);
+      } else {
+        input.setSelectionRange(cursor, endPos);
+      }
+    } else {
+      input.setSelectionRange(cursor, cursor);
+    }
+    ignoreSelectRef.current = false;
+  }, [
+    cursor,
+    vimMode,
+    title,
+    tagInput,
+    visualStart,
+    settings.type,
+    activeEditor,
+  ]);
+
+  const handleTitleSelect = (e: React.SyntheticEvent<HTMLInputElement>) => {
+    if (
+      ignoreSelectRef.current ||
+      settings.type === "standard" ||
+      vimMode !== "insert" ||
+      activeEditor !== "title"
+    )
+      return;
+    setCursor(e.currentTarget.selectionStart || 0);
+  };
+
+  const handleTagSelect = (e: React.SyntheticEvent<HTMLInputElement>) => {
+    if (
+      ignoreSelectRef.current ||
+      settings.type === "standard" ||
+      vimMode !== "insert" ||
+      activeEditor !== "tags"
+    )
+      return;
+    setCursor(e.currentTarget.selectionStart || 0);
+  };
+
+  const handleAddTag = () => {
+    const trimmed = tagInput.trim();
+    if (trimmed && !tags.includes(trimmed)) {
+      setTags([...tags, trimmed]);
+    }
+    setTagInput("");
+  };
 
   const removeTag = (tagToRemove: string) => {
     setTags(tags.filter((tag) => tag !== tagToRemove));
@@ -117,9 +168,14 @@ export function EditorHeader() {
           value={title}
           readOnly={
             settings.type === "vim" &&
-            (titleVimMode === "normal" || titleVimMode === "visual")
+            activeEditor === "title" &&
+            (vimMode === "normal" || vimMode === "visual")
           }
-          onChange={handleTitleChange}
+          onFocus={() => setActiveEditor("title")}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setCursor(e.target.selectionStart || 0);
+          }}
           onKeyDown={(e) => {
             if (settings.type === "standard") {
               if (e.key === "Enter" || e.key === "Escape") {
@@ -136,7 +192,8 @@ export function EditorHeader() {
             "text-4xl font-bold text-gray-800 placeholder:text-gray-200 outline-none flex-1 transition-all rounded-md px-2 -ml-2 bg-transparent",
             "border border-transparent hover:border-gray-200 hover:bg-gray-100 focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-200",
             settings.type === "vim" &&
-              (titleVimMode === "normal" || titleVimMode === "visual")
+              activeEditor === "title" &&
+              (vimMode === "normal" || vimMode === "visual")
               ? "caret-transparent selection:bg-gray-800 selection:text-white"
               : "",
           )}
@@ -193,9 +250,14 @@ export function EditorHeader() {
             value={tagInput}
             readOnly={
               settings.type === "vim" &&
-              (tagVimMode === "normal" || tagVimMode === "visual")
+              activeEditor === "tags" &&
+              (vimMode === "normal" || vimMode === "visual")
             }
-            onChange={handleTagChange}
+            onFocus={() => setActiveEditor("tags")}
+            onChange={(e) => {
+              setTagInput(e.target.value);
+              setCursor(e.target.selectionStart || 0);
+            }}
             onKeyDown={(e) => {
               if (settings.type === "standard") {
                 if (e.key === "Enter") {
@@ -214,7 +276,8 @@ export function EditorHeader() {
             className={cn(
               "pl-6 pr-2 py-0.5 text-sm text-gray-600 placeholder:text-gray-400 border border-transparent rounded-md outline-none w-28 transition-all bg-transparent hover:border-gray-200 hover:bg-gray-100 focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-200",
               settings.type === "vim" &&
-                (tagVimMode === "normal" || tagVimMode === "visual")
+                activeEditor === "tags" &&
+                (vimMode === "normal" || vimMode === "visual")
                 ? "caret-transparent selection:bg-gray-800 selection:text-white"
                 : "",
             )}

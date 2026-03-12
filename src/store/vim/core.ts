@@ -1,9 +1,106 @@
 import { atom } from "jotai";
-import type { CursorPosition, VimMode } from "@/types/models"; // CursorPositionはnumber.
+import type { CursorPosition, VimMode } from "@/types/models";
+import {
+  activeEditorAtom,
+  editorContentAtom,
+  editorTagInputAtom,
+  editorTitleAtom,
+} from "../editorAtom";
 
-export const modeAtom = atom<VimMode>("normal");
-export const visualStartAtom = atom<number | null>(null);
-export const cursorAtom = atom<CursorPosition>(0);
+// --- 各エディタごとに独立した状態（直接触ることはない裏側のAtom） ---
+
+export const contentModeAtom = atom<VimMode>("normal");
+export const titleModeAtom = atom<VimMode>("normal");
+export const tagModeAtom = atom<VimMode>("normal");
+
+export const contentCursorAtom = atom<CursorPosition>(0);
+export const titleCursorAtom = atom<CursorPosition>(0);
+export const tagCursorAtom = atom<CursorPosition>(0);
+
+export const contentVisualStartAtom = atom<number | null>(null);
+export const titleVisualStartAtom = atom<number | null>(null);
+export const tagVisualStartAtom = atom<number | null>(null);
+
+// --- ルーティング用（派生）Atom ---
+// ロジック側は、以下のAtomだけを読み書きすれば、対象が自動で切り替わる
+
+// 1. アクティブなエディタのモード
+export const modeAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleModeAtom);
+    if (active === "tags") return get(tagModeAtom);
+    return get(contentModeAtom);
+  },
+  (get, set, newMode: VimMode) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") set(titleModeAtom, newMode);
+    else if (active === "tags") set(tagModeAtom, newMode);
+    else set(contentModeAtom, newMode);
+  },
+);
+
+// 2. アクティブなエディタのカーソル位置
+export const cursorAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleCursorAtom);
+    if (active === "tags") return get(tagCursorAtom);
+    return get(contentCursorAtom);
+  },
+  (get, set, update: number | ((prev: number) => number)) => {
+    const active = get(activeEditorAtom);
+    const targetAtom =
+      active === "title"
+        ? titleCursorAtom
+        : active === "tags"
+          ? tagCursorAtom
+          : contentCursorAtom;
+
+    const newValue =
+      typeof update === "function" ? update(get(targetAtom)) : update;
+    set(targetAtom, newValue);
+  },
+);
+
+// 3. アクティブなエディタのビジュアルモード開始位置
+export const visualStartAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleVisualStartAtom);
+    if (active === "tags") return get(tagVisualStartAtom);
+    return get(contentVisualStartAtom);
+  },
+  (get, set, newStart: number | null) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") set(titleVisualStartAtom, newStart);
+    else if (active === "tags") set(tagVisualStartAtom, newStart);
+    else set(contentVisualStartAtom, newStart);
+  },
+);
+
+// 4. アクティブなエディタのテキスト本体
+export const activeTextAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(editorTitleAtom);
+    if (active === "tags") return get(editorTagInputAtom);
+    return get(editorContentAtom);
+  },
+  (get, set, update: string | ((prev: string) => string)) => {
+    const active = get(activeEditorAtom);
+    const targetAtom =
+      active === "title"
+        ? editorTitleAtom
+        : active === "tags"
+          ? editorTagInputAtom
+          : editorContentAtom;
+
+    const newValue =
+      typeof update === "function" ? update(get(targetAtom)) : update;
+    set(targetAtom, newValue);
+  },
+);
 
 // 行の情報取得.
 

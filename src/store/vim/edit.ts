@@ -1,6 +1,7 @@
 import { atom } from "jotai";
-import { editorContentAtom } from "@/store/models";
+import { activeEditorAtom } from "../editorAtom";
 import {
+  activeTextAtom,
   cursorAtom,
   getLineEnd,
   getLineLength,
@@ -11,8 +12,9 @@ import {
 
 // x (1文字削除)
 export const deleteCharAtom = atom(null, (get, set) => {
-  const text = get(editorContentAtom);
+  const text = get(activeTextAtom);
   const pos = get(cursorAtom);
+
   // pos >= text.lengthの状況になることはvimではないが、
   // reactで問題が起きる可能性があるため、
   if (text.length === 0 || pos >= text.length) return;
@@ -25,11 +27,12 @@ export const deleteCharAtom = atom(null, (get, set) => {
   // sliceは第一引数の位置から第二引数の手前までを取り出す.
   // 第一引数しかないときは、第一引数から最後まで.
   const newText = text.slice(0, pos) + text.slice(pos + 1);
-  set(editorContentAtom, newText);
+  set(activeTextAtom, newText);
 
   // 行末の文字を消した場合、カーソルが「無い文字」の上に取り残されるのを防ぐため左へずらす.
   const lineStart = getLineStart(newText, pos);
   const lineLength = getLineLength(newText, lineStart);
+
   // pos > lineStartはpos = 0,lineStart + lineLength = 0 + 0の時
   // set (cursorAtom, - 1)となる事態を防ぐ.
   // pos >= lineStart + lineLengthの>=の理由は行末の文字を消したとき、
@@ -41,7 +44,7 @@ export const deleteCharAtom = atom(null, (get, set) => {
 
 // dd (1行削除)
 export const deleteLineAtom = atom(null, (get, set) => {
-  const text = get(editorContentAtom);
+  const text = get(activeTextAtom);
   const pos = get(cursorAtom);
 
   if (text.length === 0) return;
@@ -71,13 +74,13 @@ export const deleteLineAtom = atom(null, (get, set) => {
     newCursor = lineStart;
   }
 
-  set(editorContentAtom, newText);
+  set(activeTextAtom, newText);
   set(cursorAtom, newCursor);
 });
 
 // Visual / VisualLine モードの選択範囲を削除する
 export const deleteVisualSelectionAtom = atom(null, (get, set) => {
-  const text = get(editorContentAtom);
+  const text = get(activeTextAtom);
   const cursor = get(cursorAtom);
   const visualStart = get(visualStartAtom);
   const vimMode = get(modeAtom);
@@ -108,7 +111,7 @@ export const deleteVisualSelectionAtom = atom(null, (get, set) => {
 
   const newText = text.slice(0, start) + text.slice(end);
 
-  set(editorContentAtom, newText);
+  set(activeTextAtom, newText);
   set(cursorAtom, start);
   set(visualStartAtom, null);
   set(modeAtom, "normal");
@@ -116,7 +119,7 @@ export const deleteVisualSelectionAtom = atom(null, (get, set) => {
 
 // Visual / VisualLine モードの選択範囲のテキストを取得してNormalモードに戻る (y用)
 export const getVisualSelectionTextAtom = atom(null, (get, set) => {
-  const text = get(editorContentAtom);
+  const text = get(activeTextAtom);
   const cursor = get(cursorAtom);
   const visualStart = get(visualStartAtom);
   const vimMode = get(modeAtom);
@@ -147,7 +150,7 @@ export const getVisualSelectionTextAtom = atom(null, (get, set) => {
 
 // Normalモードの1行分のテキストを取得する (yy用)
 export const getLineTextAtom = atom(null, (get, _set) => {
-  const text = get(editorContentAtom);
+  const text = get(activeTextAtom);
   const cursor = get(cursorAtom);
 
   // core.ts の関数を使って行の先頭と末尾を取得
@@ -162,7 +165,14 @@ export const getLineTextAtom = atom(null, (get, _set) => {
 
 // o (下の行にインサート)
 export const insertNewLineBelowAtom = atom(null, (get, set) => {
-  const text = get(editorContentAtom);
+  const activeEditor = get(activeEditorAtom);
+  // タイトルやタグ等の1行エディタでは改行させない
+  if (activeEditor !== "content") {
+    set(modeAtom, "insert");
+    return;
+  }
+
+  const text = get(activeTextAtom);
   const currentPos = get(cursorAtom);
 
   const insertPos = getLineEnd(text, currentPos);
@@ -171,21 +181,28 @@ export const insertNewLineBelowAtom = atom(null, (get, set) => {
   // Dの添字が4となり、"ABC\nDEF"という文字列となる.
   const newText = `${text.slice(0, insertPos)}\n${text.slice(insertPos)}`;
 
-  set(editorContentAtom, newText);
+  set(activeTextAtom, newText);
   set(cursorAtom, insertPos + 1);
   set(modeAtom, "insert");
 });
 
 // O (上の行にインサート)
 export const insertNewLineAboveAtom = atom(null, (get, set) => {
-  const text = get(editorContentAtom);
+  const activeEditor = get(activeEditorAtom);
+  // タイトルやタグ等の1行エディタでは改行させない
+  if (activeEditor !== "content") {
+    set(modeAtom, "insert");
+    return;
+  }
+
+  const text = get(activeTextAtom);
   const currentPos = get(cursorAtom);
 
   const insertPos = getLineStart(text, currentPos);
 
   const newText = `${text.slice(0, insertPos)}\n${text.slice(insertPos)}`;
 
-  set(editorContentAtom, newText);
+  set(activeTextAtom, newText);
   set(cursorAtom, insertPos);
   set(modeAtom, "insert");
 });

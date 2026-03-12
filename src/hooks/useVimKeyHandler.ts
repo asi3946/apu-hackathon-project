@@ -5,7 +5,6 @@ import {
   deleteCharAtom,
   deleteLineAtom,
   deleteVisualSelectionAtom,
-  editorContentAtom,
   editorSettingsAtom,
   getLineTextAtom,
   getVisualSelectionTextAtom,
@@ -23,12 +22,18 @@ import {
   undoAtom,
   visualStartAtom,
 } from "@/store/models";
+// activeTextAtom は core.ts から読み込むように変更
+import { activeTextAtom } from "@/store/vim/core";
 
 export function useVimKeyHandler(
-  textareaRef: React.RefObject<HTMLTextAreaElement | null>,
+  // textarea だけでなく、title や tag 用の input も受け取れるように型を拡張
+  elementRef: React.RefObject<HTMLTextAreaElement | HTMLInputElement | null>,
   ignoreSelectRef: React.RefObject<boolean>,
+  // 入力欄の上下移動用のコールバックを追加
+  onNavigate?: (direction: "up" | "down") => void,
 ) {
-  const [content, setContent] = useAtom(editorContentAtom);
+  // editorContentAtom ではなく、現在アクティブな入力欄のテキストを自動で引っ張ってくる activeTextAtom を使用
+  const [content, setContent] = useAtom(activeTextAtom);
   const [vimMode, setVimMode] = useAtom(modeAtom);
   const [cursor, setCursor] = useAtom(cursorAtom);
   const settings = useAtomValue(editorSettingsAtom);
@@ -59,8 +64,8 @@ export function useVimKeyHandler(
 
   // インサートモード用の処理
   const handleInsertMode = (
-    e: React.KeyboardEvent<HTMLTextAreaElement>,
-    textarea: HTMLTextAreaElement | null,
+    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+    element: HTMLTextAreaElement | HTMLInputElement | null,
   ) => {
     if (e.key === "Escape") {
       if (jkTimeoutRef.current) clearTimeout(jkTimeoutRef.current);
@@ -68,9 +73,9 @@ export function useVimKeyHandler(
       e.preventDefault();
       ignoreSelectRef.current = true; // vimモードによる変更を開始
 
-      if (textarea) {
-        const currentCursor = textarea.selectionStart;
-        const currentContent = textarea.value;
+      if (element) {
+        const currentCursor = element.selectionStart || 0;
+        const currentContent = element.value;
         // 行の先頭（直前が改行か、0文字目）なら左に戻らない
         const isLineStart =
           currentCursor === 0 ||
@@ -88,12 +93,12 @@ export function useVimKeyHandler(
       if (jkTimeoutRef.current) clearTimeout(jkTimeoutRef.current);
       e.preventDefault();
 
-      if (textarea) {
+      if (element) {
         ignoreSelectRef.current = true; // vimモードによる変更を開始
         // textarea.selectionStartは標準機能.選択カーソルの最初をかえす.
-        const currentCursor = textarea.selectionStart;
+        const currentCursor = element.selectionStart || 0;
         // textarea.valueは内容.
-        const currentContent = textarea.value;
+        const currentContent = element.value;
 
         if (currentContent.charAt(currentCursor - 1) === "j") {
           // currentCursor-1以降を取得した後、currentContextから始まる部分を取るとき、
@@ -142,7 +147,7 @@ export function useVimKeyHandler(
 
   // ノーマル・ビジュアルモード用の処理
   const handleNormalVisualMode = (
-    e: React.KeyboardEvent<HTMLTextAreaElement>,
+    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
   ) => {
     e.preventDefault();
     ignoreSelectRef.current = true; // ノーマル/ビジュアルモードのキーボード操作も全てフラグで保護
@@ -172,22 +177,23 @@ export function useVimKeyHandler(
 
     switch (e.key) {
       case "h":
-        moveLeft(content);
+        // movement.ts側でactiveTextAtomを自動取得するようになったため引数は不要
+        moveLeft();
         break;
       case "j":
-        moveDown(content);
+        moveDown();
         break;
       case "k":
-        moveUp(content);
+        moveUp();
         break;
       case "l":
-        moveRight(content);
+        moveRight();
         break;
       case "0":
-        jumpStart(content);
+        jumpStart();
         break;
       case "$":
-        jumpEnd(content);
+        jumpEnd();
         break;
       case "v":
         if (vimMode === "normal" || vimMode === "visualLine") {
@@ -216,7 +222,7 @@ export function useVimKeyHandler(
         break;
       case "A":
         setVimMode("insert");
-        jumpEnd(content);
+        jumpEnd();
         break;
       case "o":
         saveHistory();
@@ -288,7 +294,18 @@ export function useVimKeyHandler(
         break;
       case "K":
         e.preventDefault();
-        document.getElementById("memo-tag-input")?.focus();
+        // コンポーネント側から onNavigate が渡されていればそれを実行し、なければフォールバック
+        if (onNavigate) {
+          onNavigate("up");
+        } else {
+          document.getElementById("memo-tag-input")?.focus();
+        }
+        break;
+      case "J":
+        e.preventDefault();
+        if (onNavigate) {
+          onNavigate("down");
+        }
         break;
       case "H":
         e.preventDefault();
@@ -301,14 +318,16 @@ export function useVimKeyHandler(
     setPendingCommand(nextPending);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+  ) => {
     if (e.nativeEvent.isComposing) return;
     if (settings.type === "standard") return;
 
-    const textarea = textareaRef.current;
+    const element = elementRef.current;
 
     if (vimMode === "insert") {
-      handleInsertMode(e, textarea);
+      handleInsertMode(e, element);
     } else if (
       vimMode === "normal" ||
       vimMode === "visual" ||
