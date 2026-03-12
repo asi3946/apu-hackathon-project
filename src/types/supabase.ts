@@ -64,6 +64,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_settings: {
+        Row: {
+          created_at: string
+          default_is_public: boolean
+          id: string
+          updated_at: string
+          use_vim_mode: boolean
+        }
+        Insert: {
+          created_at?: string
+          default_is_public?: boolean
+          id: string
+          updated_at?: string
+          use_vim_mode?: boolean
+        }
+        Update: {
+          created_at?: string
+          default_is_public?: boolean
+          id?: string
+          updated_at?: string
+          use_vim_mode?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
