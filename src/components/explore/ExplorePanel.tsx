@@ -105,7 +105,6 @@ export function ExplorePanel() {
                     <CheckCircle2 className="w-3 h-3" />
                     マッチ度 {Math.round(memo.similarity * 100)}%
                   </span>
-                  <User className="w-4 h-4 text-gray-400" />
                 </div>
                 <h3 className="font-medium text-gray-800 line-clamp-1 mb-1">
                   {memo.title || "無題のメモ"}
@@ -140,7 +139,7 @@ export function ExplorePanel() {
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
             <FileText className="w-16 h-16 mb-4 opacity-20" />
-            <p>左のリストからメモを選択してください</p>
+            <p>ほかの人のメモ</p>
           </div>
         )}
       </div>
