@@ -7,6 +7,8 @@ import {
   editorTitleAtom,
 } from "./editorAtom";
 
+export const isExploreModeAtom = atom(false);
+
 const supabase = createClient();
 
 // メモのリストを保持するAtom

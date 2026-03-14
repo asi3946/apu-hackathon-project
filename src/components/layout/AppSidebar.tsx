@@ -1,7 +1,14 @@
 "use client";
 
 import { useAtom, useSetAtom } from "jotai";
-import { Plus, Search, Settings, Trash2 } from "lucide-react";
+import {
+  Compass,
+  FileText,
+  Plus,
+  Search,
+  Settings,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { SidebarAuth } from "@/components/auth/SidebarAuth";
 import { cn } from "@/lib/utils";
@@ -11,15 +18,16 @@ import {
   editorSettingsAtom,
   fetchMemosAtom,
   fetchUserSettingsAtom,
+  isExploreModeAtom, // 追加: 交流モードの切り替え用アトムを想定
   memoListAtom,
   selectedMemoIdAtom,
   updateUserSettingsAtom,
 } from "@/store/models";
 
 export function AppSidebar() {
-  const [settings] = useAtom(editorSettingsAtom); // 表示用の状態読み取り
-  const updateSettings = useSetAtom(updateUserSettingsAtom); // DB同期用の更新関数
-  const fetchUserSettings = useSetAtom(fetchUserSettingsAtom); // 初回読み込み関数
+  const [settings] = useAtom(editorSettingsAtom);
+  const updateSettings = useSetAtom(updateUserSettingsAtom);
+  const fetchUserSettings = useSetAtom(fetchUserSettingsAtom);
 
   const [memos] = useAtom(memoListAtom);
   const [selectedId, setSelectedId] = useAtom(selectedMemoIdAtom);
@@ -27,16 +35,16 @@ export function AppSidebar() {
   const createMemo = useSetAtom(createMemoAtom);
   const deleteMemo = useSetAtom(deleteMemoAtom);
 
+  const [isExploreMode, setIsExploreMode] = useAtom(isExploreModeAtom); // 追加
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
 
-  // 初回マウント時にメモ一覧とユーザー設定をDBから取得
   useEffect(() => {
     fetchMemos();
     fetchUserSettings();
   }, [fetchMemos, fetchUserSettings]);
 
-  // 設定パネルの外側をクリックしたときに閉じる処理
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -54,7 +62,6 @@ export function AppSidebar() {
     };
   }, [isSettingsOpen]);
 
-  // トグル操作でDB同期用のアトムを呼び出す
   const toggleVimMode = () => {
     updateSettings({ type: settings.type === "standard" ? "vim" : "standard" });
   };
@@ -64,6 +71,7 @@ export function AppSidebar() {
   };
 
   const handleCreateMemo = async () => {
+    setIsExploreMode(false);
     await createMemo();
   };
 
@@ -126,7 +134,7 @@ export function AppSidebar() {
       tabIndex={-1}
       onKeyDown={handleKeyDownSidebar}
       onFocus={handleFocus}
-      className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none transition-shadow"
+      className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none transition-shadow shrink-0"
     >
       <div className="p-4 space-y-4">
         <SidebarAuth></SidebarAuth>
@@ -147,17 +155,27 @@ export function AppSidebar() {
           <Plus className="w-5 h-5" />
           <span className="pr-2">メモを新規作成</span>
         </button>
+
+        {/* 交流機能への切り替えボタンを追加 */}
+        <button
+          type="button"
+          onClick={() => setIsExploreMode(true)}
+          className="flex items-center gap-2 hover:bg-blue-100 text-blue-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
+        >
+          <Compass className="w-5 h-5" />
+          <span className="pr-2">関連する公開メモを探す</span>
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="text-xs font-medium px-4 mb-2">最近</div>
+        <div className="text-xs font-medium px-4 mb-2">最近の自分のメモ</div>
         <div className="space-y-1">
           {memos.map((memo) => (
             <div
               key={memo.id}
               className={cn(
                 "w-full rounded-full flex items-center transition-colors group relative",
-                selectedId === memo.id
+                selectedId === memo.id && !isExploreMode
                   ? "bg-blue-100 text-[#0e42a0] font-medium"
                   : "hover:bg-[#d3e3fd] text-gray-700",
                 "focus-within:ring-2 focus-within:ring-blue-400",
@@ -166,10 +184,14 @@ export function AppSidebar() {
               <button
                 type="button"
                 data-memo-btn="true"
-                data-active={selectedId === memo.id}
-                onClick={() => setSelectedId(memo.id)}
+                data-active={selectedId === memo.id && !isExploreMode}
+                onClick={() => {
+                  setSelectedId(memo.id);
+                  setIsExploreMode(false);
+                }}
                 className="flex-1 min-w-0 flex items-center gap-2 pl-8 py-2 rounded-l-full text-left outline-none"
               >
+                <FileText className="w-4 h-4 opacity-50 shrink-0" />
                 <span className="truncate text-sm font-medium">
                   {memo.title || "無題のメモ"}
                 </span>
