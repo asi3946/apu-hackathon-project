@@ -1,25 +1,31 @@
 "use client";
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { Loader2, Plus, Save, Tag as TagIcon, X } from "lucide-react";
+import { Loader2, Plus, Save, Tag as TagIcon, X, Sparkles, Check } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVimKeyHandler } from "@/hooks/useVimKeyHandler";
 import { cn } from "@/lib/utils";
-import { activeEditorAtom, editorTagInputAtom } from "@/store/editorAtom";
+import { activeEditorAtom, editorTagInputAtom, allTagsAtom, editorContentAtom } from "@/store/editorAtom";
 import {
   editorSettingsAtom,
   editorTagsAtom,
   editorTitleAtom,
-  saveMemoAtom,
   selectedMemoIdAtom,
 } from "@/store/models";
+import { fetchAllTagsAtom, saveMemoAtom } from "@/store/memoAtom";
 import { cursorAtom, modeAtom, visualStartAtom } from "@/store/vim/core";
+import { Tag } from "@/types/db";
 
 export function EditorHeader() {
   const [title, setTitle] = useAtom(editorTitleAtom);
   const [tags, setTags] = useAtom(editorTagsAtom);
   const [tagInput, setTagInput] = useAtom(editorTagInputAtom);
   const [activeEditor, setActiveEditor] = useAtom(activeEditorAtom);
+  
+  const allTags = useAtomValue(allTagsAtom);
+  const content = useAtomValue(editorContentAtom);
+  const fetchAllTags = useSetAtom(fetchAllTagsAtom);
+  
   const selectedId = useAtomValue(selectedMemoIdAtom);
   const saveMemo = useSetAtom(saveMemoAtom);
   const settings = useAtomValue(editorSettingsAtom);
@@ -29,10 +35,40 @@ export function EditorHeader() {
   const setCursor = useSetAtom(cursorAtom);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [showTagList, setShowTagList] = useState(false);
 
   const titleInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
   const ignoreSelectRef = useRef(false);
+  
+  // ★ 追加：ドロップダウン領域を判定するためのRef
+  const tagContainerRef = useRef<HTMLDivElement>(null);
+
+  // 初回マウント時にDBからタグ一覧を取得
+  useEffect(() => {
+    fetchAllTags();
+  }, [fetchAllTags]);
+
+  // ★ 追加：領域外をクリックしたら確実に閉じる処理
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tagContainerRef.current && !tagContainerRef.current.contains(event.target as Node)) {
+        setShowTagList(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // 本文やタイトルにフォーカスが移動したらタグリストを閉じる（Vim操作用）
+  useEffect(() => {
+    if (activeEditor !== "tags") {
+      setShowTagList(false);
+    }
+  }, [activeEditor]);
 
   const handleSave = useCallback(async () => {
     if (selectedId && !isSaving) {
@@ -59,6 +95,42 @@ export function EditorHeader() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  // AI自動タグ付け機能
+  const handleAutoTag = async () => {
+    if (!content || isAiLoading) return;
+    setIsAiLoading(true);
+    try {
+      const res = await fetch("/api/memos/tags/auto", {
+        method: "POST",
+        body: JSON.stringify({ content }),
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await res.json();
+      if (data.suggestedTags) {
+        setTags(data.suggestedTags);
+        fetchAllTags(); // AIが新しいタグを作った場合に備えてリストを更新
+      }
+    } catch (err) {
+      console.error("AI Auto-tag failed:", err);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  // タグの選択・解除
+  const toggleTag = (tag: Tag) => {
+    const isExists = tags.find(t => t.id === tag.id);
+    if (isExists) {
+      setTags(tags.filter(t => t.id !== tag.id));
+    } else {
+      setTags([...tags, tag]);
+    }
+  };
+
+  const removeTag = (tagId: string) => {
+    setTags(tags.filter(t => t.id !== tagId));
+  };
 
   const { handleKeyDown: handleTitleKeyDown } = useVimKeyHandler(
     titleInputRef,
@@ -146,18 +218,6 @@ export function EditorHeader() {
     setCursor(e.currentTarget.selectionStart || 0);
   };
 
-  const handleAddTag = () => {
-    const trimmed = tagInput.trim();
-    if (trimmed && !tags.includes(trimmed)) {
-      setTags([...tags, trimmed]);
-    }
-    setTagInput("");
-  };
-
-  const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter((tag) => tag !== tagToRemove));
-  };
-
   return (
     <div className="flex flex-col gap-4 w-full group">
       <div className="flex justify-between items-center gap-4">
@@ -199,38 +259,58 @@ export function EditorHeader() {
           )}
         />
 
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={!selectedId || isSaving}
-          className={cn(
-            "p-2 rounded-full transition-all duration-200",
-            selectedId
-              ? "text-gray-400 hover:bg-blue-50 hover:text-blue-600"
-              : "text-gray-200 cursor-not-allowed",
-          )}
-          title="保存 (Ctrl+S)"
-        >
-          {isSaving ? (
-            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-          ) : (
-            <Save className="w-6 h-6" />
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* AI自動タグ付けボタン */}
+          <button
+            type="button"
+            onClick={handleAutoTag}
+            disabled={!content || isAiLoading}
+            className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold transition-all",
+              isAiLoading 
+                ? "bg-gray-100 text-gray-400 cursor-wait"
+                : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+            )}
+            title="AIにタグを提案してもらう"
+          >
+            {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            <span>AI 自動タグ</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!selectedId || isSaving}
+            className={cn(
+              "p-2 rounded-full transition-all duration-200",
+              selectedId
+                ? "text-gray-400 hover:bg-blue-50 hover:text-blue-600"
+                : "text-gray-200 cursor-not-allowed",
+            )}
+            title="保存 (Ctrl+S)"
+          >
+            {isSaving ? (
+              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+            ) : (
+              <Save className="w-6 h-6" />
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 min-h-8">
+        {/* 選択済みのタグ表示 */}
         {tags.length > 0 ? (
           tags.map((tag) => (
             <div
-              key={tag}
+              key={tag.id}
               className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-sm rounded-md border border-gray-200 cursor-default group/tag"
             >
               <TagIcon className="w-3 h-3 opacity-70" />
-              <span>{tag}</span>
+              <span>{tag.name}</span>
               <button
                 type="button"
-                onClick={() => removeTag(tag)}
+                onClick={() => removeTag(tag.id)}
                 className="opacity-0 group-hover/tag:opacity-100 hover:text-red-500 transition-opacity ml-1"
               >
                 <X className="w-3 h-3" />
@@ -241,30 +321,27 @@ export function EditorHeader() {
           <span className="text-sm text-gray-300 italic">タグなし</span>
         )}
 
-        <div className="relative flex items-center">
+        {/* タグ選択・Vim用ダミーインプット */}
+        {/* ★ 変更：ここに ref={tagContainerRef} を追加しました */}
+        <div className="relative flex items-center" ref={tagContainerRef}>
           <Plus className="absolute left-2 w-3 h-3 text-gray-400 pointer-events-none" />
           <input
             id="memo-tag-input"
             ref={tagInputRef}
             type="text"
-            value={tagInput}
-            readOnly={
-              settings.type === "vim" &&
-              activeEditor === "tags" &&
-              (vimMode === "normal" || vimMode === "visual")
-            }
-            onFocus={() => setActiveEditor("tags")}
-            onChange={(e) => {
-              setTagInput(e.target.value);
-              setCursor(e.target.selectionStart || 0);
+            value={showTagList ? "選択中..." : tagInput}
+            readOnly // 完全に選択専用にします
+            onClick={() => setShowTagList(true)} // クリックで確実に開く
+            onFocus={() => {
+              setActiveEditor("tags");
+              setShowTagList(true);
             }}
+            onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={(e) => {
               if (settings.type === "standard") {
-                if (e.key === "Enter") {
+                if (e.key === "Escape" || e.key === "Enter") {
                   e.preventDefault();
-                  handleAddTag();
-                } else if (e.key === "Escape") {
-                  e.preventDefault();
+                  setShowTagList(false);
                   document.querySelector("textarea")?.focus();
                 }
               } else {
@@ -272,9 +349,9 @@ export function EditorHeader() {
               }
             }}
             onSelect={handleTagSelect}
-            placeholder="Add Tag"
+            placeholder="Select Tag"
             className={cn(
-              "pl-6 pr-2 py-0.5 text-sm text-gray-600 placeholder:text-gray-400 border border-transparent rounded-md outline-none w-28 transition-all bg-transparent hover:border-gray-200 hover:bg-gray-100 focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-200",
+              "pl-6 pr-2 py-0.5 text-sm text-gray-600 placeholder:text-gray-400 border border-transparent rounded-md outline-none w-28 transition-all bg-transparent hover:border-gray-200 hover:bg-gray-100 focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-200 cursor-pointer",
               settings.type === "vim" &&
                 activeEditor === "tags" &&
                 (vimMode === "normal" || vimMode === "visual")
@@ -282,6 +359,30 @@ export function EditorHeader() {
                 : "",
             )}
           />
+
+          {/* ドロップダウンリスト */}
+          {showTagList && (
+            <div className="absolute top-full left-0 mt-1 w-48 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1">
+              <div className="px-3 py-1 text-xs font-bold text-gray-400 border-b border-gray-100">データベースのタグ</div>
+              {allTags.map(tag => (
+                <button
+                  type="button"
+                  key={tag.id}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // Blurによる意図しないリスト閉じを防ぐ
+                    toggleTag(tag);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors text-left"
+                >
+                  <span>{tag.name}</span>
+                  {tags.find(t => t.id === tag.id) && <Check className="w-4 h-4 text-blue-500" />}
+                </button>
+              ))}
+              {allTags.length === 0 && (
+                <div className="px-3 py-2 text-xs text-gray-400 italic">タグがありません</div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
