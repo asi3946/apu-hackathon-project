@@ -53,14 +53,14 @@ export const saveMemoAtom = atom(null, async (get, set) => {
 
   try {
     // 【追加】あなたが作成したAPIを叩いてベクトルを取得する
-    const res = await fetch('/api/embeddings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const res = await fetch("/api/embeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: `${title}\n${content}` }),
     });
 
     if (!res.ok) {
-      throw new Error('Failed to fetch embedding');
+      throw new Error("Failed to fetch embedding");
     }
 
     const { embedding } = await res.json();
@@ -70,12 +70,12 @@ export const saveMemoAtom = atom(null, async (get, set) => {
     // 【修正】embeddingも一緒にDBに保存する
     const { error } = await supabase
       .from("memos")
-      .update({ 
-        title, 
-        content, 
-        tags, 
+      .update({
+        title,
+        content,
+        tags,
         updated_at,
-        embedding // ここでベクトルデータを保存
+        embedding, // ここでベクトルデータを保存
       })
       .eq("id", id);
 
@@ -87,7 +87,9 @@ export const saveMemoAtom = atom(null, async (get, set) => {
     // 成功したらローカルのリスト（Jotaiの状態）も更新
     set(memoListAtom, (prev) =>
       prev.map((memo) =>
-        memo.id === id ? { ...memo, title, content, tags, updated_at, embedding } : memo,
+        memo.id === id
+          ? { ...memo, title, content, tags, updated_at, embedding }
+          : memo,
       ),
     );
   } catch (err) {
