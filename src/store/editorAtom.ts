@@ -1,5 +1,6 @@
 import { atom } from "jotai";
 import { createClient } from "@/utils/supabase/client";
+import { Tag } from "@/types/db"; // ← 追加：データベースのTag型を読み込む
 
 export type EditorType = "standard" | "vim";
 
@@ -19,7 +20,12 @@ export const editorContentAtom = atom<string>("");
 export const editorTitleAtom = atom<string>("");
 
 // エディタで現在編集中のタグリスト（確定済みのタグ）
-export const editorTagsAtom = atom<string[]>([]);
+// ← 変更：単なる文字列から、DBのIDを持つオブジェクトの配列に変更しました
+export const editorTagsAtom = atom<Tag[]>([]);
+
+// データベースから取得した「利用可能な全タグ」のリストを保持する場所
+// ← 追加：DBにあるタグをプルダウンなどで選べるようにするために追加しました
+export const allTagsAtom = atom<Tag[]>([]);
 
 // エディタで現在入力中のタグの文字列（Vim操作用に追加）
 export const editorTagInputAtom = atom<string>("");

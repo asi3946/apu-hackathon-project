@@ -28,3 +28,8 @@ export type UpdateUserSettingsInput = TablesUpdate<"user_settings"> & {
 };
 
 // 今後、'users' や 'tags' テーブルをDBに追加したら、ここに同様の抽出コードを追記します。
+
+export interface Tag {
+  id: string;
+  name: string;
+}

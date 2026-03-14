@@ -5,6 +5,7 @@ import {
   editorContentAtom,
   editorTagsAtom,
   editorTitleAtom,
+  allTagsAtom, // ← 追加：全タグリストのAtom
 } from "./editorAtom";
 
 export const isExploreModeAtom = atom(false);
@@ -23,6 +24,18 @@ export const currentMemoAtom = atom((get) => {
 });
 
 // --- Actions (非同期処理) ---
+
+// 【追加】全タグ一覧をDBから取得するAction
+export const fetchAllTagsAtom = atom(null, async (get, set) => {
+  const { data, error } = await supabase
+    .from("tags")
+    .select("id, name")
+    .order("name");
+
+  if (!error && data) {
+    set(allTagsAtom, data);
+  }
+});
 
 // 1. メモ一覧を取得するAction
 export const fetchMemosAtom = atom(null, async (get, set) => {
@@ -49,12 +62,12 @@ export const saveMemoAtom = atom(null, async (get, set) => {
   const id = get(selectedMemoIdAtom);
   const title = get(editorTitleAtom);
   const content = get(editorContentAtom);
-  const tags = get(editorTagsAtom);
+  const tags = get(editorTagsAtom); // ← 現在は Tag[] 型 (オブジェクトの配列)
 
   if (!id) return;
 
   try {
-    // 【追加】あなたが作成したAPIを叩いてベクトルを取得する
+    // あなたが作成したAPIを叩いてベクトルを取得する (既存の処理そのまま)
     const res = await fetch("/api/embeddings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -66,18 +79,20 @@ export const saveMemoAtom = atom(null, async (get, set) => {
     }
 
     const { embedding } = await res.json();
-
     const updated_at = new Date().toISOString();
 
-    // 【修正】embeddingも一緒にDBに保存する
+    // 【エラー対策】DB(memos)とローカル状態には、オブジェクトから「名前(文字)」だけを抽出して渡す
+    const tagNames = tags.map((t: any) => t.name);
+
+    // embeddingと一緒にDB(memos)に保存する
     const { error } = await supabase
       .from("memos")
       .update({
         title,
         content,
-        tags,
+        tags: tagNames, // ← Tag[] ではなく string[] を渡すのでエラーが消えます！
         updated_at,
-        embedding, // ここでベクトルデータを保存
+        embedding,
       })
       .eq("id", id);
 
@@ -90,10 +105,25 @@ export const saveMemoAtom = atom(null, async (get, set) => {
     set(memoListAtom, (prev) =>
       prev.map((memo) =>
         memo.id === id
-          ? { ...memo, title, content, tags, updated_at, embedding }
+          ? { ...memo, title, content, tags: tagNames, updated_at, embedding } // ← ここも string[] を渡す
           : memo,
       ),
     );
+
+    // 【追加】タグの中間テーブル(memo_tags)同期APIを叩く
+    const syncRes = await fetch("/api/memos/tags/sync", {
+      method: "POST",
+      body: JSON.stringify({
+        memo_id: id,
+        tag_ids: tags.map((t: any) => t.id) // こっちはDBのIDの配列を送る
+      }),
+      headers: { "Content-Type": "application/json" }
+    });
+
+    if (!syncRes.ok) {
+      console.error("Tags sync failed");
+    }
+
   } catch (err) {
     console.error("Error in saveMemoAtom:", err);
   }
