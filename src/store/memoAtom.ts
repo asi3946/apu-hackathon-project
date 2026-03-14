@@ -9,12 +9,11 @@ import {
 
 const supabase = createClient();
 
-// メモのリストを保持するAtom.atomはAtomを定義するときにつかう.
-// atom(初期値).書き込み用関数.
+// メモのリストを保持するAtom
 export const memoListAtom = atom<Memo[]>([]);
 export const selectedMemoIdAtom = atom<string | null>(null);
 
-// 選択中のメモを取得する派生Atom.読み取り専用.
+// 選択中のメモを取得する派生Atom
 export const currentMemoAtom = atom((get) => {
   const memos = get(memoListAtom);
   const selectedId = get(selectedMemoIdAtom);
@@ -23,7 +22,7 @@ export const currentMemoAtom = atom((get) => {
 
 // --- Actions (非同期処理) ---
 
-// 1. メモ一覧を取得するAction.派生Atom.書き込み専用.
+// 1. メモ一覧を取得するAction
 export const fetchMemosAtom = atom(null, async (get, set) => {
   const { data, error } = await supabase
     .from("memos")
@@ -37,51 +36,66 @@ export const fetchMemosAtom = atom(null, async (get, set) => {
 
   if (data) {
     set(memoListAtom, data as Memo[]);
-    // リストが空でなければ、最初のメモを選択状態にする.
-    // selectedMemoIdAtomがnullの時、最初のメモを選択状態.
     if (data.length > 0 && !get(selectedMemoIdAtom)) {
       set(selectedMemoIdAtom, data[0].id);
     }
   }
 });
-// 2. メモを保存するAction
-// store/memoAtom.ts (または該当のファイル)
+
+// 2. メモを保存するAction (修正版)
 export const saveMemoAtom = atom(null, async (get, set) => {
-  // コンポーネントからではなく、JotaiのAtomから直接最新の値を取得する
   const id = get(selectedMemoIdAtom);
   const title = get(editorTitleAtom);
   const content = get(editorContentAtom);
   const tags = get(editorTagsAtom);
 
-  // IDがない（メモが選択されていない）場合は何もしない
   if (!id) return;
 
-  const updated_at = new Date().toISOString();
-  // {error}は分割構文、supabaseがerrorを返すとき中身が入る.
-  // DBはここですでにupdate.
-  const { error } = await supabase
-    .from("memos")
-    .update({ title, content, tags, updated_at })
-    .eq("id", id);
+  try {
+    // 【追加】あなたが作成したAPIを叩いてベクトルを取得する
+    const res = await fetch('/api/embeddings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: `${title}\n${content}` }),
+    });
 
-  if (error) {
-    console.error("Error saving memo:", error);
-    return;
+    if (!res.ok) {
+      throw new Error('Failed to fetch embedding');
+    }
+
+    const { embedding } = await res.json();
+
+    const updated_at = new Date().toISOString();
+
+    // 【修正】embeddingも一緒にDBに保存する
+    const { error } = await supabase
+      .from("memos")
+      .update({ 
+        title, 
+        content, 
+        tags, 
+        updated_at,
+        embedding // ここでベクトルデータを保存
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error saving memo to Supabase:", error);
+      return;
+    }
+
+    // 成功したらローカルのリスト（Jotaiの状態）も更新
+    set(memoListAtom, (prev) =>
+      prev.map((memo) =>
+        memo.id === id ? { ...memo, title, content, tags, updated_at, embedding } : memo,
+      ),
+    );
+  } catch (err) {
+    console.error("Error in saveMemoAtom:", err);
   }
-
-  // 成功したらローカルのリストも更新.
-  // memoListAtomはすべてのメモ.prevにはmemoListAtomが入っている.
-  set(memoListAtom, (prev) =>
-    // prev.map((memo))のmemoは任意の名前.Memoが取り出される.
-    // 三項演算子で、更新がないときはさっきと同じmemoをいれる.
-    prev.map((memo) =>
-      memo.id === id ? { ...memo, title, content, tags, updated_at } : memo,
-    ),
-  );
 });
 
 export const createMemoAtom = atom(null, async (get, set) => {
-  // DBの記述的に何も渡さなくてもメモデータが作られる.
   const { data, error } = await supabase
     .from("memos")
     .insert([{}])
@@ -94,14 +108,8 @@ export const createMemoAtom = atom(null, async (get, set) => {
   }
 
   if (data) {
-    // 既存のメモリストを取得
     const currentList = get(memoListAtom);
-
-    // 作成した新しいメモをリストの先頭に追加して状態を更新
-    // スプレッド構文の前に入れることで先頭となる.
     set(memoListAtom, [data as Memo, ...currentList]);
-
-    // エディタの表示を新しく作成したメモに切り替える
     set(selectedMemoIdAtom, data.id);
   }
 });
@@ -115,8 +123,6 @@ export const deleteMemoAtom = atom(null, async (get, set, memoId: string) => {
   }
 
   const currentList = get(memoListAtom);
-  // currentListには削除したmemoも入っているから、それをfilterしてなくす.
-  // memo.idと同じidのメモ以外を取り出す.少し直感的でないように思える.
   const filteredList = currentList.filter((memo) => memo.id !== memoId);
   set(memoListAtom, filteredList);
 
