@@ -2,6 +2,7 @@
 
 import { useAtom, useSetAtom } from "jotai";
 import {
+  ArrowLeft,
   Compass,
   FileText,
   Plus,
@@ -18,7 +19,7 @@ import {
   editorSettingsAtom,
   fetchMemosAtom,
   fetchUserSettingsAtom,
-  isExploreModeAtom, // 追加: 交流モードの切り替え用アトムを想定
+  isExploreModeAtom,
   memoListAtom,
   selectedMemoIdAtom,
   updateUserSettingsAtom,
@@ -35,7 +36,7 @@ export function AppSidebar() {
   const createMemo = useSetAtom(createMemoAtom);
   const deleteMemo = useSetAtom(deleteMemoAtom);
 
-  const [isExploreMode, setIsExploreMode] = useAtom(isExploreModeAtom); // 追加
+  const [isExploreMode, setIsExploreMode] = useAtom(isExploreModeAtom);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -138,86 +139,118 @@ export function AppSidebar() {
     >
       <div className="p-4 space-y-4">
         <SidebarAuth></SidebarAuth>
-        <div className="relative group">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500 group-focus-within:text-blue-600" />
-          <input
-            type="text"
-            placeholder="検索"
-            className="w-full bg-transparent border border-transparent hover:bg-white hover:shadow-sm focus:bg-white focus:shadow-md focus:border-blue-200 rounded-full py-2 pl-10 pr-4 text-sm outline-none transition-all"
-          />
-        </div>
 
-        <button
-          type="button"
-          onClick={handleCreateMemo}
-          className="flex items-center gap-2  hover:bg-gray-200 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
-        >
-          <Plus className="w-5 h-5" />
-          <span className="pr-2">メモを新規作成</span>
-        </button>
+        {/* モードによって上部のボタンを切り替え */}
+        {isExploreMode ? (
+          <button
+            type="button"
+            onClick={() => setIsExploreMode(false)}
+            className="flex items-center gap-2 hover:bg-gray-200 text-gray-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full border border-gray-300 bg-white"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="pr-2">自分のメモに戻る</span>
+          </button>
+        ) : (
+          <>
+            <div className="relative group">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500 group-focus-within:text-blue-600" />
+              <input
+                type="text"
+                placeholder="検索"
+                className="w-full bg-transparent border border-transparent hover:bg-white hover:shadow-sm focus:bg-white focus:shadow-md focus:border-blue-200 rounded-full py-2 pl-10 pr-4 text-sm outline-none transition-all"
+              />
+            </div>
 
-        {/* 交流機能への切り替えボタンを追加 */}
-        <button
-          type="button"
-          onClick={() => setIsExploreMode(true)}
-          className="flex items-center gap-2 hover:bg-blue-100 text-blue-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
-        >
-          <Compass className="w-5 h-5" />
-          <span className="pr-2">関連する公開メモを探す</span>
-        </button>
+            <button
+              type="button"
+              onClick={handleCreateMemo}
+              className="flex items-center gap-2  hover:bg-gray-200 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
+            >
+              <Plus className="w-5 h-5" />
+              <span className="pr-2">メモを新規作成</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsExploreMode(true)}
+              className="flex items-center gap-2 hover:bg-blue-100 text-blue-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
+            >
+              <Compass className="w-5 h-5" />
+              <span className="pr-2">関連する公開メモを探す</span>
+            </button>
+          </>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="text-xs font-medium px-4 mb-2">最近の自分のメモ</div>
-        <div className="space-y-1">
-          {memos.map((memo) => (
-            <div
-              key={memo.id}
-              className={cn(
-                "w-full rounded-full flex items-center transition-colors group relative",
-                selectedId === memo.id && !isExploreMode
-                  ? "bg-blue-100 text-[#0e42a0] font-medium"
-                  : "hover:bg-[#d3e3fd] text-gray-700",
-                "focus-within:ring-2 focus-within:ring-blue-400",
-              )}
-            >
-              <button
-                type="button"
-                data-memo-btn="true"
-                data-active={selectedId === memo.id && !isExploreMode}
-                onClick={() => {
-                  setSelectedId(memo.id);
-                  setIsExploreMode(false);
-                }}
-                className="flex-1 min-w-0 flex items-center gap-2 pl-8 py-2 rounded-l-full text-left outline-none"
-              >
-                <FileText className="w-4 h-4 opacity-50 shrink-0" />
-                <span className="truncate text-sm font-medium">
-                  {memo.title || "無題のメモ"}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteMemo(memo.id);
-                }}
-                className="hidden group-hover:flex shrink-0 text-red-400 pr-3 pl-2 py-2 hover:text-red-600 rounded-r-full items-center justify-center transition-colors outline-none focus:ring-2 focus:ring-red-400"
-                title="削除"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+        {/* モードによってリストの中身を切り替え */}
+        {isExploreMode ? (
+          <>
+            <div className="text-xs font-medium px-4 mb-2 text-blue-600">
+              検索結果
             </div>
-          ))}
-        </div>
+            <div className="space-y-1">
+              {/* API連携後にここに検索結果を展開します */}
+              <div className="text-center py-10 text-gray-400 text-sm">
+                API接続待ち...
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="text-xs font-medium px-4 mb-2">
+              最近の自分のメモ
+            </div>
+            <div className="space-y-1">
+              {memos.map((memo) => (
+                <div
+                  key={memo.id}
+                  className={cn(
+                    "w-full rounded-full flex items-center transition-colors group relative",
+                    selectedId === memo.id && !isExploreMode
+                      ? "bg-blue-100 text-[#0e42a0] font-medium"
+                      : "hover:bg-[#d3e3fd] text-gray-700",
+                    "focus-within:ring-2 focus-within:ring-blue-400",
+                  )}
+                >
+                  <button
+                    type="button"
+                    data-memo-btn="true"
+                    data-active={selectedId === memo.id && !isExploreMode}
+                    onClick={() => {
+                      setSelectedId(memo.id);
+                      setIsExploreMode(false);
+                    }}
+                    className="flex-1 min-w-0 flex items-center gap-2 pl-8 py-2 rounded-l-full text-left outline-none"
+                  >
+                    <FileText className="w-4 h-4 opacity-50 shrink-0" />
+                    <span className="truncate text-sm font-medium">
+                      {memo.title || "無題のメモ"}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteMemo(memo.id);
+                    }}
+                    className="hidden group-hover:flex shrink-0 text-red-400 pr-3 pl-2 py-2 hover:text-red-600 rounded-r-full items-center justify-center transition-colors outline-none focus:ring-2 focus:ring-red-400"
+                    title="削除"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       <div
         className="p-4 mt-auto border-t border-gray-200 relative"
         ref={settingsRef}
       >
-        {/* 設定ポップアップパネル */}
         {isSettingsOpen && (
           <div className="absolute bottom-full left-4 mb-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-50 animate-in fade-in slide-in-from-bottom-2">
             <h3 className="text-sm font-semibold text-gray-800 mb-4">
@@ -225,7 +258,6 @@ export function AppSidebar() {
             </h3>
 
             <div className="space-y-4">
-              {/* Vimモード トグル */}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Vimモード</span>
                 <button
@@ -247,7 +279,6 @@ export function AppSidebar() {
                 </button>
               </div>
 
-              {/* デフォルト公開 トグル */}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">デフォルトで公開</span>
                 <button
