@@ -1,10 +1,11 @@
 import { atom } from "jotai";
+import { createClient } from "@/utils/supabase/client";
 
 export type EditorType = "standard" | "vim";
 
 export interface EditorSettings {
   type: EditorType;
-  // 将来的な拡張性: fontSize?: number; など
+  defaultIsPublic: boolean; // 新たに追加
 }
 
 // どこの入力欄がアクティブかを判定する型とAtom
@@ -23,7 +24,72 @@ export const editorTagsAtom = atom<string[]>([]);
 // エディタで現在入力中のタグの文字列（Vim操作用に追加）
 export const editorTagInputAtom = atom<string>("");
 
-// エディタの設定（Vimモードか標準モードか）
+// エディタの設定（ローカルステート）
 export const editorSettingsAtom = atom<EditorSettings>({
-  type: "standard", // デフォルトは標準モード
+  type: "standard",
+  defaultIsPublic: false,
 });
+
+// --- ここからDB連携用のアクションを追加 ---
+
+// 1. 初回ロード時にDBから設定を読み込む
+export const fetchUserSettingsAtom = atom(null, async (get, set) => {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const { data, error } = await supabase
+    .from("user_settings")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  if (error) {
+    console.error("設定の取得に失敗しました:", error);
+    return;
+  }
+
+  if (data) {
+    set(editorSettingsAtom, {
+      type: data.use_vim_mode ? "vim" : "standard",
+      defaultIsPublic: data.default_is_public,
+    });
+  }
+});
+
+// 2. 設定を更新し、DBに保存する
+export const updateUserSettingsAtom = atom(
+  null,
+  async (get, set, update: Partial<EditorSettings>) => {
+    const current = get(editorSettingsAtom);
+    const next = { ...current, ...update };
+
+    // UIのレスポンスを良くするため、先に画面のステートを更新（オプティミスティックUI）
+    set(editorSettingsAtom, next);
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("user_settings")
+      .update({
+        use_vim_mode: next.type === "vim",
+        default_is_public: next.defaultIsPublic,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("設定の保存に失敗しました:", error);
+      // DB更新に失敗した場合は、画面を元の状態に戻す
+      set(editorSettingsAtom, current);
+    }
+  },
+);

@@ -2,7 +2,7 @@
 
 import { useAtom, useSetAtom } from "jotai";
 import { Plus, Search, Settings, Trash2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SidebarAuth } from "@/components/auth/SidebarAuth";
 import { cn } from "@/lib/utils";
 import {
@@ -10,27 +10,57 @@ import {
   deleteMemoAtom,
   editorSettingsAtom,
   fetchMemosAtom,
+  fetchUserSettingsAtom,
   memoListAtom,
   selectedMemoIdAtom,
+  updateUserSettingsAtom,
 } from "@/store/models";
 
 export function AppSidebar() {
-  const [settings, setSettings] = useAtom(editorSettingsAtom);
+  const [settings] = useAtom(editorSettingsAtom); // 表示用の状態読み取り
+  const updateSettings = useSetAtom(updateUserSettingsAtom); // DB同期用の更新関数
+  const fetchUserSettings = useSetAtom(fetchUserSettingsAtom); // 初回読み込み関数
+
   const [memos] = useAtom(memoListAtom);
   const [selectedId, setSelectedId] = useAtom(selectedMemoIdAtom);
   const fetchMemos = useSetAtom(fetchMemosAtom);
   const createMemo = useSetAtom(createMemoAtom);
   const deleteMemo = useSetAtom(deleteMemoAtom);
 
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+
+  // 初回マウント時にメモ一覧とユーザー設定をDBから取得
   useEffect(() => {
     fetchMemos();
-  }, [fetchMemos]);
+    fetchUserSettings();
+  }, [fetchMemos, fetchUserSettings]);
 
-  const toggleEditorType = () => {
-    setSettings((prev) => ({
-      ...prev,
-      type: prev.type === "standard" ? "vim" : "standard",
-    }));
+  // 設定パネルの外側をクリックしたときに閉じる処理
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        settingsRef.current &&
+        !settingsRef.current.contains(event.target as Node)
+      ) {
+        setIsSettingsOpen(false);
+      }
+    };
+    if (isSettingsOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isSettingsOpen]);
+
+  // トグル操作でDB同期用のアトムを呼び出す
+  const toggleVimMode = () => {
+    updateSettings({ type: settings.type === "standard" ? "vim" : "standard" });
+  };
+
+  const toggleDefaultPublic = () => {
+    updateSettings({ defaultIsPublic: !settings.defaultIsPublic });
   };
 
   const handleCreateMemo = async () => {
@@ -161,14 +191,77 @@ export function AppSidebar() {
         </div>
       </div>
 
-      <div className="p-4 mt-auto border-t border-gray-200">
+      <div
+        className="p-4 mt-auto border-t border-gray-200 relative"
+        ref={settingsRef}
+      >
+        {/* 設定ポップアップパネル */}
+        {isSettingsOpen && (
+          <div className="absolute bottom-full left-4 mb-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-50 animate-in fade-in slide-in-from-bottom-2">
+            <h3 className="text-sm font-semibold text-gray-800 mb-4">
+              エディタ設定
+            </h3>
+
+            <div className="space-y-4">
+              {/* Vimモード トグル */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Vimモード</span>
+                <button
+                  type="button"
+                  onClick={toggleVimMode}
+                  className={cn(
+                    "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                    settings.type === "vim" ? "bg-blue-500" : "bg-gray-300",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                      settings.type === "vim"
+                        ? "translate-x-4"
+                        : "translate-x-0",
+                    )}
+                  />
+                </button>
+              </div>
+
+              {/* デフォルト公開 トグル */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">デフォルトで公開</span>
+                <button
+                  type="button"
+                  onClick={toggleDefaultPublic}
+                  className={cn(
+                    "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                    settings.defaultIsPublic ? "bg-blue-500" : "bg-gray-300",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                      settings.defaultIsPublic
+                        ? "translate-x-4"
+                        : "translate-x-0",
+                    )}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <button
           type="button"
-          onClick={toggleEditorType}
-          className="flex items-center gap-3 w-full p-2 text-xs text-gray-500 hover:text-gray-900 hover:bg-[#e1e5ea] rounded-lg transition-colors"
+          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+          className={cn(
+            "flex items-center gap-3 w-full p-2 text-xs rounded-lg transition-colors",
+            isSettingsOpen
+              ? "bg-[#d3e3fd] text-[#0e42a0]"
+              : "text-gray-500 hover:text-gray-900 hover:bg-[#e1e5ea]",
+          )}
         >
           <Settings className="w-4 h-4" />
-          <span>Mode: {settings.type === "vim" ? "Vim (ON)" : "Standard"}</span>
+          <span>設定</span>
         </button>
       </div>
     </aside>
