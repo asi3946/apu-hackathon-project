@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
     }
 
-    // リクエストボディを型付きで取得
+    // リクエストボディを型付きで取得だぜ
     const body = (await request.json()) as GenerateEmbeddingRequest;
 
     if (!body.content || body.content.trim() === '') {
