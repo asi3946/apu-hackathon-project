@@ -22,23 +22,26 @@
 * Icons: Lucide React
 
 ## ディレクトリ構造
-
+```
 .
-├── src/                  # アプリケーションのソースコード
-│   ├── app/              # Next.js App Router (ページ、レイアウト、ルーティング)
-│   ├── components/       # UIコンポーネント (エディタ、サイドバー、認証など)
-│   ├── hooks/            # カスタムReactフック (Vimキーバインド処理など)
-│   ├── lib/              # 汎用ユーティリティや外部ライブラリの設定 (AI処理など)
-│   ├── store/            # Jotaiを用いた状態管理 (メモデータ、エディタ設定、Vim状態)
-│   ├── types/            # TypeScriptの型定義 (DBスキーマから生成した型など)
-│   └── utils/            # ユーティリティ (Supabaseクライアントの初期化など)
-├── supabase/             # Supabaseのローカル設定とデータベース関連ファイル
-│   ├── migrations/       # データベースのマイグレーションファイル (テーブル定義、RLS設定)
-│   ├── config.toml       # Supabaseのローカル設定ファイル
-│   └── seed.sql          # ローカル開発用の初期データ (テストユーザー、ダミーメモ)
-├── public/               # 静的ファイル (アイコンなど)
-├── middleware.ts         # Next.jsのミドルウェア (認証状態によるリダイレクト処理)
+├── public/               # 静的ファイル（ロゴ、アイコン等）
+├── src/                  # アプリケーションソースコード
+│   ├── app/              # App Router（ページ、レイアウト、ルーティング）
+│   ├── components/       # UIコンポーネント（エディタ、サイドバー等）
+│   ├── hooks/            # カスタムフック（Vimキーバインド処理等）
+│   ├── lib/              # 外部ライブラリ設定（AI処理、APIクライアント）
+│   ├── store/            # Jotaiによる状態管理（メモ、Vimの状態など）
+│   ├── types/            # TypeScript型定義
+│   └── utils/            # 汎用ユーティリティ（Supabase初期化等）
+├── supabase/             # データベース・バックエンド設定
+│   ├── migrations/       # SQLマイグレーションファイル
+│   ├── seed.sql          # ローカル開発用テストデータ
+│   └── config.toml       # Supabaseローカル設定
+├── middleware.ts         # 認証・リダイレクト制御
+├── .env.local.example    # 環境変数のサンプル
 └── package.json          # プロジェクトの依存関係とスクリプト
+```
+
 
 ## 開発環境のセットアップ
 
