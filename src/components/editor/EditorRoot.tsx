@@ -111,7 +111,6 @@ export function EditorRoot() {
 
   return (
     <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
-      
       {/* ★ 追加：エディター領域の一番左上にアプリロゴを配置 ★ */}
       <img
         src="/images/app-logo.png"
@@ -119,7 +118,7 @@ export function EditorRoot() {
         className="absolute top-8 left-8 w-12 h-12 rounded-xl object-cover shadow-sm z-10"
       />
 
-      <div className="w-full max-w-3xl ml-auto mr-70 px-8 pt-12 mb-6">
+      <div className="w-full max-w-4xl ml-auto mr-50 px-8 pt-12 mb-6">
         <EditorHeader />
       </div>
       <div className="flex-1 overflow-y-auto px-8 pb-8 max-w-4xl ml-auto mr-50 w-full relative [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
