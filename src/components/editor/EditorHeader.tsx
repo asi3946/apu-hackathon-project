@@ -1,31 +1,44 @@
 "use client";
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { Loader2, Plus, Save, Tag as TagIcon, X, Sparkles, Check } from "lucide-react";
+import {
+  Check,
+  Loader2,
+  Plus,
+  Save,
+  Sparkles,
+  Tag as TagIcon,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVimKeyHandler } from "@/hooks/useVimKeyHandler";
 import { cn } from "@/lib/utils";
-import { activeEditorAtom, editorTagInputAtom, allTagsAtom, editorContentAtom } from "@/store/editorAtom";
+import {
+  activeEditorAtom,
+  allTagsAtom,
+  editorContentAtom,
+  editorTagInputAtom,
+} from "@/store/editorAtom";
+import { fetchAllTagsAtom, saveMemoAtom } from "@/store/memoAtom";
 import {
   editorSettingsAtom,
   editorTagsAtom,
   editorTitleAtom,
   selectedMemoIdAtom,
 } from "@/store/models";
-import { fetchAllTagsAtom, saveMemoAtom } from "@/store/memoAtom";
 import { cursorAtom, modeAtom, visualStartAtom } from "@/store/vim/core";
-import { Tag } from "@/types/db";
+import type { Tag } from "@/types/db";
 
 export function EditorHeader() {
   const [title, setTitle] = useAtom(editorTitleAtom);
   const [tags, setTags] = useAtom(editorTagsAtom);
   const [tagInput, setTagInput] = useAtom(editorTagInputAtom);
   const [activeEditor, setActiveEditor] = useAtom(activeEditorAtom);
-  
+
   const allTags = useAtomValue(allTagsAtom);
   const content = useAtomValue(editorContentAtom);
   const fetchAllTags = useSetAtom(fetchAllTagsAtom);
-  
+
   const selectedId = useAtomValue(selectedMemoIdAtom);
   const saveMemo = useSetAtom(saveMemoAtom);
   const settings = useAtomValue(editorSettingsAtom);
@@ -35,13 +48,17 @@ export function EditorHeader() {
   const setCursor = useSetAtom(cursorAtom);
 
   const [isSaving, setIsSaving] = useState(false);
-  const [isAiLoading, setIsAiLoading] = useState(false);
+  
+  // ★重要：ローディング状態を分離して、ボタンが連動しないようにします
+  const [isTitleAiLoading, setIsTitleAiLoading] = useState(false);
+  const [isTagAiLoading, setIsTagAiLoading] = useState(false);
+  
   const [showTagList, setShowTagList] = useState(false);
 
   const titleInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
   const ignoreSelectRef = useRef(false);
-  
+
   const tagContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,7 +67,10 @@ export function EditorHeader() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (tagContainerRef.current && !tagContainerRef.current.contains(event.target as Node)) {
+      if (
+        tagContainerRef.current &&
+        !tagContainerRef.current.contains(event.target as Node)
+      ) {
         setShowTagList(false);
       }
     };
@@ -94,13 +114,13 @@ export function EditorHeader() {
 
   // AI自動タグ付け機能
   const handleAutoTag = async () => {
-    if (!content || isAiLoading) return;
-    setIsAiLoading(true);
+    if (!content || isTagAiLoading) return;
+    setIsTagAiLoading(true);
     try {
       const res = await fetch("/api/memos/tags/auto", {
         method: "POST",
         body: JSON.stringify({ content }),
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();
       if (data.suggestedTags) {
@@ -110,21 +130,42 @@ export function EditorHeader() {
     } catch (err) {
       console.error("AI Auto-tag failed:", err);
     } finally {
-      setIsAiLoading(false);
+      setIsTagAiLoading(false);
+    }
+  };
+
+  // AI自動タイトル生成機能
+  const handleAutoTitle = async () => {
+    if (!content || isTitleAiLoading) return;
+    setIsTitleAiLoading(true);
+    try {
+      const res = await fetch("/api/memos/title/auto", {
+        method: "POST",
+        body: JSON.stringify({ content }),
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (data.title) {
+        setTitle(data.title);
+      }
+    } catch (err) {
+      console.error("AI Auto-title failed:", err);
+    } finally {
+      setIsTitleAiLoading(false);
     }
   };
 
   const toggleTag = (tag: Tag) => {
-    const isExists = tags.find(t => t.id === tag.id);
+    const isExists = tags.find((t) => t.id === tag.id);
     if (isExists) {
-      setTags(tags.filter(t => t.id !== tag.id));
+      setTags(tags.filter((t) => t.id !== tag.id));
     } else {
       setTags([...tags, tag]);
     }
   };
 
   const removeTag = (tagId: string) => {
-    setTags(tags.filter(t => t.id !== tagId));
+    setTags(tags.filter((t) => t.id !== tagId));
   };
 
   const { handleKeyDown: handleTitleKeyDown } = useVimKeyHandler(
@@ -255,7 +296,26 @@ export function EditorHeader() {
         />
 
         <div className="flex items-center gap-2">
-          {/* AIボタンはここから下へ移動しました */}
+          {/* AIタイトル生成ボタン（独立したローディング状態を使用） */}
+          <button
+            type="button"
+            onClick={handleAutoTitle}
+            disabled={!content || isTitleAiLoading}
+            className={cn(
+              "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-bold transition-all",
+              isTitleAiLoading
+                ? "bg-gray-100 text-gray-400 cursor-wait"
+                : "bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:border-blue-300",
+            )}
+          >
+            {isTitleAiLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4" />
+            )}
+            <span>AI タイトル生成</span>
+          </button>
+
           <button
             type="button"
             onClick={handleSave}
@@ -278,7 +338,7 @@ export function EditorHeader() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 min-h-8">
-        {/* 選択済みのタグ表示 */}
+        {/* タグ表示...中略... */}
         {tags.length > 0 ? (
           tags.map((tag) => (
             <div
@@ -300,7 +360,6 @@ export function EditorHeader() {
           <span className="text-sm text-gray-300 italic">タグなし</span>
         )}
 
-        {/* タグ選択・Vim用ダミーインプット */}
         <div className="relative flex items-center" ref={tagContainerRef}>
           <Plus className="absolute left-2 w-3 h-3 text-gray-400 pointer-events-none" />
           <input
@@ -338,11 +397,12 @@ export function EditorHeader() {
             )}
           />
 
-          {/* ドロップダウンリスト */}
           {showTagList && (
             <div className="absolute top-full left-0 mt-1 w-48 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1">
-              <div className="px-3 py-1 text-xs font-bold text-gray-400 border-b border-gray-100">データベースのタグ</div>
-              {allTags.map(tag => (
+              <div className="px-3 py-1 text-xs font-bold text-gray-400 border-b border-gray-100">
+                データベースのタグ
+              </div>
+              {allTags.map((tag) => (
                 <button
                   type="button"
                   key={tag.id}
@@ -353,33 +413,35 @@ export function EditorHeader() {
                   className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors text-left"
                 >
                   <span>{tag.name}</span>
-                  {tags.find(t => t.id === tag.id) && <Check className="w-4 h-4 text-blue-500" />}
+                  {tags.find((t) => t.id === tag.id) && (
+                    <Check className="w-4 h-4 text-blue-500" />
+                  )}
                 </button>
               ))}
-              {allTags.length === 0 && (
-                <div className="px-3 py-2 text-xs text-gray-400 italic">タグがありません</div>
-              )}
             </div>
           )}
         </div>
 
-        {/* ★ 移動してきたAI自動タグボタン（デザインをタグに合わせて少しスリムにしました） */}
+        {/* AI自動タグボタン（独立したローディング状態を使用） */}
         <button
           type="button"
           onClick={handleAutoTag}
-          disabled={!content || isAiLoading}
+          disabled={!content || isTagAiLoading}
           className={cn(
             "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all ml-1",
-            isAiLoading 
+            isTagAiLoading
               ? "bg-gray-100 text-gray-400 cursor-wait"
-              : "bg-purple-50 text-purple-600 border border-purple-200 hover:bg-purple-100 hover:border-purple-300"
+              : "bg-purple-50 text-purple-600 border border-purple-200 hover:bg-purple-100 hover:border-purple-300",
           )}
           title="AIにタグを提案してもらう"
         >
-          {isAiLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-          <span>AI 自動タグ</span>
+          {isTagAiLoading ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="w-3.5 h-3.5" />
+          )}
+          <span>AI 自動タグ付け</span>
         </button>
-
       </div>
 
       <hr className="border-gray-100 mt-2 w-full" />
