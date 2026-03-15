@@ -145,7 +145,7 @@ export function AppSidebar() {
       // 上へ移動
       const prevIndex = currentIndex > 0 ? currentIndex - 1 : 0;
       focusableElements[prevIndex]?.focus();
-    } else if (e.key === "l" || e.key === "Escape") {
+    } else if (e.key === "L" || e.key === "Escape") {
       e.preventDefault();
       // l（右）または Escape でエディタにフォーカスを戻す
       (document.querySelector("textarea") as HTMLElement)?.focus();
