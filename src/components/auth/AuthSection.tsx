@@ -132,7 +132,8 @@ export function AuthSection() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="px-3 py-2 text-sm border border-gray-300 rounded-md outline-none focus:border-blue-500"
+          // ★ text-gray-900 と placeholder:text-gray-400 を追加
+          className="px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 border border-gray-300 rounded-md outline-none focus:border-blue-500"
         />
         <input
           type="password"
@@ -141,7 +142,8 @@ export function AuthSection() {
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={6}
-          className="px-3 py-2 text-sm border border-gray-300 rounded-md outline-none focus:border-blue-500"
+          // ★ text-gray-900 と placeholder:text-gray-400 を追加
+          className="px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 border border-gray-300 rounded-md outline-none focus:border-blue-500"
         />
         <button
           type="submit"
