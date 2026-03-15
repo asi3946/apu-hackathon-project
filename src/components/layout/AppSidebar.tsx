@@ -31,8 +31,8 @@ import {
   selectedMemoIdAtom,
   selectedSearchedMemoAtom,
   timelineMemosAtom,
-  isSearchingAtom,       // ★ 新規追加
-  fetchRelatedMemosAtom  // ★ 新規追加
+  isSearchingAtom,
+  fetchRelatedMemosAtom
 } from "@/store/memoAtom";
 
 export function AppSidebar() {
@@ -53,7 +53,6 @@ export function AppSidebar() {
     selectedSearchedMemoAtom,
   );
   
-  // ★ 検索状態と検索実行アクションの取得
   const isSearching = useAtomValue(isSearchingAtom);
   const fetchRelated = useSetAtom(fetchRelatedMemosAtom);
 
@@ -62,6 +61,9 @@ export function AppSidebar() {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
+
+  // ★ 新規追加: 検索キーワードを保存するステート
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchMemos();
@@ -91,6 +93,14 @@ export function AppSidebar() {
     await createMemo();
   };
 
+  // ★ 新規追加: 検索キーワードで自分のメモを絞り込む
+  const filteredMemos = memos.filter((memo) => {
+    if (!searchQuery) return true; // 検索文字がない場合はすべて表示
+    const title = memo.title || "無題のメモ";
+    // 大文字・小文字を区別せずに部分一致検索を行う
+    return title.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
   return (
     <aside className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none shrink-0">
       <div className="p-4 space-y-4">
@@ -113,7 +123,9 @@ export function AppSidebar() {
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
               <input
                 type="text"
-                placeholder="検索"
+                value={searchQuery} // ★ 追加: ステートと入力を紐付け
+                onChange={(e) => setSearchQuery(e.target.value)} // ★ 追加: 入力されるたびにステートを更新
+                placeholder="自分のメモを検索..."
                 className="w-full bg-transparent border border-transparent hover:bg-white focus:bg-white focus:border-blue-200 rounded-full py-2 pl-10 pr-4 text-sm outline-none transition-all"
               />
             </div>
@@ -131,7 +143,7 @@ export function AppSidebar() {
               type="button"
               onClick={() => {
                 setCurrentView("explore");
-                fetchRelated(); // ★ ボタンを押した時に検索処理を実行！
+                fetchRelated();
               }}
               className="flex items-center gap-2 hover:bg-blue-50 text-blue-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
             >
@@ -219,41 +231,49 @@ export function AppSidebar() {
         ) : (
           <div className="space-y-1">
             <div className="text-xs font-medium px-4 mb-2">自分のメモ</div>
-            {memos.map((memo) => (
-              <div
-                key={memo.id}
-                className={cn(
-                  "w-full rounded-full flex items-center transition-colors group px-2",
-                  selectedId === memo.id && currentView === "editor"
-                    ? "bg-blue-100 text-[#0e42a0]"
-                    : "hover:bg-[#d3e3fd]",
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedId(memo.id);
-                    setCurrentView("editor");
-                  }}
-                  className="flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left outline-none"
-                >
-                  <FileText className="w-4 h-4 opacity-50 shrink-0" />
-                  <span className="truncate text-sm font-medium">
-                    {memo.title || "無題のメモ"}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteMemo(memo.id);
-                  }}
-                  className="hidden group-hover:flex shrink-0 text-red-400 pr-3 pl-2 py-2 hover:text-red-600"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+            
+            {/* ★ 変更: memos を filteredMemos に変えて、検索結果が0件の時の表示も追加 */}
+            {filteredMemos.length === 0 ? (
+              <div className="text-center py-6 text-gray-400 text-xs">
+                メモが見つかりません
               </div>
-            ))}
+            ) : (
+              filteredMemos.map((memo) => (
+                <div
+                  key={memo.id}
+                  className={cn(
+                    "w-full rounded-full flex items-center transition-colors group px-2",
+                    selectedId === memo.id && currentView === "editor"
+                      ? "bg-blue-100 text-[#0e42a0]"
+                      : "hover:bg-[#d3e3fd]",
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedId(memo.id);
+                      setCurrentView("editor");
+                    }}
+                    className="flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left outline-none"
+                  >
+                    <FileText className="w-4 h-4 opacity-50 shrink-0" />
+                    <span className="truncate text-sm font-medium">
+                      {memo.title || "無題のメモ"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteMemo(memo.id);
+                    }}
+                    className="hidden group-hover:flex shrink-0 text-red-400 pr-3 pl-2 py-2 hover:text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
