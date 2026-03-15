@@ -1,7 +1,7 @@
 "use client";
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useEffect, useRef } from "react"; // ★ useRef を追加
+import { useEffect, useRef } from "react";
 import {
   allTagsAtom,
   createMemoAtom,
@@ -111,6 +111,14 @@ export function EditorRoot() {
 
   return (
     <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
+      
+      {/* ★ 追加：エディター領域の一番左上にアプリロゴを配置 ★ */}
+      <img
+        src="/images/app-logo.png"
+        alt="アプリロゴ"
+        className="absolute top-8 left-8 w-12 h-12 rounded-xl object-cover shadow-sm z-10"
+      />
+
       <div className="w-full max-w-3xl ml-auto mr-70 px-8 pt-12 mb-6">
         <EditorHeader />
       </div>
