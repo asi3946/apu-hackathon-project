@@ -2,7 +2,7 @@
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
-  Check, Globe, Hourglass, Loader2, Lock, Plus, Save, Search, Sparkles, Tag as TagIcon, X,
+  Check, Globe, Hourglass, Loader2, Lock, Plus, Save, Search, Sparkles, Tag as TagIcon, X, Bookmark // ★ Bookmarkを追加
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVimKeyHandler } from "@/hooks/useVimKeyHandler";
@@ -13,6 +13,7 @@ import {
 } from "@/store/editorAtom";
 import {
   fetchAllTagsAtom, saveMemoAtom, searchTagsSemanticAtom,
+  bookmarkedMemoIdsAtom, toggleBookmarkAtom // ★ ブックマーク用のAtomを追加
 } from "@/store/memoAtom";
 import {
   editorSettingsAtom, editorTagsAtom, editorTitleAtom, selectedMemoIdAtom,
@@ -44,6 +45,11 @@ export function EditorHeader() {
   const cursor = useAtomValue(cursorAtom);
   const visualStart = useAtomValue(visualStartAtom);
   const setCursor = useSetAtom(cursorAtom);
+
+  // ★ ブックマーク状態の取得
+  const bookmarkedIds = useAtomValue(bookmarkedMemoIdsAtom);
+  const toggleBookmark = useSetAtom(toggleBookmarkAtom);
+  const isBookmarked = selectedId ? bookmarkedIds.includes(selectedId) : false;
 
   const [isSaving, setIsSaving] = useState(false);
   const [isTitleAiLoading, setIsTitleAiLoading] = useState(false);
@@ -345,6 +351,25 @@ export function EditorHeader() {
                 <Lock className="w-3.5 h-3.5" /> 未公開
               </>
             )}
+          </button>
+
+          {/* 4. 自分のメモ用ブックマークボタン */}
+          <button
+            type="button"
+            onClick={() => selectedId && toggleBookmark(selectedId)}
+            disabled={!selectedId}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm whitespace-nowrap shrink-0",
+              !selectedId
+                ? "opacity-30 cursor-not-allowed"
+                : isBookmarked
+                  ? "bg-yellow-50 text-yellow-600 border-yellow-200 hover:bg-yellow-100"
+                  : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+            )}
+            title={isBookmarked ? "ブックマーク解除" : "ブックマークに保存"}
+          >
+            <Bookmark className={cn("w-3.5 h-3.5", isBookmarked && "fill-current")} />
+            <span>{isBookmarked ? "保存済み" : "保存する"}</span>
           </button>
         </div>
       </div>

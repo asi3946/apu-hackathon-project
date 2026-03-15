@@ -2,7 +2,7 @@
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
-  ArrowLeft, Compass, FileText, Globe, Loader2, Plus, Search, Settings, Trash2,
+  ArrowLeft, Compass, FileText, Globe, Loader2, Plus, Search, Settings, Trash2, Bookmark
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { SidebarAuth } from "@/components/auth/SidebarAuth";
@@ -14,6 +14,7 @@ import {
   createMemoAtom, deleteMemoAtom, fetchMemosAtom, fetchTimelineMemosAtom,
   memoListAtom, searchedMemosAtom, selectedMemoIdAtom, selectedSearchedMemoAtom,
   timelineMemosAtom, isSearchingAtom, fetchRelatedMemosAtom, currentMemoAtom,
+  bookmarkedMemosAtom, fetchBookmarkedMemosAtom
 } from "@/store/memoAtom";
 
 export function AppSidebar() {
@@ -33,6 +34,10 @@ export function AppSidebar() {
   const timelineMemos = useAtomValue(timelineMemosAtom);
   const fetchTimeline = useSetAtom(fetchTimelineMemosAtom);
   const currentMemo = useAtomValue(currentMemoAtom);
+  
+  const bookmarkedMemos = useAtomValue(bookmarkedMemosAtom);
+  const fetchBookmarks = useSetAtom(fetchBookmarkedMemosAtom);
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,7 +45,8 @@ export function AppSidebar() {
   useEffect(() => {
     fetchMemos();
     fetchUserSettings();
-  }, [fetchMemos, fetchUserSettings]);
+    fetchBookmarks();
+  }, [fetchMemos, fetchUserSettings, fetchBookmarks]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -81,6 +87,9 @@ export function AppSidebar() {
             <button type="button" onClick={() => { setCurrentView("timeline"); fetchTimeline(); }} className="flex items-center gap-2 hover:bg-green-50 text-green-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full">
               <Globe className="w-5 h-5" /><span>公開タイムライン</span>
             </button>
+            <button type="button" onClick={() => { setCurrentView("bookmarks"); fetchBookmarks(); }} className="flex items-center gap-2 hover:bg-yellow-50 text-yellow-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full">
+              <Bookmark className="w-5 h-5" /><span>ブックマーク</span>
+            </button>
           </div>
         )}
       </div>
@@ -111,6 +120,20 @@ export function AppSidebar() {
                 <div className="truncate text-sm font-medium text-gray-800">{memo.title || "無題のメモ"}</div>
               </button>
             ))}
+          </div>
+        ) : currentView === "bookmarks" ? (
+          <div className="space-y-1">
+            <div className="text-xs font-medium px-4 mb-2 text-yellow-600 font-bold">ブックマーク</div>
+            {bookmarkedMemos.length === 0 ? (
+              <div className="text-center py-6 text-gray-400 text-xs">まだ保存されていません</div>
+            ) : (
+              bookmarkedMemos.map((memo) => (
+                <button type="button" key={memo.id} onClick={() => setSelectedSearchedMemo(memo as any)} className={cn("w-full rounded-2xl flex flex-col p-3 transition-colors border text-left", selectedSearchedMemo?.id === memo.id ? "bg-yellow-50 border-yellow-200" : "bg-white border-transparent hover:border-gray-200")}>
+                  <div className="text-[10px] text-yellow-600 mb-1 font-bold">{new Date(memo.updated_at).toLocaleDateString()}</div>
+                  <div className="truncate text-sm font-medium text-gray-800">{memo.title || "無題のメモ"}</div>
+                </button>
+              ))
+            )}
           </div>
         ) : (
           <div className="space-y-1">
