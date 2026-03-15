@@ -3,16 +3,14 @@
 import type { User } from "@supabase/supabase-js";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 export function SidebarAuth() {
   const supabase = createClient();
-  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   // ▼ メニュー開閉用のStateとRefを追加
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -47,14 +45,14 @@ export function SidebarAuth() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    // ★ 修正：強制的にログイン画面へ！
+    window.location.href = "/login";
   };
 
   // ▼ アカウント削除処理を追加（バックエンドのAPIを叩く）
   const handleDeleteAccount = async () => {
     const confirmed = window.confirm(
-      "本当にアカウントを削除しますか？\nこれまでに作成したすべてのメモやデータが完全に削除され、復元することはできません。"
+      "本当にアカウントを削除しますか？\nこれまでに作成したすべてのメモやデータが完全に削除され、復元することはできません。",
     );
     if (!confirmed) return;
 
@@ -64,11 +62,13 @@ export function SidebarAuth() {
       if (res.ok) {
         // 成功したらフロント側でもログアウト状態にしてログイン画面へ
         await supabase.auth.signOut();
-        router.push("/login");
-        router.refresh();
+        // ★ 修正：強制的にログイン画面へ！
+        window.location.href = "/login";
       } else {
         const errorData = await res.json();
-        alert(`アカウントの削除に失敗しました: ${errorData.message || errorData.error}`);
+        alert(
+          `アカウントの削除に失敗しました: ${errorData.message || errorData.error}`,
+        );
       }
     } catch (error) {
       console.error("削除エラー:", error);

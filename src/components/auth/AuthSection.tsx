@@ -2,13 +2,11 @@
 
 import type { Session } from "@supabase/supabase-js";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client"; // 新しいクライアントをインポート
 
 export function AuthSection() {
   const supabase = createClient(); // コンポーネント内でクライアントを初期化
-  const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
 
   // メールアドレス認証用のState
@@ -20,10 +18,9 @@ export function AuthSection() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      // ★ 追加：ログイン済みならトップページへ移動
-      if (session) {
-        router.push("/");
-        router.refresh();
+      // ★ 修正：現在のパスが "/" じゃない時だけ、強制フルリロードで移動！
+      if (session && window.location.pathname !== "/") {
+        window.location.href = "/";
       }
     });
 
@@ -31,15 +28,14 @@ export function AuthSection() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      // ★ 追加：ログイン状態が変化したときもトップページへ移動
-      if (session) {
-        router.push("/");
-        router.refresh();
+      // ★ 修正：ログイン状態が変化したときも、強制フルリロードで移動！
+      if (session && window.location.pathname !== "/") {
+        window.location.href = "/";
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase.auth, router]); // ← ★ routerを依存配列に追加
+  }, [supabase.auth]);
 
   // GitHubログイン処理
   const handleGithubLogin = async () => {
@@ -47,7 +43,6 @@ export function AuthSection() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
-        // ★ 確認：クォーテーションなしの変数になっているので完璧です！
         redirectTo: window.location.origin,
       },
     });
@@ -67,8 +62,7 @@ export function AuthSection() {
       if (error) {
         setErrorMsg(error.message);
       } else {
-        router.push("/");
-        router.refresh();
+        window.location.href = "/";
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({
@@ -78,8 +72,7 @@ export function AuthSection() {
       if (error) {
         setErrorMsg("ログインに失敗しました。認証情報を確認してください。");
       } else {
-        router.push("/");
-        router.refresh();
+        window.location.href = "/";
       }
     }
   };
@@ -132,7 +125,6 @@ export function AuthSection() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          // ★ text-gray-900 と placeholder:text-gray-400 を追加
           className="px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 border border-gray-300 rounded-md outline-none focus:border-blue-500"
         />
         <input
@@ -142,7 +134,6 @@ export function AuthSection() {
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={6}
-          // ★ text-gray-900 と placeholder:text-gray-400 を追加
           className="px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 border border-gray-300 rounded-md outline-none focus:border-blue-500"
         />
         <button
