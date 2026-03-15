@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       "match_memos",
       {
         query_embedding: sourceMemo.embedding,
-        match_threshold: 0.1, // 閾値
+        match_threshold: 0.67, // 閾値(しきち)
         match_count: limit + 1,
       },
     );

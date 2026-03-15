@@ -49,7 +49,9 @@ export async function POST(request: Request) {
     const candidateNames = (candidates as any[])?.map((t) => t.name) || [];
 
     // 3. Geminiによる提案
-    const chatModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const chatModel = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash-lite",
+    });
     const prompt = `
       以下のメモ内容に最適なタグを3個以内で提案してください。
       既存タグ候補: [${candidateNames.join(", ")}]
