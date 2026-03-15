@@ -235,6 +235,16 @@ export function cn(...inputs: ClassValue[]) {
 }
 </file>
 
+<file path="src/store/models.ts">
+// src/store/models.ts
+export * from "./editorAtom";
+export * from "./memoAtom";
+export * from "./vim/core";
+export * from "./vim/edit";
+export * from "./vim/history";
+export * from "./vim/movement";
+</file>
+
 <file path="src/types/models.ts">
 export * from "./db";
 export * from "./editor";
@@ -979,32 +989,76 @@ export async function GET() {
   try {
     const supabase = await createClient();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 自分以外の公開メモを確実に取得
-    const { data: timelineMemos, error } = await supabase
+    // 1. 自分の全メモのベクトルを取得
+    const { data: myMemos } = await supabase
       .from("memos")
-      .select("id, title, content, updated_at, user_id, is_public")
-      .eq("is_public", true)
-      .neq("user_id", user.id) // DBレベルで自分を弾く
-      .order("updated_at", { ascending: false })
-      .limit(20);
+      .select("embedding")
+      .eq("user_id", user.id)
+      .not("embedding", "is", null);
 
-    if (error) {
-      console.error("Timeline DB Error:", error.message);
-      throw error;
+    let timeline_memos = [];
+
+    if (myMemos && myMemos.length > 0) {
+      const firstEmb = typeof myMemos[0].embedding === 'string' 
+        ? JSON.parse(myMemos[0].embedding) 
+        : myMemos[0].embedding;
+      
+      const vectorLength = firstEmb.length;
+      const combinedEmbedding = new Array(vectorLength).fill(0);
+
+      myMemos.forEach(memo => {
+        const emb = typeof memo.embedding === 'string' ? JSON.parse(memo.embedding) : memo.embedding;
+        if (Array.isArray(emb)) {
+          for (let i = 0; i < vectorLength; i++) {
+            combinedEmbedding[i] += (emb[i] || 0);
+          }
+        }
+      });
+
+      const averagedEmbedding = combinedEmbedding.map(val => val / myMemos.length);
+
+      // 2. 自分の思考（平均ベクトル）に近いメモを検索
+      const { data: matchedMemos, error: rpcError } = await supabase.rpc(
+        "match_memos",
+        {
+          query_embedding: averagedEmbedding,
+          match_threshold: 0.1, // ★少し緩めの0.1に設定して、関連しそうなものを拾う
+          match_count: 50,
+        }
+      );
+
+      if (rpcError) throw rpcError;
+
+      // 3. 【重要】自分以外の「公開」メモだけに絞り込む
+      timeline_memos = (matchedMemos || [])
+        .filter((m: any) => {
+          const isNotMe = String(m.user_id) !== String(user.id);
+          const isPublic = m.is_public === true;
+          return isNotMe && isPublic;
+        })
+        .slice(0, 30);
+
+    } else {
+      // 自分のメモがない場合のフォールバック（他人の最新公開メモ）
+      const { data: fallbackMemos } = await supabase
+        .from("memos")
+        .select("*")
+        .eq("is_public", true)
+        .neq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(30);
+      timeline_memos = fallbackMemos || [];
     }
 
-    return NextResponse.json({ timeline_memos: timelineMemos || [] });
+    return NextResponse.json({ timeline_memos });
+
   } catch (error: any) {
-    console.error("TIMELINE API ERROR:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 </file>
@@ -1288,14 +1342,117 @@ export function ExploreViewer() {
 }
 </file>
 
-<file path="src/store/models.ts">
-// src/store/models.ts
-export * from "./editorAtom";
-export * from "./memoAtom";
-export * from "./vim/core";
-export * from "./vim/edit";
-export * from "./vim/history";
-export * from "./vim/movement";
+<file path="src/store/vim/history.ts">
+import { atom } from "jotai";
+import { activeEditorAtom } from "../editorAtom";
+import { activeTextAtom, cursorAtom } from "./core";
+
+export interface HistoryRecord {
+  text: string;
+  cursor: number;
+}
+
+// 履歴の配列と、現在のインデックス（-1は初期状態）
+// --- 個別の履歴ステート ---
+const contentHistoryAtom = atom<HistoryRecord[]>([]);
+const contentHistoryIndexAtom = atom<number>(-1);
+
+const titleHistoryAtom = atom<HistoryRecord[]>([]);
+const titleHistoryIndexAtom = atom<number>(-1);
+
+const tagHistoryAtom = atom<HistoryRecord[]>([]);
+const tagHistoryIndexAtom = atom<number>(-1);
+
+// --- ルーティング用履歴Atom ---
+export const historyAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleHistoryAtom);
+    if (active === "tags") return get(tagHistoryAtom);
+    return get(contentHistoryAtom);
+  },
+  (get, set, newHistory: HistoryRecord[]) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") set(titleHistoryAtom, newHistory);
+    else if (active === "tags") set(tagHistoryAtom, newHistory);
+    else set(contentHistoryAtom, newHistory);
+  },
+);
+
+export const historyIndexAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleHistoryIndexAtom);
+    if (active === "tags") return get(tagHistoryIndexAtom);
+    return get(contentHistoryIndexAtom);
+  },
+  (get, set, newIndex: number) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") set(titleHistoryIndexAtom, newIndex);
+    else if (active === "tags") set(tagHistoryIndexAtom, newIndex);
+    else set(contentHistoryIndexAtom, newIndex);
+  },
+);
+
+// --- Actions ---
+
+// 現在の状態を履歴に積む
+export const saveHistoryAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const cursor = get(cursorAtom);
+  const history = get(historyAtom);
+  const currentIndex = get(historyIndexAtom);
+
+  // 連続で同じ内容が保存されるのを防ぐ
+  if (currentIndex >= 0 && history[currentIndex].text === text) {
+    return;
+  }
+
+  // もしUndoして過去に戻っている状態で新しい操作をしたら、それ以降の未来（Redo履歴）は捨てる
+  const newHistory = history.slice(0, currentIndex + 1);
+  newHistory.push({ text, cursor });
+
+  // メモリ肥大化を防ぐため最大100件に制限
+  if (newHistory.length > 100) {
+    newHistory.shift();
+  }
+
+  set(historyAtom, newHistory);
+  // lengthは0以上だからIndexに合わせるため、-1.
+  set(historyIndexAtom, newHistory.length - 1);
+});
+
+// u (Undo)
+export const undoAtom = atom(null, (get, set) => {
+  const history = get(historyAtom);
+  const currentIndex = get(historyIndexAtom);
+
+  // 1つ以上過去の履歴がある場合のみ戻る
+  if (currentIndex > 0) {
+    const prevIndex = currentIndex - 1;
+    const record = history[prevIndex];
+
+    set(historyIndexAtom, prevIndex);
+    set(activeTextAtom, record.text);
+    set(cursorAtom, record.cursor);
+  }
+});
+
+// Ctrl+R (Redo)
+export const redoAtom = atom(null, (get, set) => {
+  const history = get(historyAtom);
+  const currentIndex = get(historyIndexAtom);
+
+  // 現在より未来の履歴がある場合のみ進む
+  if (currentIndex < history.length - 1) {
+    const nextIndex = currentIndex + 1;
+    const record = history[nextIndex];
+
+    set(historyIndexAtom, nextIndex);
+    set(activeTextAtom, record.text);
+    set(cursorAtom, record.cursor);
+  }
+});
 </file>
 
 <file path="src/types/ai.ts">
@@ -1375,6 +1532,11 @@ export interface Tag {
   id: string;
   name: string;
 }
+</file>
+
+<file path="src/types/editor.ts">
+export type VimMode = "normal" | "insert" | "visual" | "visualLine" | "command";
+export type CursorPosition = number;
 </file>
 
 <file path="supabase/migrations/20260312054957_add_public_and_vector_to_memos.sql">
@@ -2077,9 +2239,255 @@ export default function Home() {
 }
 </file>
 
-<file path="src/types/editor.ts">
-export type VimMode = "normal" | "insert" | "visual" | "visualLine" | "command";
-export type CursorPosition = number;
+<file path="src/store/vim/core.ts">
+import { atom } from "jotai";
+import type { CursorPosition, VimMode } from "@/types/models";
+import {
+  activeEditorAtom,
+  editorContentAtom,
+  editorTagInputAtom,
+  editorTitleAtom,
+} from "../editorAtom";
+
+// --- 各エディタごとに独立した状態（直接触ることはない裏側のAtom） ---
+
+export const contentModeAtom = atom<VimMode>("normal");
+export const titleModeAtom = atom<VimMode>("normal");
+export const tagModeAtom = atom<VimMode>("normal");
+
+export const contentCursorAtom = atom<CursorPosition>(0);
+export const titleCursorAtom = atom<CursorPosition>(0);
+export const tagCursorAtom = atom<CursorPosition>(0);
+
+export const contentVisualStartAtom = atom<number | null>(null);
+export const titleVisualStartAtom = atom<number | null>(null);
+export const tagVisualStartAtom = atom<number | null>(null);
+
+// --- ルーティング用（派生）Atom ---
+// ロジック側は、以下のAtomだけを読み書きすれば、対象が自動で切り替わる
+
+// 1. アクティブなエディタのモード
+export const modeAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleModeAtom);
+    if (active === "tags") return get(tagModeAtom);
+    return get(contentModeAtom);
+  },
+  (get, set, newMode: VimMode) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") set(titleModeAtom, newMode);
+    else if (active === "tags") set(tagModeAtom, newMode);
+    else set(contentModeAtom, newMode);
+  },
+);
+
+// 2. アクティブなエディタのカーソル位置
+export const cursorAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleCursorAtom);
+    if (active === "tags") return get(tagCursorAtom);
+    return get(contentCursorAtom);
+  },
+  (get, set, update: number | ((prev: number) => number)) => {
+    const active = get(activeEditorAtom);
+    const targetAtom =
+      active === "title"
+        ? titleCursorAtom
+        : active === "tags"
+          ? tagCursorAtom
+          : contentCursorAtom;
+
+    const newValue =
+      typeof update === "function" ? update(get(targetAtom)) : update;
+    set(targetAtom, newValue);
+  },
+);
+
+// 3. アクティブなエディタのビジュアルモード開始位置
+export const visualStartAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleVisualStartAtom);
+    if (active === "tags") return get(tagVisualStartAtom);
+    return get(contentVisualStartAtom);
+  },
+  (get, set, newStart: number | null) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") set(titleVisualStartAtom, newStart);
+    else if (active === "tags") set(tagVisualStartAtom, newStart);
+    else set(contentVisualStartAtom, newStart);
+  },
+);
+
+// 4. アクティブなエディタのテキスト本体
+export const activeTextAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(editorTitleAtom);
+    if (active === "tags") return get(editorTagInputAtom);
+    return get(editorContentAtom);
+  },
+  (get, set, update: string | ((prev: string) => string)) => {
+    const active = get(activeEditorAtom);
+    const targetAtom =
+      active === "title"
+        ? editorTitleAtom
+        : active === "tags"
+          ? editorTagInputAtom
+          : editorContentAtom;
+
+    const newValue =
+      typeof update === "function" ? update(get(targetAtom)) : update;
+    set(targetAtom, newValue);
+  },
+);
+
+// 行の情報取得.
+
+export const getLineStart = (text: string, pos: number) => {
+  // もしposが'\n'だった時lastIndexOfはpos自身に反応する.
+  // そのため、一つ引いてpos以前の文を探索するようにしている.
+  const searchPos = pos - 1;
+  if (searchPos < 0) return 0;
+  // lastIndexOfは目的のものがなかった時-1を返す.
+  // lastIndexOfは第二引数の数を減らしながら最初の"\n"の位置をかえす.
+  const lastNewLine = text.lastIndexOf("\n", searchPos);
+  // 返値はその行の最初の文字の位置.
+  return lastNewLine === -1 ? 0 : lastNewLine + 1;
+};
+
+// 新しく追加：行の末尾（改行文字の位置、またはEOF）を取得する
+export const getLineEnd = (text: string, pos: number) => {
+  const nextNewLine = text.indexOf("\n", pos);
+  // trueの時はtext自体が1行しかない.
+  // 例えば"やあ\nこんにちは\n"というtextの時、二行目の'こ'にいる際、posは3.
+  // nextNewlineは8となる.8-3で5となり、正しい.
+  // "やあ\nこんにちは"の時、二行目の'こ'にいるとき、posは3,nextNewLineは-1で
+  // text.lenghtにより8が返され、8-3で5となり正しい.
+  return nextNewLine === -1 ? text.length : nextNewLine;
+};
+
+export const getLineLength = (text: string, lineStart: number) => {
+  const lineEnd = getLineEnd(text, lineStart);
+  return lineEnd - lineStart;
+};
+
+export const commandTextAtom = atom<string>("");
+</file>
+
+<file path="src/store/vim/movement.ts">
+import { atom } from "jotai";
+import {
+  activeTextAtom,
+  cursorAtom,
+  getLineLength,
+  getLineStart,
+  modeAtom,
+} from "./core";
+
+// --- Vim Logic (Actions) ---
+
+// j (下移動)
+export const moveDownAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const currentPos = get(cursorAtom);
+  const mode = get(modeAtom);
+  const lineStart = getLineStart(text, currentPos);
+  // カーソルが左から何番目かを示す.
+  const col = currentPos - lineStart;
+
+  const nextNewLine = text.indexOf("\n", currentPos);
+  if (nextNewLine === -1) return; // 次の行がない
+
+  // '\n'の次の位置.
+  const nextLineStart = nextNewLine + 1;
+  const nextLineLength = getLineLength(text, nextLineStart);
+
+  // ノーマルモードの場合、移動先の行が空行でなければ最後の文字（長さ-1）で止める
+  // 空行の時はmax(0,-1)となるため、maxColに0が入る.
+  // visualモードの時は改行を含めたいため,nextLineLengthをそのまま採用.
+  const maxCol =
+    mode === "normal" ? Math.max(0, nextLineLength - 1) : nextLineLength;
+
+  // 次の行のどの位置に動くかをminで判定.col採用の時はそのまま下.maxColの時は次の行の一番後ろにカーソルが来る.
+  set(cursorAtom, nextLineStart + Math.min(col, maxCol));
+});
+
+// k (上移動)
+export const moveUpAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const currentPos = get(cursorAtom);
+  const mode = get(modeAtom);
+  const lineStart = getLineStart(text, currentPos);
+  const col = currentPos - lineStart;
+
+  if (lineStart === 0) return; // 1行目なら何もしない
+
+  const prevLineStart = getLineStart(text, lineStart - 1);
+  const prevLineLength = getLineLength(text, prevLineStart);
+
+  // ノーマルモードの場合、移動先の行が空行でなければ最後の文字（長さ-1）で止める
+  const maxCol =
+    mode === "normal" ? Math.max(0, prevLineLength - 1) : prevLineLength;
+
+  set(cursorAtom, prevLineStart + Math.min(col, maxCol));
+});
+
+// h (左移動)
+export const moveLeftAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const current = get(cursorAtom);
+  const lineStart = getLineStart(text, current);
+  // 行をまたいで移動しないための記述.
+  if (current > lineStart) {
+    set(cursorAtom, current - 1);
+  }
+});
+
+// l (右移動)
+export const moveRightAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const current = get(cursorAtom);
+  const mode = get(modeAtom);
+
+  // 次の改行位置を求める.
+  const nextNewLine = text.indexOf("\n", current);
+  const lineEnd = nextNewLine === -1 ? text.length : nextNewLine;
+
+  // ノーマルモードなら、行末の1文字手前が限界
+  const maxPos = mode === "normal" ? Math.max(0, lineEnd - 1) : lineEnd;
+
+  if (current < maxPos) {
+    set(cursorAtom, current + 1);
+  }
+});
+
+// 0 (行頭へジャンプ)
+export const jumpToLineStartAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const current = get(cursorAtom);
+  set(cursorAtom, getLineStart(text, current));
+});
+
+// $ (行末へジャンプ)
+export const jumpToLineEndAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const current = get(cursorAtom);
+  const mode = get(modeAtom);
+  const lineStart = getLineStart(text, current);
+  const length = getLineLength(text, lineStart);
+
+  // ノーマルモードなら1文字手前
+  const target =
+    mode === "normal"
+      ? // Math.maxの第一引数はlengthが0のとき-1の位置に行くのを防ぐ.
+        Math.max(lineStart, lineStart + length - 1)
+      : lineStart + length;
+
+  set(cursorAtom, target);
+});
 </file>
 
 <file path="supabase/seed.sql">
@@ -2223,9 +2631,8 @@ import { createClient } from "@/utils/supabase/server";
 
 export async function POST(request: Request) {
   try {
-    // 1. 型定義通りにリクエストを受け取る
     const body = (await request.json()) as CrossUserSearchRequest;
-    const { source_memo_id, limit = 5 } = body; // limitがない場合はデフォルト5件
+    const { source_memo_id, limit = 10 } = body; 
 
     if (!source_memo_id) {
       return NextResponse.json(
@@ -2235,6 +2642,12 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createClient();
+
+    // 1. 現在のユーザーを取得（自分のメモを弾くために必要）
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     // 2. 検索元のメモのベクトルを取得
     const { data: sourceMemo, error: fetchError } = await supabase
@@ -2250,27 +2663,35 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. pgvectorで類似検索（自分自身が含まれるので limit + 1 件取得する）
+    // 3. pgvectorで類似検索
+    // ※自分のメモが上位を占めても大丈夫なように、多め（50件）に取得しておきます
     const { data: matchedMemos, error: rpcError } = await supabase.rpc(
       "match_memos",
       {
         query_embedding: sourceMemo.embedding,
-        match_threshold: 0.67, // 閾値(しきち)
-        match_count: limit + 1,
+        match_threshold: 0.1, // 他人のメモも引っかかりやすいように閾値を下げる
+        match_count: 50,
       },
     );
 
     if (rpcError) throw rpcError;
 
-    // 4. 型定義に合わせてデータを整形する
+    // 4. データ整形: 「自分以外のメモ」だけに厳密に絞り込む
     const related_memos = (matchedMemos || [])
-      .filter((memo: any) => memo.id !== source_memo_id) // 自分自身を除外
-      .slice(0, limit) // 指定された件数に絞る
+      .filter((memo: any) => {
+        // ★ ここが一番重要！自分の作成したメモはすべて除外する
+        const isNotMe = String(memo.user_id) !== String(user.id); 
+        const isNotSource = String(memo.id) !== String(source_memo_id); 
+        
+        // （他人の非公開メモはSupabaseのRLS機能で元々弾かれているため、
+        // ここに残るのは「他人の公開メモ」だけになります）
+        return isNotMe && isNotSource;
+      })
+      .slice(0, limit) // 指定された件数（10件）に絞る
       .map((memo: any) => ({
         id: memo.id,
         title: memo.title,
         content: memo.content,
-        // SQL側で計算した similarity が無ければ 0 を入れる安全対策
         similarity: typeof memo.similarity === "number" ? memo.similarity : 0,
         user_id: memo.user_id,
       }));
@@ -2288,367 +2709,214 @@ export async function POST(request: Request) {
 }
 </file>
 
-<file path="src/store/vim/movement.ts">
+<file path="src/store/vim/edit.ts">
 import { atom } from "jotai";
+import { activeEditorAtom } from "../editorAtom";
 import {
   activeTextAtom,
   cursorAtom,
+  getLineEnd,
   getLineLength,
   getLineStart,
   modeAtom,
+  visualStartAtom,
 } from "./core";
 
-// --- Vim Logic (Actions) ---
-
-// j (下移動)
-export const moveDownAtom = atom(null, (get, set) => {
+// x (1文字削除)
+export const deleteCharAtom = atom(null, (get, set) => {
   const text = get(activeTextAtom);
-  const currentPos = get(cursorAtom);
-  const mode = get(modeAtom);
-  const lineStart = getLineStart(text, currentPos);
-  // カーソルが左から何番目かを示す.
-  const col = currentPos - lineStart;
+  const pos = get(cursorAtom);
 
-  const nextNewLine = text.indexOf("\n", currentPos);
-  if (nextNewLine === -1) return; // 次の行がない
+  // pos >= text.lengthの状況になることはvimではないが、
+  // reactで問題が起きる可能性があるため、
+  if (text.length === 0 || pos >= text.length) return;
 
-  // '\n'の次の位置.
-  const nextLineStart = nextNewLine + 1;
-  const nextLineLength = getLineLength(text, nextLineStart);
+  // Vimの仕様：'x' は改行コード(\n)を削除して行を繋げることはしない.
+  // 空行の上にカーソルがあるときにこれが必要.
+  if (text[pos] === "\n") return;
 
-  // ノーマルモードの場合、移動先の行が空行でなければ最後の文字（長さ-1）で止める
-  // 空行の時はmax(0,-1)となるため、maxColに0が入る.
-  // visualモードの時は改行を含めたいため,nextLineLengthをそのまま採用.
-  const maxCol =
-    mode === "normal" ? Math.max(0, nextLineLength - 1) : nextLineLength;
+  // カーソル位置の文字を1つ抜いて結合
+  // sliceは第一引数の位置から第二引数の手前までを取り出す.
+  // 第一引数しかないときは、第一引数から最後まで.
+  const newText = text.slice(0, pos) + text.slice(pos + 1);
+  set(activeTextAtom, newText);
 
-  // 次の行のどの位置に動くかをminで判定.col採用の時はそのまま下.maxColの時は次の行の一番後ろにカーソルが来る.
-  set(cursorAtom, nextLineStart + Math.min(col, maxCol));
-});
+  // 行末の文字を消した場合、カーソルが「無い文字」の上に取り残されるのを防ぐため左へずらす.
+  const lineStart = getLineStart(newText, pos);
+  const lineLength = getLineLength(newText, lineStart);
 
-// k (上移動)
-export const moveUpAtom = atom(null, (get, set) => {
-  const text = get(activeTextAtom);
-  const currentPos = get(cursorAtom);
-  const mode = get(modeAtom);
-  const lineStart = getLineStart(text, currentPos);
-  const col = currentPos - lineStart;
-
-  if (lineStart === 0) return; // 1行目なら何もしない
-
-  const prevLineStart = getLineStart(text, lineStart - 1);
-  const prevLineLength = getLineLength(text, prevLineStart);
-
-  // ノーマルモードの場合、移動先の行が空行でなければ最後の文字（長さ-1）で止める
-  const maxCol =
-    mode === "normal" ? Math.max(0, prevLineLength - 1) : prevLineLength;
-
-  set(cursorAtom, prevLineStart + Math.min(col, maxCol));
-});
-
-// h (左移動)
-export const moveLeftAtom = atom(null, (get, set) => {
-  const text = get(activeTextAtom);
-  const current = get(cursorAtom);
-  const lineStart = getLineStart(text, current);
-  // 行をまたいで移動しないための記述.
-  if (current > lineStart) {
-    set(cursorAtom, current - 1);
+  // pos > lineStartはpos = 0,lineStart + lineLength = 0 + 0の時
+  // set (cursorAtom, - 1)となる事態を防ぐ.
+  // pos >= lineStart + lineLengthの>=の理由は行末の文字を消したとき、
+  // lineStartとlineLengthの値とposは等しくなるから.===でも成り立ちはする.
+  if (pos > lineStart && pos >= lineStart + lineLength) {
+    set(cursorAtom, pos - 1);
   }
 });
 
-// l (右移動)
-export const moveRightAtom = atom(null, (get, set) => {
+// dd (1行削除)
+export const deleteLineAtom = atom(null, (get, set) => {
   const text = get(activeTextAtom);
-  const current = get(cursorAtom);
-  const mode = get(modeAtom);
+  const pos = get(cursorAtom);
 
-  // 次の改行位置を求める.
-  const nextNewLine = text.indexOf("\n", current);
-  const lineEnd = nextNewLine === -1 ? text.length : nextNewLine;
+  if (text.length === 0) return;
 
-  // ノーマルモードなら、行末の1文字手前が限界
-  const maxPos = mode === "normal" ? Math.max(0, lineEnd - 1) : lineEnd;
+  const lineStart = getLineStart(text, pos);
+  const nextNewLine = text.indexOf("\n", lineStart);
 
-  if (current < maxPos) {
-    set(cursorAtom, current + 1);
+  let newText = "";
+  let newCursor = 0;
+
+  if (nextNewLine === -1) {
+    // 最終行の場合
+    if (lineStart === 0) {
+      // ファイル全体が1行しかない場合は全消去
+      newText = "";
+      newCursor = 0;
+    } else {
+      // 1つ前の改行コードから最後までを削除
+      newText = text.slice(0, lineStart - 1);
+      // 前の行の文字（lineStart - 2）を基準にして、その行の「先頭」へカーソルを移動
+      newCursor = getLineStart(newText, lineStart - 2);
+    }
+  } else {
+    // 途中の行の場合（行頭から改行コードまでを削除）
+    newText = text.slice(0, lineStart) + text.slice(nextNewLine + 1);
+    // 下の行が自動的に上がってくるため、CursorはlineStartにすればよい.
+    newCursor = lineStart;
   }
+
+  set(activeTextAtom, newText);
+  set(cursorAtom, newCursor);
 });
 
-// 0 (行頭へジャンプ)
-export const jumpToLineStartAtom = atom(null, (get, set) => {
-  const text = get(activeTextAtom);
-  const current = get(cursorAtom);
-  set(cursorAtom, getLineStart(text, current));
-});
-
-// $ (行末へジャンプ)
-export const jumpToLineEndAtom = atom(null, (get, set) => {
-  const text = get(activeTextAtom);
-  const current = get(cursorAtom);
-  const mode = get(modeAtom);
-  const lineStart = getLineStart(text, current);
-  const length = getLineLength(text, lineStart);
-
-  // ノーマルモードなら1文字手前
-  const target =
-    mode === "normal"
-      ? // Math.maxの第一引数はlengthが0のとき-1の位置に行くのを防ぐ.
-        Math.max(lineStart, lineStart + length - 1)
-      : lineStart + length;
-
-  set(cursorAtom, target);
-});
-</file>
-
-<file path="src/store/vim/core.ts">
-import { atom } from "jotai";
-import type { CursorPosition, VimMode } from "@/types/models";
-import {
-  activeEditorAtom,
-  editorContentAtom,
-  editorTagInputAtom,
-  editorTitleAtom,
-} from "../editorAtom";
-
-// --- 各エディタごとに独立した状態（直接触ることはない裏側のAtom） ---
-
-export const contentModeAtom = atom<VimMode>("normal");
-export const titleModeAtom = atom<VimMode>("normal");
-export const tagModeAtom = atom<VimMode>("normal");
-
-export const contentCursorAtom = atom<CursorPosition>(0);
-export const titleCursorAtom = atom<CursorPosition>(0);
-export const tagCursorAtom = atom<CursorPosition>(0);
-
-export const contentVisualStartAtom = atom<number | null>(null);
-export const titleVisualStartAtom = atom<number | null>(null);
-export const tagVisualStartAtom = atom<number | null>(null);
-
-// --- ルーティング用（派生）Atom ---
-// ロジック側は、以下のAtomだけを読み書きすれば、対象が自動で切り替わる
-
-// 1. アクティブなエディタのモード
-export const modeAtom = atom(
-  (get) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") return get(titleModeAtom);
-    if (active === "tags") return get(tagModeAtom);
-    return get(contentModeAtom);
-  },
-  (get, set, newMode: VimMode) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") set(titleModeAtom, newMode);
-    else if (active === "tags") set(tagModeAtom, newMode);
-    else set(contentModeAtom, newMode);
-  },
-);
-
-// 2. アクティブなエディタのカーソル位置
-export const cursorAtom = atom(
-  (get) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") return get(titleCursorAtom);
-    if (active === "tags") return get(tagCursorAtom);
-    return get(contentCursorAtom);
-  },
-  (get, set, update: number | ((prev: number) => number)) => {
-    const active = get(activeEditorAtom);
-    const targetAtom =
-      active === "title"
-        ? titleCursorAtom
-        : active === "tags"
-          ? tagCursorAtom
-          : contentCursorAtom;
-
-    const newValue =
-      typeof update === "function" ? update(get(targetAtom)) : update;
-    set(targetAtom, newValue);
-  },
-);
-
-// 3. アクティブなエディタのビジュアルモード開始位置
-export const visualStartAtom = atom(
-  (get) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") return get(titleVisualStartAtom);
-    if (active === "tags") return get(tagVisualStartAtom);
-    return get(contentVisualStartAtom);
-  },
-  (get, set, newStart: number | null) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") set(titleVisualStartAtom, newStart);
-    else if (active === "tags") set(tagVisualStartAtom, newStart);
-    else set(contentVisualStartAtom, newStart);
-  },
-);
-
-// 4. アクティブなエディタのテキスト本体
-export const activeTextAtom = atom(
-  (get) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") return get(editorTitleAtom);
-    if (active === "tags") return get(editorTagInputAtom);
-    return get(editorContentAtom);
-  },
-  (get, set, update: string | ((prev: string) => string)) => {
-    const active = get(activeEditorAtom);
-    const targetAtom =
-      active === "title"
-        ? editorTitleAtom
-        : active === "tags"
-          ? editorTagInputAtom
-          : editorContentAtom;
-
-    const newValue =
-      typeof update === "function" ? update(get(targetAtom)) : update;
-    set(targetAtom, newValue);
-  },
-);
-
-// 行の情報取得.
-
-export const getLineStart = (text: string, pos: number) => {
-  // もしposが'\n'だった時lastIndexOfはpos自身に反応する.
-  // そのため、一つ引いてpos以前の文を探索するようにしている.
-  const searchPos = pos - 1;
-  if (searchPos < 0) return 0;
-  // lastIndexOfは目的のものがなかった時-1を返す.
-  // lastIndexOfは第二引数の数を減らしながら最初の"\n"の位置をかえす.
-  const lastNewLine = text.lastIndexOf("\n", searchPos);
-  // 返値はその行の最初の文字の位置.
-  return lastNewLine === -1 ? 0 : lastNewLine + 1;
-};
-
-// 新しく追加：行の末尾（改行文字の位置、またはEOF）を取得する
-export const getLineEnd = (text: string, pos: number) => {
-  const nextNewLine = text.indexOf("\n", pos);
-  // trueの時はtext自体が1行しかない.
-  // 例えば"やあ\nこんにちは\n"というtextの時、二行目の'こ'にいる際、posは3.
-  // nextNewlineは8となる.8-3で5となり、正しい.
-  // "やあ\nこんにちは"の時、二行目の'こ'にいるとき、posは3,nextNewLineは-1で
-  // text.lenghtにより8が返され、8-3で5となり正しい.
-  return nextNewLine === -1 ? text.length : nextNewLine;
-};
-
-export const getLineLength = (text: string, lineStart: number) => {
-  const lineEnd = getLineEnd(text, lineStart);
-  return lineEnd - lineStart;
-};
-
-export const commandTextAtom = atom<string>("");
-</file>
-
-<file path="src/store/vim/history.ts">
-import { atom } from "jotai";
-import { activeEditorAtom } from "../editorAtom";
-import { activeTextAtom, cursorAtom } from "./core";
-
-export interface HistoryRecord {
-  text: string;
-  cursor: number;
-}
-
-// 履歴の配列と、現在のインデックス（-1は初期状態）
-// --- 個別の履歴ステート ---
-const contentHistoryAtom = atom<HistoryRecord[]>([]);
-const contentHistoryIndexAtom = atom<number>(-1);
-
-const titleHistoryAtom = atom<HistoryRecord[]>([]);
-const titleHistoryIndexAtom = atom<number>(-1);
-
-const tagHistoryAtom = atom<HistoryRecord[]>([]);
-const tagHistoryIndexAtom = atom<number>(-1);
-
-// --- ルーティング用履歴Atom ---
-export const historyAtom = atom(
-  (get) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") return get(titleHistoryAtom);
-    if (active === "tags") return get(tagHistoryAtom);
-    return get(contentHistoryAtom);
-  },
-  (get, set, newHistory: HistoryRecord[]) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") set(titleHistoryAtom, newHistory);
-    else if (active === "tags") set(tagHistoryAtom, newHistory);
-    else set(contentHistoryAtom, newHistory);
-  },
-);
-
-export const historyIndexAtom = atom(
-  (get) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") return get(titleHistoryIndexAtom);
-    if (active === "tags") return get(tagHistoryIndexAtom);
-    return get(contentHistoryIndexAtom);
-  },
-  (get, set, newIndex: number) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") set(titleHistoryIndexAtom, newIndex);
-    else if (active === "tags") set(tagHistoryIndexAtom, newIndex);
-    else set(contentHistoryIndexAtom, newIndex);
-  },
-);
-
-// --- Actions ---
-
-// 現在の状態を履歴に積む
-export const saveHistoryAtom = atom(null, (get, set) => {
+// Visual / VisualLine モードの選択範囲を削除する
+export const deleteVisualSelectionAtom = atom(null, (get, set) => {
   const text = get(activeTextAtom);
   const cursor = get(cursorAtom);
-  const history = get(historyAtom);
-  const currentIndex = get(historyIndexAtom);
+  const visualStart = get(visualStartAtom);
+  const vimMode = get(modeAtom);
 
-  // 連続で同じ内容が保存されるのを防ぐ
-  if (currentIndex >= 0 && history[currentIndex].text === text) {
+  if (visualStart === null) return;
+
+  let start = 0;
+  let end = 0;
+
+  if (vimMode === "visual") {
+    start = Math.min(visualStart, cursor);
+    end = Math.max(visualStart, cursor) + 1;
+  } else if (vimMode === "visualLine") {
+    // pos1 = visualStart,pos2=cursorとしないのは、
+    // cursorが右、下ではなく、左、上のようにうごくことがあるから.
+    const pos1 = Math.min(visualStart, cursor);
+    const pos2 = Math.max(visualStart, cursor);
+
+    start = getLineStart(text, pos1);
+
+    const lineEndPos = getLineEnd(text, pos2);
+    // visualLineの削除やコピーでは「改行文字(\n)」も含める必要があるため、
+    // ファイル末尾(text.length)でなければ +1 して改行文字を範囲に含める
+    end = lineEndPos === text.length ? text.length : lineEndPos + 1;
+  } else {
     return;
   }
 
-  // もしUndoして過去に戻っている状態で新しい操作をしたら、それ以降の未来（Redo履歴）は捨てる
-  const newHistory = history.slice(0, currentIndex + 1);
-  newHistory.push({ text, cursor });
+  const newText = text.slice(0, start) + text.slice(end);
 
-  // メモリ肥大化を防ぐため最大100件に制限
-  if (newHistory.length > 100) {
-    newHistory.shift();
-  }
-
-  set(historyAtom, newHistory);
-  // lengthは0以上だからIndexに合わせるため、-1.
-  set(historyIndexAtom, newHistory.length - 1);
+  set(activeTextAtom, newText);
+  set(cursorAtom, start);
+  set(visualStartAtom, null);
+  set(modeAtom, "normal");
 });
 
-// u (Undo)
-export const undoAtom = atom(null, (get, set) => {
-  const history = get(historyAtom);
-  const currentIndex = get(historyIndexAtom);
+// Visual / VisualLine モードの選択範囲のテキストを取得してNormalモードに戻る (y用)
+export const getVisualSelectionTextAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const cursor = get(cursorAtom);
+  const visualStart = get(visualStartAtom);
+  const vimMode = get(modeAtom);
 
-  // 1つ以上過去の履歴がある場合のみ戻る
-  if (currentIndex > 0) {
-    const prevIndex = currentIndex - 1;
-    const record = history[prevIndex];
+  if (visualStart === null) return "";
 
-    set(historyIndexAtom, prevIndex);
-    set(activeTextAtom, record.text);
-    set(cursorAtom, record.cursor);
+  let start = 0;
+  let end = 0;
+
+  if (vimMode === "visual") {
+    start = Math.min(visualStart, cursor);
+    end = Math.max(visualStart, cursor) + 1;
+  } else if (vimMode === "visualLine") {
+    const pos1 = Math.min(visualStart, cursor);
+    const pos2 = Math.max(visualStart, cursor);
+
+    start = getLineStart(text, pos1);
+
+    const lineEndPos = getLineEnd(text, pos2);
+    end = lineEndPos === text.length ? text.length : lineEndPos + 1;
   }
+
+  set(visualStartAtom, null);
+  set(modeAtom, "normal");
+
+  return text.slice(start, end);
 });
 
-// Ctrl+R (Redo)
-export const redoAtom = atom(null, (get, set) => {
-  const history = get(historyAtom);
-  const currentIndex = get(historyIndexAtom);
+// Normalモードの1行分のテキストを取得する (yy用)
+export const getLineTextAtom = atom(null, (get, _set) => {
+  const text = get(activeTextAtom);
+  const cursor = get(cursorAtom);
 
-  // 現在より未来の履歴がある場合のみ進む
-  if (currentIndex < history.length - 1) {
-    const nextIndex = currentIndex + 1;
-    const record = history[nextIndex];
+  // core.ts の関数を使って行の先頭と末尾を取得
+  const lineStart = getLineStart(text, cursor);
+  const lineEndPos = getLineEnd(text, cursor);
 
-    set(historyIndexAtom, nextIndex);
-    set(activeTextAtom, record.text);
-    set(cursorAtom, record.cursor);
+  // yy は改行文字も含めてコピーするため、ファイル末尾でなければ +1 する
+  const end = lineEndPos === text.length ? text.length : lineEndPos + 1;
+
+  return text.slice(lineStart, end);
+});
+
+// o (下の行にインサート)
+export const insertNewLineBelowAtom = atom(null, (get, set) => {
+  const activeEditor = get(activeEditorAtom);
+  // タイトルやタグ等の1行エディタでは改行させない
+  if (activeEditor !== "content") {
+    set(modeAtom, "insert");
+    return;
   }
+
+  const text = get(activeTextAtom);
+  const currentPos = get(cursorAtom);
+
+  const insertPos = getLineEnd(text, currentPos);
+  // "ABCDEF"という文字列でinsertPos=3の時、
+  // 最初のtext.sliceでCまで切り取り、\nが追加.\nの添字が3となる.
+  // Dの添字が4となり、"ABC\nDEF"という文字列となる.
+  const newText = `${text.slice(0, insertPos)}\n${text.slice(insertPos)}`;
+
+  set(activeTextAtom, newText);
+  set(cursorAtom, insertPos + 1);
+  set(modeAtom, "insert");
+});
+
+// O (上の行にインサート)
+export const insertNewLineAboveAtom = atom(null, (get, set) => {
+  const activeEditor = get(activeEditorAtom);
+  // タイトルやタグ等の1行エディタでは改行させない
+  if (activeEditor !== "content") {
+    set(modeAtom, "insert");
+    return;
+  }
+
+  const text = get(activeTextAtom);
+  const currentPos = get(cursorAtom);
+
+  const insertPos = getLineStart(text, currentPos);
+
+  const newText = `${text.slice(0, insertPos)}\n${text.slice(insertPos)}`;
+
+  set(activeTextAtom, newText);
+  set(cursorAtom, insertPos);
+  set(modeAtom, "insert");
 });
 </file>
 
@@ -2973,6 +3241,50 @@ export const Constants = {
     Enums: {},
   },
 } as const
+</file>
+
+<file path="src/components/editor/SimpleEditor.tsx">
+"use client";
+
+import { useSetAtom } from "jotai";
+import { useVimEditor } from "@/hooks/useVimEditor";
+import { cn } from "@/lib/utils";
+import { activeEditorAtom } from "@/store/editorAtom";
+
+export function SimpleEditor() {
+  const {
+    textareaRef,
+    content,
+    vimMode,
+    settings,
+    handleChange,
+    handleSelect,
+    handleKeyDown,
+  } = useVimEditor();
+
+  const setActiveEditor = useSetAtom(activeEditorAtom);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={content}
+      onChange={handleChange}
+      onSelect={handleSelect}
+      onKeyDown={handleKeyDown}
+      onFocus={() => setActiveEditor("content")}
+      placeholder="ここにメモを入力..."
+      className={cn(
+        "w-full h-full resize-none outline-none bg-transparent",
+        "font-mono text-lg leading-relaxed",
+        "text-gray-800 placeholder:text-gray-300",
+        settings.type === "vim" &&
+          vimMode === "normal" &&
+          "selection:bg-gray-800 selection:text-white",
+      )}
+      spellCheck={false}
+    />
+  );
+}
 </file>
 
 <file path="src/components/editor/EditorRoot.tsx">
@@ -3593,261 +3905,6 @@ export function useVimKeyHandler(
   };
 
   return { handleKeyDown };
-}
-</file>
-
-<file path="src/store/vim/edit.ts">
-import { atom } from "jotai";
-import { activeEditorAtom } from "../editorAtom";
-import {
-  activeTextAtom,
-  cursorAtom,
-  getLineEnd,
-  getLineLength,
-  getLineStart,
-  modeAtom,
-  visualStartAtom,
-} from "./core";
-
-// x (1文字削除)
-export const deleteCharAtom = atom(null, (get, set) => {
-  const text = get(activeTextAtom);
-  const pos = get(cursorAtom);
-
-  // pos >= text.lengthの状況になることはvimではないが、
-  // reactで問題が起きる可能性があるため、
-  if (text.length === 0 || pos >= text.length) return;
-
-  // Vimの仕様：'x' は改行コード(\n)を削除して行を繋げることはしない.
-  // 空行の上にカーソルがあるときにこれが必要.
-  if (text[pos] === "\n") return;
-
-  // カーソル位置の文字を1つ抜いて結合
-  // sliceは第一引数の位置から第二引数の手前までを取り出す.
-  // 第一引数しかないときは、第一引数から最後まで.
-  const newText = text.slice(0, pos) + text.slice(pos + 1);
-  set(activeTextAtom, newText);
-
-  // 行末の文字を消した場合、カーソルが「無い文字」の上に取り残されるのを防ぐため左へずらす.
-  const lineStart = getLineStart(newText, pos);
-  const lineLength = getLineLength(newText, lineStart);
-
-  // pos > lineStartはpos = 0,lineStart + lineLength = 0 + 0の時
-  // set (cursorAtom, - 1)となる事態を防ぐ.
-  // pos >= lineStart + lineLengthの>=の理由は行末の文字を消したとき、
-  // lineStartとlineLengthの値とposは等しくなるから.===でも成り立ちはする.
-  if (pos > lineStart && pos >= lineStart + lineLength) {
-    set(cursorAtom, pos - 1);
-  }
-});
-
-// dd (1行削除)
-export const deleteLineAtom = atom(null, (get, set) => {
-  const text = get(activeTextAtom);
-  const pos = get(cursorAtom);
-
-  if (text.length === 0) return;
-
-  const lineStart = getLineStart(text, pos);
-  const nextNewLine = text.indexOf("\n", lineStart);
-
-  let newText = "";
-  let newCursor = 0;
-
-  if (nextNewLine === -1) {
-    // 最終行の場合
-    if (lineStart === 0) {
-      // ファイル全体が1行しかない場合は全消去
-      newText = "";
-      newCursor = 0;
-    } else {
-      // 1つ前の改行コードから最後までを削除
-      newText = text.slice(0, lineStart - 1);
-      // 前の行の文字（lineStart - 2）を基準にして、その行の「先頭」へカーソルを移動
-      newCursor = getLineStart(newText, lineStart - 2);
-    }
-  } else {
-    // 途中の行の場合（行頭から改行コードまでを削除）
-    newText = text.slice(0, lineStart) + text.slice(nextNewLine + 1);
-    // 下の行が自動的に上がってくるため、CursorはlineStartにすればよい.
-    newCursor = lineStart;
-  }
-
-  set(activeTextAtom, newText);
-  set(cursorAtom, newCursor);
-});
-
-// Visual / VisualLine モードの選択範囲を削除する
-export const deleteVisualSelectionAtom = atom(null, (get, set) => {
-  const text = get(activeTextAtom);
-  const cursor = get(cursorAtom);
-  const visualStart = get(visualStartAtom);
-  const vimMode = get(modeAtom);
-
-  if (visualStart === null) return;
-
-  let start = 0;
-  let end = 0;
-
-  if (vimMode === "visual") {
-    start = Math.min(visualStart, cursor);
-    end = Math.max(visualStart, cursor) + 1;
-  } else if (vimMode === "visualLine") {
-    // pos1 = visualStart,pos2=cursorとしないのは、
-    // cursorが右、下ではなく、左、上のようにうごくことがあるから.
-    const pos1 = Math.min(visualStart, cursor);
-    const pos2 = Math.max(visualStart, cursor);
-
-    start = getLineStart(text, pos1);
-
-    const lineEndPos = getLineEnd(text, pos2);
-    // visualLineの削除やコピーでは「改行文字(\n)」も含める必要があるため、
-    // ファイル末尾(text.length)でなければ +1 して改行文字を範囲に含める
-    end = lineEndPos === text.length ? text.length : lineEndPos + 1;
-  } else {
-    return;
-  }
-
-  const newText = text.slice(0, start) + text.slice(end);
-
-  set(activeTextAtom, newText);
-  set(cursorAtom, start);
-  set(visualStartAtom, null);
-  set(modeAtom, "normal");
-});
-
-// Visual / VisualLine モードの選択範囲のテキストを取得してNormalモードに戻る (y用)
-export const getVisualSelectionTextAtom = atom(null, (get, set) => {
-  const text = get(activeTextAtom);
-  const cursor = get(cursorAtom);
-  const visualStart = get(visualStartAtom);
-  const vimMode = get(modeAtom);
-
-  if (visualStart === null) return "";
-
-  let start = 0;
-  let end = 0;
-
-  if (vimMode === "visual") {
-    start = Math.min(visualStart, cursor);
-    end = Math.max(visualStart, cursor) + 1;
-  } else if (vimMode === "visualLine") {
-    const pos1 = Math.min(visualStart, cursor);
-    const pos2 = Math.max(visualStart, cursor);
-
-    start = getLineStart(text, pos1);
-
-    const lineEndPos = getLineEnd(text, pos2);
-    end = lineEndPos === text.length ? text.length : lineEndPos + 1;
-  }
-
-  set(visualStartAtom, null);
-  set(modeAtom, "normal");
-
-  return text.slice(start, end);
-});
-
-// Normalモードの1行分のテキストを取得する (yy用)
-export const getLineTextAtom = atom(null, (get, _set) => {
-  const text = get(activeTextAtom);
-  const cursor = get(cursorAtom);
-
-  // core.ts の関数を使って行の先頭と末尾を取得
-  const lineStart = getLineStart(text, cursor);
-  const lineEndPos = getLineEnd(text, cursor);
-
-  // yy は改行文字も含めてコピーするため、ファイル末尾でなければ +1 する
-  const end = lineEndPos === text.length ? text.length : lineEndPos + 1;
-
-  return text.slice(lineStart, end);
-});
-
-// o (下の行にインサート)
-export const insertNewLineBelowAtom = atom(null, (get, set) => {
-  const activeEditor = get(activeEditorAtom);
-  // タイトルやタグ等の1行エディタでは改行させない
-  if (activeEditor !== "content") {
-    set(modeAtom, "insert");
-    return;
-  }
-
-  const text = get(activeTextAtom);
-  const currentPos = get(cursorAtom);
-
-  const insertPos = getLineEnd(text, currentPos);
-  // "ABCDEF"という文字列でinsertPos=3の時、
-  // 最初のtext.sliceでCまで切り取り、\nが追加.\nの添字が3となる.
-  // Dの添字が4となり、"ABC\nDEF"という文字列となる.
-  const newText = `${text.slice(0, insertPos)}\n${text.slice(insertPos)}`;
-
-  set(activeTextAtom, newText);
-  set(cursorAtom, insertPos + 1);
-  set(modeAtom, "insert");
-});
-
-// O (上の行にインサート)
-export const insertNewLineAboveAtom = atom(null, (get, set) => {
-  const activeEditor = get(activeEditorAtom);
-  // タイトルやタグ等の1行エディタでは改行させない
-  if (activeEditor !== "content") {
-    set(modeAtom, "insert");
-    return;
-  }
-
-  const text = get(activeTextAtom);
-  const currentPos = get(cursorAtom);
-
-  const insertPos = getLineStart(text, currentPos);
-
-  const newText = `${text.slice(0, insertPos)}\n${text.slice(insertPos)}`;
-
-  set(activeTextAtom, newText);
-  set(cursorAtom, insertPos);
-  set(modeAtom, "insert");
-});
-</file>
-
-<file path="src/components/editor/SimpleEditor.tsx">
-"use client";
-
-import { useSetAtom } from "jotai";
-import { useVimEditor } from "@/hooks/useVimEditor";
-import { cn } from "@/lib/utils";
-import { activeEditorAtom } from "@/store/editorAtom";
-
-export function SimpleEditor() {
-  const {
-    textareaRef,
-    content,
-    vimMode,
-    settings,
-    handleChange,
-    handleSelect,
-    handleKeyDown,
-  } = useVimEditor();
-
-  const setActiveEditor = useSetAtom(activeEditorAtom);
-
-  return (
-    <textarea
-      ref={textareaRef}
-      value={content}
-      onChange={handleChange}
-      onSelect={handleSelect}
-      onKeyDown={handleKeyDown}
-      onFocus={() => setActiveEditor("content")}
-      placeholder="ここにメモを入力..."
-      className={cn(
-        "w-full h-full resize-none outline-none bg-transparent",
-        "font-mono text-lg leading-relaxed",
-        "text-gray-800 placeholder:text-gray-300",
-        settings.type === "vim" &&
-          vimMode === "normal" &&
-          "selection:bg-gray-800 selection:text-white",
-      )}
-      spellCheck={false}
-    />
-  );
 }
 </file>
 
@@ -4496,7 +4553,7 @@ import {
   tagSearchQueryAtom,
   isTagSearchingAtom,
   editorSettingsAtom,
-  editorIsPublicAtom, // ★ 追加
+  editorIsPublicAtom,
 } from "./editorAtom";
 
 // 検索結果専用の型を定義
@@ -4573,7 +4630,6 @@ export const searchTagsSemanticAtom = atom(null, async (get, set) => {
   }
 });
 
-// メモ一覧取得：選択したメモの公開状態もAtomに反映させる
 export const fetchMemosAtom = atom(null, async (get, set) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
@@ -4593,7 +4649,6 @@ export const fetchMemosAtom = atom(null, async (get, set) => {
     const memoData = data as Memo[];
     set(memoListAtom, memoData);
     
-    // 選択中のメモがあれば、その公開状態をセット
     const selectedId = get(selectedMemoIdAtom) || (memoData.length > 0 ? memoData[0].id : null);
     if (selectedId) {
       if (!get(selectedMemoIdAtom)) set(selectedMemoIdAtom, selectedId);
@@ -4608,7 +4663,7 @@ export const saveMemoAtom = atom(null, async (get, set) => {
   const title = get(editorTitleAtom);
   const content = get(editorContentAtom);
   const tags = get(editorTagsAtom);
-  const isPublic = get(editorIsPublicAtom); // ★ 追加
+  const isPublic = get(editorIsPublicAtom);
   const cache = get(editorEmbeddingCacheAtom);
 
   if (!id) return;
@@ -4639,7 +4694,7 @@ export const saveMemoAtom = atom(null, async (get, set) => {
         title,
         content,
         tags: tagNames,
-        is_public: isPublic, // ★ 追加
+        is_public: isPublic,
         updated_at,
         embedding: currentEmbedding,
       })
@@ -4655,7 +4710,7 @@ export const saveMemoAtom = atom(null, async (get, set) => {
               title,
               content,
               tags: tagNames,
-              is_public: isPublic, // ★ 追加
+              is_public: isPublic,
               updated_at,
               embedding: JSON.stringify(currentEmbedding),
             }
@@ -4689,7 +4744,7 @@ export const createMemoAtom = atom(null, async (get, set) => {
       title: "",
       content: "",
       tags: [],
-      is_public: settings.defaultIsPublic // ★ デフォルト設定を適用
+      is_public: settings.defaultIsPublic
     }])
     .select()
     .single();
@@ -4699,7 +4754,7 @@ export const createMemoAtom = atom(null, async (get, set) => {
     const currentList = get(memoListAtom);
     set(memoListAtom, [newMemo, ...currentList]);
     set(selectedMemoIdAtom, newMemo.id);
-    set(editorIsPublicAtom, !!newMemo.is_public); // ★ 新規作成時の状態を反映
+    set(editorIsPublicAtom, !!newMemo.is_public);
   }
 });
 
@@ -4722,7 +4777,6 @@ export type TimelineMemo = Pick<
 
 export const timelineMemosAtom = atom<TimelineMemo[]>([]);
 
-// fetchTimelineMemosAtom の部分のみ差し替え
 export const fetchTimelineMemosAtom = atom(null, async (get, set) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
@@ -4733,20 +4787,49 @@ export const fetchTimelineMemosAtom = atom(null, async (get, set) => {
       const data = await response.json();
       
       if (data.timeline_memos) {
-        // APIから返ってきたメモのうち、自分以外のものを厳密に抽出
         const othersMemos = data.timeline_memos.filter((m: any) => {
-          // user_id が存在し、かつ自分のものではないことを確認
           const memoUserId = String(m.user_id);
           const currentUserId = String(user.id);
           return memoUserId !== currentUserId;
         });
 
-        console.log("📱 タイムライン表示対象（他人のメモ）:", othersMemos.length);
         set(timelineMemosAtom, othersMemos);
       }
     }
   } catch (error) {
     console.error("Timeline fetch error:", error);
+  }
+});
+
+// ==========================================
+// ★ 関連公開メモ検索の機能
+// ==========================================
+
+export const isSearchingAtom = atom(false);
+
+export const fetchRelatedMemosAtom = atom(null, async (get, set) => {
+  const selectedId = get(selectedMemoIdAtom);
+  if (!selectedId) return;
+
+  set(isSearchingAtom, true);
+  try {
+    // ★ 検索前に自動で最新状態を保存（ベクトル化）する！
+    await set(saveMemoAtom);
+
+    const res = await fetch("/api/memos/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_memo_id: selectedId, limit: 10 }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      set(searchedMemosAtom, data.related_memos || []);
+    }
+  } catch (error) {
+    console.error("Related search error:", error);
+  } finally {
+    set(isSearchingAtom, false);
   }
 });
 </file>
@@ -4785,6 +4868,8 @@ import {
   selectedMemoIdAtom,
   selectedSearchedMemoAtom,
   timelineMemosAtom,
+  isSearchingAtom,
+  fetchRelatedMemosAtom
 } from "@/store/memoAtom";
 
 export function AppSidebar() {
@@ -4798,21 +4883,24 @@ export function AppSidebar() {
   const createMemo = useSetAtom(createMemoAtom);
   const deleteMemo = useSetAtom(deleteMemoAtom);
 
-  // 型エラー対策: 明示的に ViewMode として扱う
   const [currentView, setCurrentView] = useAtom(currentViewAtom);
 
   const [searchedMemos] = useAtom(searchedMemosAtom);
   const [selectedSearchedMemo, setSelectedSearchedMemo] = useAtom(
     selectedSearchedMemoAtom,
   );
-  const [isSearching, setIsSearching] = useState(false);
+  
+  const isSearching = useAtomValue(isSearchingAtom);
+  const fetchRelated = useSetAtom(fetchRelatedMemosAtom);
 
-  // タイムライン（自分以外）のデータ
   const timelineMemos = useAtomValue(timelineMemosAtom);
   const fetchTimeline = useSetAtom(fetchTimelineMemosAtom);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
+
+  // ★ 新規追加: 検索キーワードを保存するステート
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchMemos();
@@ -4833,10 +4921,6 @@ export function AppSidebar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isSettingsOpen]);
 
-  const toggleVimMode = () => {
-    updateSettings({ type: settings.type === "standard" ? "vim" : "standard" });
-  };
-
   const toggleDefaultPublic = () => {
     updateSettings({ defaultIsPublic: !settings.defaultIsPublic });
   };
@@ -4846,12 +4930,19 @@ export function AppSidebar() {
     await createMemo();
   };
 
+  // ★ 新規追加: 検索キーワードで自分のメモを絞り込む
+  const filteredMemos = memos.filter((memo) => {
+    if (!searchQuery) return true; // 検索文字がない場合はすべて表示
+    const title = memo.title || "無題のメモ";
+    // 大文字・小文字を区別せずに部分一致検索を行う
+    return title.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
   return (
     <aside className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none shrink-0">
       <div className="p-4 space-y-4">
         <SidebarAuth />
 
-        {/* 戻るボタンの表示 */}
         {currentView !== "editor" && (
           <button
             type="button"
@@ -4863,14 +4954,15 @@ export function AppSidebar() {
           </button>
         )}
 
-        {/* メインナビゲーション (editorモードの時だけ表示) */}
         {currentView === "editor" && (
           <div className="space-y-1">
             <div className="relative group mb-2">
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
               <input
                 type="text"
-                placeholder="検索"
+                value={searchQuery} // ★ 追加: ステートと入力を紐付け
+                onChange={(e) => setSearchQuery(e.target.value)} // ★ 追加: 入力されるたびにステートを更新
+                placeholder="自分のメモを検索..."
                 className="w-full bg-transparent border border-transparent hover:bg-white focus:bg-white focus:border-blue-200 rounded-full py-2 pl-10 pr-4 text-sm outline-none transition-all"
               />
             </div>
@@ -4886,7 +4978,10 @@ export function AppSidebar() {
 
             <button
               type="button"
-              onClick={() => setCurrentView("explore")}
+              onClick={() => {
+                setCurrentView("explore");
+                fetchRelated();
+              }}
               className="flex items-center gap-2 hover:bg-blue-50 text-blue-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
             >
               <Compass className="w-5 h-5" />
@@ -4909,7 +5004,6 @@ export function AppSidebar() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {/* リスト表示部分の出し分け */}
         {currentView === "explore" ? (
           <div className="space-y-1">
             <div className="text-xs font-medium px-4 mb-2 text-blue-600">
@@ -4917,9 +5011,11 @@ export function AppSidebar() {
             </div>
             {isSearching ? (
               <div className="flex flex-col items-center py-10 text-gray-400">
-                <Loader2 className="w-6 h-6 animate-spin mb-4" />
-                <span>検索中...</span>
+                <Loader2 className="w-6 h-6 animate-spin mb-4 text-blue-500" />
+                <span className="text-xs font-bold text-blue-500">思考を解析中...</span>
               </div>
+            ) : searchedMemos.length === 0 ? (
+              <div className="text-center py-10 text-gray-400 text-xs">関連する他人のメモが見つかりません</div>
             ) : (
               searchedMemos.map((memo) => (
                 <button
@@ -4972,41 +5068,49 @@ export function AppSidebar() {
         ) : (
           <div className="space-y-1">
             <div className="text-xs font-medium px-4 mb-2">自分のメモ</div>
-            {memos.map((memo) => (
-              <div
-                key={memo.id}
-                className={cn(
-                  "w-full rounded-full flex items-center transition-colors group px-2",
-                  selectedId === memo.id && currentView === "editor"
-                    ? "bg-blue-100 text-[#0e42a0]"
-                    : "hover:bg-[#d3e3fd]",
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedId(memo.id);
-                    setCurrentView("editor");
-                  }}
-                  className="flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left outline-none"
-                >
-                  <FileText className="w-4 h-4 opacity-50 shrink-0" />
-                  <span className="truncate text-sm font-medium">
-                    {memo.title || "無題のメモ"}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteMemo(memo.id);
-                  }}
-                  className="hidden group-hover:flex shrink-0 text-red-400 pr-3 pl-2 py-2 hover:text-red-600"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+            
+            {/* ★ 変更: memos を filteredMemos に変えて、検索結果が0件の時の表示も追加 */}
+            {filteredMemos.length === 0 ? (
+              <div className="text-center py-6 text-gray-400 text-xs">
+                メモが見つかりません
               </div>
-            ))}
+            ) : (
+              filteredMemos.map((memo) => (
+                <div
+                  key={memo.id}
+                  className={cn(
+                    "w-full rounded-full flex items-center transition-colors group px-2",
+                    selectedId === memo.id && currentView === "editor"
+                      ? "bg-blue-100 text-[#0e42a0]"
+                      : "hover:bg-[#d3e3fd]",
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedId(memo.id);
+                      setCurrentView("editor");
+                    }}
+                    className="flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left outline-none"
+                  >
+                    <FileText className="w-4 h-4 opacity-50 shrink-0" />
+                    <span className="truncate text-sm font-medium">
+                      {memo.title || "無題のメモ"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteMemo(memo.id);
+                    }}
+                    className="hidden group-hover:flex shrink-0 text-red-400 pr-3 pl-2 py-2 hover:text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
