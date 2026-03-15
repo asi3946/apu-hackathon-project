@@ -1,12 +1,13 @@
 "use client";
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useEffect, useRef } from "react"; // ★ useRef を追加
+import { useEffect, useRef } from "react";
 import {
   allTagsAtom,
   createMemoAtom,
   currentMemoAtom,
   editorContentAtom,
+  editorIsPublicAtom,
   editorSettingsAtom,
   editorTagsAtom,
   editorTitleAtom,
@@ -21,6 +22,7 @@ export function EditorRoot() {
   const setEditorContent = useSetAtom(editorContentAtom);
   const setEditorTitle = useSetAtom(editorTitleAtom);
   const setEditorTags = useSetAtom(editorTagsAtom);
+  const setEditorIsPublic = useSetAtom(editorIsPublicAtom);
 
   const allTags = useAtomValue(allTagsAtom);
 
@@ -53,16 +55,27 @@ export function EditorRoot() {
 
       const memoTags = currentMemo.tags || [];
       const tagsAsObjects = memoTags.map((t: any) => {
-        // ★ 修正：タグが「文字」でも「オブジェクト」でも絶対に文字を取り出す安全処理（空っぽタグ防止）
         const nameStr = typeof t === "string" ? t : t?.name || "";
         const found = allTags.find((tag) => tag.name === nameStr);
         return found ? found : { id: nameStr, name: nameStr };
       });
 
       setEditorTags(tagsAsObjects);
+
+      // ★ 追加：DBの値をエディタに反映！(undefined対策で !! をつけてboolean化)
+      setEditorIsPublic(!!currentMemo.is_public);
+
       loadedMemoIdRef.current = currentMemo.id; // ロックをかける
     }
-  }, [currentMemo, allTags, setEditorContent, setEditorTitle, setEditorTags]);
+    // ★ 追加：依存配列の一番最後に setEditorIsPublic を追加
+  }, [
+    currentMemo,
+    allTags,
+    setEditorContent,
+    setEditorTitle,
+    setEditorTags,
+    setEditorIsPublic,
+  ]);
 
   const isVim = settings.type === "vim";
 
@@ -98,7 +111,14 @@ export function EditorRoot() {
 
   return (
     <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
-      <div className="w-full max-w-3xl ml-auto mr-70 px-8 pt-12 mb-6">
+      {/* ★ 追加：エディター領域の一番左上にアプリロゴを配置 ★ */}
+      <img
+        src="/images/app-logo.png"
+        alt="アプリロゴ"
+        className="absolute top-8 left-8 w-12 h-12 rounded-xl object-cover shadow-sm z-10"
+      />
+
+      <div className="w-full max-w-4xl ml-auto mr-50 px-8 pt-12 mb-6">
         <EditorHeader />
       </div>
       <div className="flex-1 overflow-y-auto px-8 pb-8 max-w-4xl ml-auto mr-50 w-full relative [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

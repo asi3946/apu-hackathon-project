@@ -7,6 +7,10 @@ import {
   editorTagsAtom,
   editorTitleAtom,
   editorEmbeddingCacheAtom,
+  tagSearchQueryAtom,
+  isTagSearchingAtom,
+  editorSettingsAtom,
+  editorIsPublicAtom,
 } from "./editorAtom";
 
 // 検索結果専用の型を定義
@@ -43,10 +47,54 @@ export const fetchAllTagsAtom = atom(null, async (get, set) => {
   }
 });
 
+export const searchTagsSemanticAtom = atom(null, async (get, set) => {
+  const query = get(tagSearchQueryAtom);
+
+  if (!query.trim()) {
+    set(isTagSearchingAtom, false);
+    const { data } = await supabase
+      .from("tags")
+      .select("id, name")
+      .order("name");
+    if (data) set(allTagsAtom, data);
+    return;
+  }
+
+  set(isTagSearchingAtom, true);
+
+  try {
+    const res = await fetch("/api/embeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: query }),
+    });
+
+    if (!res.ok) throw new Error("Embedding failed");
+    const { embedding } = await res.json();
+
+    const { data, error } = await supabase.rpc("match_tags", {
+      query_embedding: embedding,
+      match_threshold: 0.1,
+      match_count: 50,
+    });
+
+    if (error) throw error;
+    if (data) set(allTagsAtom, data as Tag[]);
+  } catch (err) {
+    console.error("Tag semantic search failed:", err);
+  } finally {
+    set(isTagSearchingAtom, false);
+  }
+});
+
 export const fetchMemosAtom = atom(null, async (get, set) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
   const { data, error } = await supabase
     .from("memos")
     .select("*")
+    .eq("user_id", user.id)
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -55,19 +103,24 @@ export const fetchMemosAtom = atom(null, async (get, set) => {
   }
 
   if (data) {
-    set(memoListAtom, data as Memo[]);
-    if (data.length > 0 && !get(selectedMemoIdAtom)) {
-      set(selectedMemoIdAtom, data[0].id);
+    const memoData = data as Memo[];
+    set(memoListAtom, memoData);
+    
+    const selectedId = get(selectedMemoIdAtom) || (memoData.length > 0 ? memoData[0].id : null);
+    if (selectedId) {
+      if (!get(selectedMemoIdAtom)) set(selectedMemoIdAtom, selectedId);
+      const current = memoData.find((m) => m.id === selectedId);
+      if (current) set(editorIsPublicAtom, !!current.is_public);
     }
   }
 });
 
-// 2. メモを保存するAction (キャッシュ対応＆型エラー修正版)
 export const saveMemoAtom = atom(null, async (get, set) => {
   const id = get(selectedMemoIdAtom);
   const title = get(editorTitleAtom);
   const content = get(editorContentAtom);
   const tags = get(editorTagsAtom);
+  const isPublic = get(editorIsPublicAtom);
   const cache = get(editorEmbeddingCacheAtom);
 
   if (!id) return;
@@ -75,21 +128,16 @@ export const saveMemoAtom = atom(null, async (get, set) => {
   try {
     let currentEmbedding: number[] = [];
 
-    // キャッシュがあり、かつ内容が一致していれば再利用（課金回避）
     if (cache && cache.text === content) {
-      console.log("♻️ ベクトルキャッシュを使い回して保存します（API料金 ¥0）");
       currentEmbedding = cache.embedding;
     } else {
-      console.log("⚡ 新しくベクトルを生成して保存します");
       const res = await fetch("/api/embeddings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: `${title}\n${content}` }),
       });
 
-      if (!res.ok) {
-        throw new Error("Failed to fetch embedding");
-      }
+      if (!res.ok) throw new Error("Failed to fetch embedding");
       const data = await res.json();
       currentEmbedding = data.embedding;
     }
@@ -97,24 +145,20 @@ export const saveMemoAtom = atom(null, async (get, set) => {
     const updated_at = new Date().toISOString();
     const tagNames = tags.map((t: Tag) => t.name);
 
-    // DB(Supabase)へ保存
     const { error } = await supabase
       .from("memos")
       .update({
         title,
         content,
         tags: tagNames,
+        is_public: isPublic,
         updated_at,
         embedding: currentEmbedding,
       })
       .eq("id", id);
 
-    if (error) {
-      console.error("Error saving memo to Supabase:", error);
-      return;
-    }
+    if (error) return;
 
-    // ローカルのJotaiリストを更新
     set(memoListAtom, (prev) =>
       prev.map((memo) =>
         memo.id === id
@@ -123,6 +167,7 @@ export const saveMemoAtom = atom(null, async (get, set) => {
               title,
               content,
               tags: tagNames,
+              is_public: isPublic,
               updated_at,
               embedding: JSON.stringify(currentEmbedding),
             }
@@ -130,8 +175,7 @@ export const saveMemoAtom = atom(null, async (get, set) => {
       ),
     );
 
-    // タグの中間テーブル(memo_tags)同期
-    const syncRes = await fetch("/api/memos/tags/sync", {
+    await fetch("/api/memos/tags/sync", {
       method: "POST",
       body: JSON.stringify({
         memo_id: id,
@@ -139,76 +183,109 @@ export const saveMemoAtom = atom(null, async (get, set) => {
       }),
       headers: { "Content-Type": "application/json" },
     });
-
-    if (!syncRes.ok) {
-      console.error("Tags sync failed");
-    }
-
-    // ★ 修正点：ここにあったキャッシュクリアの set(editorEmbeddingCacheAtom, null) を削除しました。
-    // これにより、内容が変わらない限りタイトル生成などの連続操作でもキャッシュが生き続けます。
   } catch (err) {
     console.error("Error in saveMemoAtom:", err);
   }
 });
 
 export const createMemoAtom = atom(null, async (get, set) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const settings = get(editorSettingsAtom);
+
   const { data, error } = await supabase
     .from("memos")
-    .insert([{}])
+    .insert([{ 
+      user_id: user.id,
+      title: "",
+      content: "",
+      tags: [],
+      is_public: settings.defaultIsPublic
+    }])
     .select()
     .single();
 
-  if (error) {
-    console.error("メモの作成に失敗しました:", error);
-    return;
-  }
-
-  if (data) {
+  if (!error && data) {
+    const newMemo = data as Memo;
     const currentList = get(memoListAtom);
-    set(memoListAtom, [data as Memo, ...currentList]);
-    set(selectedMemoIdAtom, data.id);
+    set(memoListAtom, [newMemo, ...currentList]);
+    set(selectedMemoIdAtom, newMemo.id);
+    set(editorIsPublicAtom, !!newMemo.is_public);
   }
 });
 
 export const deleteMemoAtom = atom(null, async (get, set, memoId: string) => {
   const { error } = await supabase.from("memos").delete().eq("id", memoId);
-
-  if (error) {
-    console.error("メモの削除に失敗しました:", error);
-    return;
-  }
+  if (error) return;
 
   const currentList = get(memoListAtom);
-  const filteredList = currentList.filter((memo) => memo.id !== memoId);
-  set(memoListAtom, filteredList);
+  set(memoListAtom, currentList.filter((memo) => memo.id !== memoId));
 
-  const selectedId = get(selectedMemoIdAtom);
-  if (selectedId === memoId) {
+  if (get(selectedMemoIdAtom) === memoId) {
     set(selectedMemoIdAtom, null);
   }
 });
 
-// 取得するカラムに合わせた専用の型を定義
 export type TimelineMemo = Pick<
   Memo,
   "id" | "title" | "content" | "updated_at" | "user_id"
 >;
 
-// anyを排除し、作成したTimelineMemoの配列として定義
 export const timelineMemosAtom = atom<TimelineMemo[]>([]);
 
 export const fetchTimelineMemosAtom = atom(null, async (get, set) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
   try {
     const response = await fetch("/api/memos/timeline");
     if (response.ok) {
       const data = await response.json();
+      
       if (data.timeline_memos) {
-        set(timelineMemosAtom, data.timeline_memos as TimelineMemo[]);
+        const othersMemos = data.timeline_memos.filter((m: any) => {
+          const memoUserId = String(m.user_id);
+          const currentUserId = String(user.id);
+          return memoUserId !== currentUserId;
+        });
+
+        set(timelineMemosAtom, othersMemos);
       }
-    } else {
-      console.error("Timeline API error:", await response.text());
     }
   } catch (error) {
     console.error("Timeline fetch error:", error);
+  }
+});
+
+// ==========================================
+// ★ 関連公開メモ検索の機能
+// ==========================================
+
+export const isSearchingAtom = atom(false);
+
+export const fetchRelatedMemosAtom = atom(null, async (get, set) => {
+  const selectedId = get(selectedMemoIdAtom);
+  if (!selectedId) return;
+
+  set(isSearchingAtom, true);
+  try {
+    // ★ 検索前に自動で最新状態を保存（ベクトル化）する！
+    await set(saveMemoAtom);
+
+    const res = await fetch("/api/memos/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_memo_id: selectedId, limit: 10 }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      set(searchedMemosAtom, data.related_memos || []);
+    }
+  } catch (error) {
+    console.error("Related search error:", error);
+  } finally {
+    set(isSearchingAtom, false);
   }
 });
