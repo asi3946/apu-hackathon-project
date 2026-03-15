@@ -209,6 +209,7 @@ export function AppSidebar() {
               type="button"
               onClick={() => {
                 setCurrentView("explore");
+                setSelectedSearchedMemo(null);
                 fetchRelated();
               }}
               className="flex items-center gap-2 hover:bg-blue-50 text-blue-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
@@ -220,6 +221,7 @@ export function AppSidebar() {
               type="button"
               onClick={() => {
                 setCurrentView("timeline");
+                setSelectedSearchedMemo(null);
                 fetchTimeline();
               }}
               className="flex items-center gap-2 hover:bg-green-50 text-green-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
@@ -231,6 +233,7 @@ export function AppSidebar() {
               type="button"
               onClick={() => {
                 setCurrentView("bookmarks");
+                setSelectedSearchedMemo(null);
                 fetchBookmarks();
               }}
               className="flex items-center gap-2 hover:bg-yellow-50 text-yellow-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
