@@ -159,60 +159,6 @@ This section contains the contents of the repository's files.
 <svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
 </file>
 
-<file path="src/app/api/memos/bookmarks/route.ts">
-import { NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
-
-export async function GET() {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { data, error } = await supabase
-      .from("bookmarks")
-      .select("memo_id, memos(id, title, content, updated_at, user_id, tags)")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    
-    const bookmarks = data.map((b: any) => b.memos).filter(Boolean);
-    return NextResponse.json({ bookmarks });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { memo_id } = await request.json();
-    if (!memo_id) return NextResponse.json({ error: "memo_id required" }, { status: 400 });
-
-    const { data: existing } = await supabase
-      .from("bookmarks")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("memo_id", memo_id)
-      .single();
-
-    if (existing) {
-      await supabase.from("bookmarks").delete().eq("id", existing.id);
-      return NextResponse.json({ bookmarked: false });
-    } else {
-      await supabase.from("bookmarks").insert([{ user_id: user.id, memo_id }]);
-      return NextResponse.json({ bookmarked: true });
-    }
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-</file>
-
 <file path="src/app/globals.css">
 @import "tailwindcss";
 
@@ -318,24 +264,6 @@ created_at timestamp with time zone not null default now(),
 updated_at timestamp with time zone not null default now(),
 constraint memos_pkey primary key (id)
 );
-</file>
-
-<file path="supabase/migrations/20260315094046_create_bookmarks.sql">
--- ブックマークテーブルの作成
-CREATE TABLE bookmarks (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users not null,
-  memo_id uuid references memos on delete cascade not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  unique(user_id, memo_id) -- 同じメモの重複保存を防止
-);
-
--- セキュリティ（RLS）の設定
-ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can manage their own bookmarks" 
-ON bookmarks FOR ALL 
-USING (auth.uid() = user_id);
 </file>
 
 <file path="supabase/.gitignore">
@@ -558,6 +486,60 @@ async function seedTags() {
 seedTags();
 </file>
 
+<file path="src/app/api/memos/bookmarks/route.ts">
+import { NextResponse } from "next/server";
+import { createClient } from "@/utils/supabase/server";
+
+export async function GET() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { data, error } = await supabase
+      .from("bookmarks")
+      .select("memo_id, memos(id, title, content, updated_at, user_id, tags)")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    
+    const bookmarks = data.map((b: any) => b.memos).filter(Boolean);
+    return NextResponse.json({ bookmarks });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { memo_id } = await request.json();
+    if (!memo_id) return NextResponse.json({ error: "memo_id required" }, { status: 400 });
+
+    const { data: existing } = await supabase
+      .from("bookmarks")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("memo_id", memo_id)
+      .single();
+
+    if (existing) {
+      await supabase.from("bookmarks").delete().eq("id", existing.id);
+      return NextResponse.json({ bookmarked: false });
+    } else {
+      await supabase.from("bookmarks").insert([{ user_id: user.id, memo_id }]);
+      return NextResponse.json({ bookmarked: true });
+    }
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+</file>
+
 <file path="src/app/api/memos/tags/sync/route.ts">
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
@@ -709,6 +691,50 @@ export function SidebarAuth() {
         ログイン / 登録
       </Link>
     </div>
+  );
+}
+</file>
+
+<file path="src/components/editor/SimpleEditor.tsx">
+"use client";
+
+import { useSetAtom } from "jotai";
+import { useVimEditor } from "@/hooks/useVimEditor";
+import { cn } from "@/lib/utils";
+import { activeEditorAtom } from "@/store/editorAtom";
+
+export function SimpleEditor() {
+  const {
+    textareaRef,
+    content,
+    vimMode,
+    settings,
+    handleChange,
+    handleSelect,
+    handleKeyDown,
+  } = useVimEditor();
+
+  const setActiveEditor = useSetAtom(activeEditorAtom);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={content}
+      onChange={handleChange}
+      onSelect={handleSelect}
+      onKeyDown={handleKeyDown}
+      onFocus={() => setActiveEditor("content")}
+      placeholder="ここにメモを入力..."
+      className={cn(
+        "w-full h-full resize-none outline-none bg-transparent",
+        "font-mono text-lg leading-relaxed",
+        "text-gray-800 placeholder:text-gray-300",
+        settings.type === "vim" &&
+          vimMode === "normal" &&
+          "selection:bg-gray-800 selection:text-white",
+      )}
+      spellCheck={false}
+    />
   );
 }
 </file>
@@ -976,6 +1002,24 @@ as $$
   order by memos.embedding <=> query_embedding
   limit match_count;
 $$;
+</file>
+
+<file path="supabase/migrations/20260315094046_create_bookmarks.sql">
+-- ブックマークテーブルの作成
+CREATE TABLE bookmarks (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users not null,
+  memo_id uuid references memos on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(user_id, memo_id) -- 同じメモの重複保存を防止
+);
+
+-- セキュリティ（RLS）の設定
+ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage their own bookmarks" 
+ON bookmarks FOR ALL 
+USING (auth.uid() = user_id);
 </file>
 
 <file path="middleware.ts">
@@ -1298,50 +1342,6 @@ export function AuthSection() {
         GitHubでログイン
       </button>
     </div>
-  );
-}
-</file>
-
-<file path="src/components/editor/SimpleEditor.tsx">
-"use client";
-
-import { useSetAtom } from "jotai";
-import { useVimEditor } from "@/hooks/useVimEditor";
-import { cn } from "@/lib/utils";
-import { activeEditorAtom } from "@/store/editorAtom";
-
-export function SimpleEditor() {
-  const {
-    textareaRef,
-    content,
-    vimMode,
-    settings,
-    handleChange,
-    handleSelect,
-    handleKeyDown,
-  } = useVimEditor();
-
-  const setActiveEditor = useSetAtom(activeEditorAtom);
-
-  return (
-    <textarea
-      ref={textareaRef}
-      value={content}
-      onChange={handleChange}
-      onSelect={handleSelect}
-      onKeyDown={handleKeyDown}
-      onFocus={() => setActiveEditor("content")}
-      placeholder="ここにメモを入力..."
-      className={cn(
-        "w-full h-full resize-none outline-none bg-transparent",
-        "font-mono text-lg leading-relaxed",
-        "text-gray-800 placeholder:text-gray-300",
-        settings.type === "vim" &&
-          vimMode === "normal" &&
-          "selection:bg-gray-800 selection:text-white",
-      )}
-      spellCheck={false}
-    />
   );
 }
 </file>
@@ -2214,121 +2214,6 @@ export async function POST(request: Request) {
 }
 </file>
 
-<file path="src/app/page.tsx">
-"use client";
-
-import { useAtomValue } from "jotai";
-import { EditorRoot } from "@/components/editor/EditorRoot";
-import { ExploreViewer } from "@/components/explore/ExploreViewer";
-import { AppSidebar } from "@/components/layout/AppSidebar";
-import { currentViewAtom } from "@/store/models";
-
-export default function Home() {
-  const currentView = useAtomValue(currentViewAtom);
-
-  return (
-    <main className="flex h-screen w-screen overflow-hidden bg-white">
-      <AppSidebar />
-      {/* ★ ここに bookmarks の時の表示条件を追加しました！ */}
-      {(currentView === "timeline" || currentView === "explore" || currentView === "bookmarks") && <ExploreViewer />}
-      {currentView === "editor" && <EditorRoot />}
-    </main>
-  );
-}
-</file>
-
-<file path="src/components/explore/ExploreViewer.tsx">
-"use client";
-
-import { useAtomValue, useSetAtom } from "jotai";
-import { FileText, Bookmark, BookmarkMinus } from "lucide-react";
-import { selectedSearchedMemoAtom, bookmarkedMemoIdsAtom, toggleBookmarkAtom } from "@/store/memoAtom";
-import { currentViewAtom } from "@/store/editorAtom";
-import { cn } from "@/lib/utils";
-
-export function ExploreViewer() {
-  const selectedSearchedMemo = useAtomValue(selectedSearchedMemoAtom);
-  const currentView = useAtomValue(currentViewAtom);
-
-  const bookmarkedIds = useAtomValue(bookmarkedMemoIdsAtom);
-  const toggleBookmark = useSetAtom(toggleBookmarkAtom);
-  const isBookmarked = selectedSearchedMemo ? bookmarkedIds.includes(selectedSearchedMemo.id) : false;
-
-  const isTimeline = currentView === "timeline";
-  const isBookmarks = currentView === "bookmarks";
-  
-  const tagColorClass = isBookmarks ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-    : isTimeline ? "bg-green-50 text-green-700 border-green-200"
-    : "bg-blue-50 text-blue-600 border-blue-200";
-
-  return (
-    <div className="flex-1 flex flex-col h-full bg-white relative">
-      {selectedSearchedMemo ? (
-        <div className="flex-1 overflow-y-auto p-12 max-w-4xl mx-auto w-full">
-          <div className="mb-8 border-b pb-6">
-            
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <h1 className="text-3xl font-bold text-gray-900">
-                {selectedSearchedMemo.title || "無題のメモ"}
-              </h1>
-              
-              {isBookmarks ? (
-                <button
-                  type="button"
-                  onClick={() => selectedSearchedMemo && toggleBookmark(selectedSearchedMemo.id)}
-                  className="px-4 py-2 rounded-full transition-all border shadow-sm shrink-0 flex items-center gap-2 bg-white text-red-500 border-red-200 hover:bg-red-50"
-                >
-                  <BookmarkMinus className="w-4 h-4" />
-                  <span className="text-xs font-bold">ブックマーク解除</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => selectedSearchedMemo && toggleBookmark(selectedSearchedMemo.id)}
-                  className={cn(
-                    "px-4 py-2 rounded-full transition-all border shadow-sm shrink-0 flex items-center gap-2",
-                    isBookmarked 
-                      ? "bg-yellow-50 text-yellow-600 border-yellow-200 hover:bg-yellow-100" 
-                      : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700"
-                  )}
-                >
-                  <Bookmark className={cn("w-4 h-4", isBookmarked && "fill-current")} />
-                  <span className="text-xs font-bold">{isBookmarked ? "保存済み" : "ブックマークに保存"}</span>
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {selectedSearchedMemo.tags && selectedSearchedMemo.tags.length > 0 ? (
-                selectedSearchedMemo.tags.map((tagName: string) => (
-                  <span 
-                    key={tagName} 
-                    className={`px-3 py-1 rounded-full text-sm font-medium border ${tagColorClass}`}
-                  >
-                    #{tagName}
-                  </span>
-                ))
-              ) : (
-                <span className="text-sm text-gray-300 italic">タグなし</span>
-              )}
-            </div>
-          </div>
-
-          <div className="prose prose-gray max-w-none text-gray-700 whitespace-pre-wrap">
-            {selectedSearchedMemo.content || "本文がありません。"}
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
-          <FileText className="w-16 h-16 mb-4 opacity-20" />
-          <p>左のリストから気になるメモを選択してください</p>
-        </div>
-      )}
-    </div>
-  );
-}
-</file>
-
 <file path="src/store/vim/core.ts">
 import { atom } from "jotai";
 import type { CursorPosition, VimMode } from "@/types/models";
@@ -2795,6 +2680,121 @@ export async function GET() {
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+</file>
+
+<file path="src/app/page.tsx">
+"use client";
+
+import { useAtomValue } from "jotai";
+import { EditorRoot } from "@/components/editor/EditorRoot";
+import { ExploreViewer } from "@/components/explore/ExploreViewer";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { currentViewAtom } from "@/store/models";
+
+export default function Home() {
+  const currentView = useAtomValue(currentViewAtom);
+
+  return (
+    <main className="flex h-screen w-screen overflow-hidden bg-white">
+      <AppSidebar />
+      {/* ★ ここに bookmarks の時の表示条件を追加しました！ */}
+      {(currentView === "timeline" || currentView === "explore" || currentView === "bookmarks") && <ExploreViewer />}
+      {currentView === "editor" && <EditorRoot />}
+    </main>
+  );
+}
+</file>
+
+<file path="src/components/explore/ExploreViewer.tsx">
+"use client";
+
+import { useAtomValue, useSetAtom } from "jotai";
+import { FileText, Bookmark, BookmarkMinus } from "lucide-react";
+import { selectedSearchedMemoAtom, bookmarkedMemoIdsAtom, toggleBookmarkAtom } from "@/store/memoAtom";
+import { currentViewAtom } from "@/store/editorAtom";
+import { cn } from "@/lib/utils";
+
+export function ExploreViewer() {
+  const selectedSearchedMemo = useAtomValue(selectedSearchedMemoAtom);
+  const currentView = useAtomValue(currentViewAtom);
+
+  const bookmarkedIds = useAtomValue(bookmarkedMemoIdsAtom);
+  const toggleBookmark = useSetAtom(toggleBookmarkAtom);
+  const isBookmarked = selectedSearchedMemo ? bookmarkedIds.includes(selectedSearchedMemo.id) : false;
+
+  const isTimeline = currentView === "timeline";
+  const isBookmarks = currentView === "bookmarks";
+  
+  const tagColorClass = isBookmarks ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+    : isTimeline ? "bg-green-50 text-green-700 border-green-200"
+    : "bg-blue-50 text-blue-600 border-blue-200";
+
+  return (
+    <div className="flex-1 flex flex-col h-full bg-white relative">
+      {selectedSearchedMemo ? (
+        <div className="flex-1 overflow-y-auto p-12 max-w-4xl mx-auto w-full">
+          <div className="mb-8 border-b pb-6">
+            
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <h1 className="text-3xl font-bold text-gray-900">
+                {selectedSearchedMemo.title || "無題のメモ"}
+              </h1>
+              
+              {isBookmarks ? (
+                <button
+                  type="button"
+                  onClick={() => selectedSearchedMemo && toggleBookmark(selectedSearchedMemo.id)}
+                  className="px-4 py-2 rounded-full transition-all border shadow-sm shrink-0 flex items-center gap-2 bg-white text-red-500 border-red-200 hover:bg-red-50"
+                >
+                  <BookmarkMinus className="w-4 h-4" />
+                  <span className="text-xs font-bold">ブックマーク解除</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => selectedSearchedMemo && toggleBookmark(selectedSearchedMemo.id)}
+                  className={cn(
+                    "px-4 py-2 rounded-full transition-all border shadow-sm shrink-0 flex items-center gap-2",
+                    isBookmarked 
+                      ? "bg-yellow-50 text-yellow-600 border-yellow-200 hover:bg-yellow-100" 
+                      : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700"
+                  )}
+                >
+                  <Bookmark className={cn("w-4 h-4", isBookmarked && "fill-current")} />
+                  <span className="text-xs font-bold">{isBookmarked ? "保存済み" : "ブックマークに保存"}</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedSearchedMemo.tags && selectedSearchedMemo.tags.length > 0 ? (
+                selectedSearchedMemo.tags.map((tagName: string) => (
+                  <span 
+                    key={tagName} 
+                    className={`px-3 py-1 rounded-full text-sm font-medium border ${tagColorClass}`}
+                  >
+                    #{tagName}
+                  </span>
+                ))
+              ) : (
+                <span className="text-sm text-gray-300 italic">タグなし</span>
+              )}
+            </div>
+          </div>
+
+          <div className="prose prose-gray max-w-none text-gray-700 whitespace-pre-wrap">
+            {selectedSearchedMemo.content || "本文がありません。"}
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+          <FileText className="w-16 h-16 mb-4 opacity-20" />
+          <p>左のリストから気になるメモを選択してください</p>
+        </div>
+      )}
+    </div>
+  );
 }
 </file>
 
@@ -3421,119 +3421,6 @@ export async function POST(request: Request) {
 }
 </file>
 
-<file path="src/hooks/useVimEditor.ts">
-import { useAtom, useAtomValue } from "jotai";
-import { useEffect, useRef } from "react";
-import {
-  cursorAtom,
-  editorContentAtom,
-  editorSettingsAtom,
-  modeAtom,
-  selectedMemoIdAtom,
-  visualStartAtom,
-} from "@/store/models";
-import { getLineEnd, getLineStart } from "@/store/vim/core"; // パスはディレクトリ構成に合わせて調整してください
-import { useVimKeyHandler } from "./useVimKeyHandler";
-
-export function useVimEditor() {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // プログラムによる変更時に、誤った select イベントを無視するためのフラグ
-  const ignoreSelectRef = useRef(false);
-
-  const [content, setContent] = useAtom(editorContentAtom);
-  const [vimMode] = useAtom(modeAtom);
-  const [cursor, setCursor] = useAtom(cursorAtom);
-  const settings = useAtomValue(editorSettingsAtom);
-  const [visualStart] = useAtom(visualStartAtom);
-
-  const selectedId = useAtomValue(selectedMemoIdAtom);
-
-  // 切り出したカスタムフックを呼び出す
-  const { handleKeyDown } = useVimKeyHandler(textareaRef, ignoreSelectRef);
-
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (textarea && settings.type === "vim") {
-      if (vimMode === "normal") {
-        // 一番端にカーソルが来たとき文字を囲えないから.minを使って判定.
-        // 現在のコードだとnomalモードでカーソルが端に来ることはないはず.
-        const endPos = Math.min(cursor + 1, content.length);
-        textarea.setSelectionRange(cursor, endPos);
-      } else if (
-        (vimMode === "visual" || vimMode === "visualLine") &&
-        visualStart !== null
-      ) {
-        if (vimMode === "visual") {
-          const start = Math.min(visualStart, cursor);
-          const end = Math.max(visualStart, cursor) + 1;
-          textarea.setSelectionRange(start, end);
-        } else {
-          // visualLine モード
-          const pos1 = Math.min(visualStart, cursor);
-          const pos2 = Math.max(visualStart, cursor);
-
-          const start = getLineStart(content, pos1);
-
-          const lineEndPos = getLineEnd(content, pos2);
-          const end =
-            lineEndPos === content.length ? content.length : lineEndPos + 1;
-
-          textarea.setSelectionRange(start, end);
-        }
-      } else {
-        textarea.setSelectionRange(cursor, cursor);
-      }
-
-      // 正しい選択範囲の適用が終わったら、フラグを解除して通常操作を受け付ける
-      ignoreSelectRef.current = false;
-    }
-  }, [cursor, vimMode, settings.type, content, visualStart]);
-
-  useEffect(() => {
-    if (selectedId) {
-      setCursor(0);
-
-      // DOMの描画が少し遅れるケースを考慮して、わずかな遅延（非同期）でフォーカスを当てる
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.focus();
-        }
-      }, 0);
-    }
-  }, [selectedId, setCursor]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
-    setCursor(e.target.selectionStart);
-  };
-
-  // vimモードでマウスを使ったときにAtomに変更が渡されるようにするための記述.
-  const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    // プログラムで変更処理中の一瞬は、ブラウザネイティブの誤ったSelectイベントを無視する
-    if (ignoreSelectRef.current) return;
-    // visualモードの時はブラウザネイティブのイベントを無視.
-    if (
-      settings.type === "vim" &&
-      (vimMode === "visual" || vimMode === "visualLine")
-    )
-      return;
-    // ブラウザネイティブのイベントを受け入れ.
-    setCursor(e.currentTarget.selectionStart);
-  };
-
-  return {
-    textareaRef,
-    content,
-    vimMode,
-    settings,
-    handleChange,
-    handleSelect,
-    handleKeyDown,
-  };
-}
-</file>
-
 <file path="src/components/editor/EditorRoot.tsx">
 "use client";
 
@@ -3685,6 +3572,119 @@ export function EditorRoot() {
       )}
     </div>
   );
+}
+</file>
+
+<file path="src/hooks/useVimEditor.ts">
+import { useAtom, useAtomValue } from "jotai";
+import { useEffect, useRef } from "react";
+import {
+  cursorAtom,
+  editorContentAtom,
+  editorSettingsAtom,
+  modeAtom,
+  selectedMemoIdAtom,
+  visualStartAtom,
+} from "@/store/models";
+import { getLineEnd, getLineStart } from "@/store/vim/core"; // パスはディレクトリ構成に合わせて調整してください
+import { useVimKeyHandler } from "./useVimKeyHandler";
+
+export function useVimEditor() {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // プログラムによる変更時に、誤った select イベントを無視するためのフラグ
+  const ignoreSelectRef = useRef(false);
+
+  const [content, setContent] = useAtom(editorContentAtom);
+  const [vimMode] = useAtom(modeAtom);
+  const [cursor, setCursor] = useAtom(cursorAtom);
+  const settings = useAtomValue(editorSettingsAtom);
+  const [visualStart] = useAtom(visualStartAtom);
+
+  const selectedId = useAtomValue(selectedMemoIdAtom);
+
+  // 切り出したカスタムフックを呼び出す
+  const { handleKeyDown } = useVimKeyHandler(textareaRef, ignoreSelectRef);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea && settings.type === "vim") {
+      if (vimMode === "normal") {
+        // 一番端にカーソルが来たとき文字を囲えないから.minを使って判定.
+        // 現在のコードだとnomalモードでカーソルが端に来ることはないはず.
+        const endPos = Math.min(cursor + 1, content.length);
+        textarea.setSelectionRange(cursor, endPos);
+      } else if (
+        (vimMode === "visual" || vimMode === "visualLine") &&
+        visualStart !== null
+      ) {
+        if (vimMode === "visual") {
+          const start = Math.min(visualStart, cursor);
+          const end = Math.max(visualStart, cursor) + 1;
+          textarea.setSelectionRange(start, end);
+        } else {
+          // visualLine モード
+          const pos1 = Math.min(visualStart, cursor);
+          const pos2 = Math.max(visualStart, cursor);
+
+          const start = getLineStart(content, pos1);
+
+          const lineEndPos = getLineEnd(content, pos2);
+          const end =
+            lineEndPos === content.length ? content.length : lineEndPos + 1;
+
+          textarea.setSelectionRange(start, end);
+        }
+      } else {
+        textarea.setSelectionRange(cursor, cursor);
+      }
+
+      // 正しい選択範囲の適用が終わったら、フラグを解除して通常操作を受け付ける
+      ignoreSelectRef.current = false;
+    }
+  }, [cursor, vimMode, settings.type, content, visualStart]);
+
+  useEffect(() => {
+    if (selectedId) {
+      setCursor(0);
+
+      // DOMの描画が少し遅れるケースを考慮して、わずかな遅延（非同期）でフォーカスを当てる
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }, 0);
+    }
+  }, [selectedId, setCursor]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value);
+    setCursor(e.target.selectionStart);
+  };
+
+  // vimモードでマウスを使ったときにAtomに変更が渡されるようにするための記述.
+  const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    // プログラムで変更処理中の一瞬は、ブラウザネイティブの誤ったSelectイベントを無視する
+    if (ignoreSelectRef.current) return;
+    // visualモードの時はブラウザネイティブのイベントを無視.
+    if (
+      settings.type === "vim" &&
+      (vimMode === "visual" || vimMode === "visualLine")
+    )
+      return;
+    // ブラウザネイティブのイベントを受け入れ.
+    setCursor(e.currentTarget.selectionStart);
+  };
+
+  return {
+    textareaRef,
+    content,
+    vimMode,
+    settings,
+    handleChange,
+    handleSelect,
+    handleKeyDown,
+  };
 }
 </file>
 
@@ -4124,7 +4124,7 @@ export const updateUserSettingsAtom = atom(null, async (get, set, update: Partia
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
-  Check, Globe, Hourglass, Loader2, Lock, Plus, Save, Search, Sparkles, Tag as TagIcon, X,
+  Check, Globe, Hourglass, Loader2, Lock, Plus, Save, Search, Sparkles, Tag as TagIcon, X, Bookmark // ★ Bookmarkを追加
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVimKeyHandler } from "@/hooks/useVimKeyHandler";
@@ -4135,6 +4135,7 @@ import {
 } from "@/store/editorAtom";
 import {
   fetchAllTagsAtom, saveMemoAtom, searchTagsSemanticAtom,
+  bookmarkedMemoIdsAtom, toggleBookmarkAtom // ★ ブックマーク用のAtomを追加
 } from "@/store/memoAtom";
 import {
   editorSettingsAtom, editorTagsAtom, editorTitleAtom, selectedMemoIdAtom,
@@ -4166,6 +4167,11 @@ export function EditorHeader() {
   const cursor = useAtomValue(cursorAtom);
   const visualStart = useAtomValue(visualStartAtom);
   const setCursor = useSetAtom(cursorAtom);
+
+  // ★ ブックマーク状態の取得
+  const bookmarkedIds = useAtomValue(bookmarkedMemoIdsAtom);
+  const toggleBookmark = useSetAtom(toggleBookmarkAtom);
+  const isBookmarked = selectedId ? bookmarkedIds.includes(selectedId) : false;
 
   const [isSaving, setIsSaving] = useState(false);
   const [isTitleAiLoading, setIsTitleAiLoading] = useState(false);
@@ -4468,6 +4474,25 @@ export function EditorHeader() {
               </>
             )}
           </button>
+
+          {/* 4. 自分のメモ用ブックマークボタン */}
+          <button
+            type="button"
+            onClick={() => selectedId && toggleBookmark(selectedId)}
+            disabled={!selectedId}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm whitespace-nowrap shrink-0",
+              !selectedId
+                ? "opacity-30 cursor-not-allowed"
+                : isBookmarked
+                  ? "bg-yellow-50 text-yellow-600 border-yellow-200 hover:bg-yellow-100"
+                  : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+            )}
+            title={isBookmarked ? "ブックマーク解除" : "ブックマークに保存"}
+          >
+            <Bookmark className={cn("w-3.5 h-3.5", isBookmarked && "fill-current")} />
+            <span>{isBookmarked ? "保存済み" : "保存する"}</span>
+          </button>
         </div>
       </div>
 
@@ -4628,7 +4653,7 @@ import { createClient } from "@/utils/supabase/client";
 import {
   allTagsAtom, editorContentAtom, editorTagsAtom, editorTitleAtom,
   editorEmbeddingCacheAtom, tagSearchQueryAtom, isTagSearchingAtom,
-  editorSettingsAtom, editorIsPublicAtom,
+  editorSettingsAtom, editorIsPublicAtom, currentViewAtom
 } from "./editorAtom";
 
 export interface SearchedMemo extends Memo {
@@ -4728,7 +4753,6 @@ export const deleteMemoAtom = atom(null, async (get, set, memoId: string) => {
   await supabase.from("memos").delete().eq("id", memoId);
   set(memoListAtom, get(memoListAtom).filter((m) => m.id !== memoId));
   
-  // ★ 追加: 削除したメモが現在開いているメモだった場合、エディタを初期化する
   if (get(selectedMemoIdAtom) === memoId) {
     set(selectedMemoIdAtom, null);
     set(editorTitleAtom, "");
@@ -4772,12 +4796,11 @@ export const fetchRelatedMemosAtom = atom(null, async (get, set) => {
 });
 
 // ==========================================
-// ★ ブックマーク機能 (本格的なDB連動版)
+// ★ ブックマーク機能
 // ==========================================
 export const bookmarkedMemosAtom = atom<TimelineMemo[]>([]);
 export const bookmarkedMemoIdsAtom = atom<string[]>([]);
 
-// APIからブックマーク一覧を取得する
 export const fetchBookmarkedMemosAtom = atom(null, async (get, set) => {
   try {
     const res = await fetch("/api/memos/bookmarks");
@@ -4791,16 +4814,24 @@ export const fetchBookmarkedMemosAtom = atom(null, async (get, set) => {
   }
 });
 
-// ブックマークのトグル処理（楽観的UI更新付き）
 export const toggleBookmarkAtom = atom(null, async (get, set, memoId: string) => {
   const currentIds = get(bookmarkedMemoIdsAtom);
   const isBookmarked = currentIds.includes(memoId);
   
-  // クリックした瞬間にUIの見た目を切り替える（体感速度の向上）
+  // クリックした瞬間にUIの見た目を切り替える
   set(bookmarkedMemoIdsAtom, isBookmarked 
     ? currentIds.filter(id => id !== memoId) 
     : [memoId, ...currentIds]
   );
+
+  // ★ 追加: ブックマーク画面を開いている時に解除した場合、右側の表示を空にする
+  const currentView = get(currentViewAtom);
+  if (isBookmarked && currentView === "bookmarks") {
+    const selected = get(selectedSearchedMemoAtom);
+    if (selected?.id === memoId) {
+      set(selectedSearchedMemoAtom, null);
+    }
+  }
 
   try {
     const res = await fetch("/api/memos/bookmarks", {
@@ -4811,11 +4842,9 @@ export const toggleBookmarkAtom = atom(null, async (get, set, memoId: string) =>
     
     if (!res.ok) throw new Error("Failed to toggle bookmark");
     
-    // 成功したらリストの完全なデータを再取得
     await set(fetchBookmarkedMemosAtom);
   } catch (error) {
     console.error(error);
-    // 失敗した場合は元の状態に巻き戻す
     set(bookmarkedMemoIdsAtom, currentIds);
   }
 });
@@ -4838,7 +4867,7 @@ import {
   createMemoAtom, deleteMemoAtom, fetchMemosAtom, fetchTimelineMemosAtom,
   memoListAtom, searchedMemosAtom, selectedMemoIdAtom, selectedSearchedMemoAtom,
   timelineMemosAtom, isSearchingAtom, fetchRelatedMemosAtom, currentMemoAtom,
-  bookmarkedMemosAtom, fetchBookmarkedMemosAtom // ★ インポート名を最新に修正
+  bookmarkedMemosAtom, fetchBookmarkedMemosAtom
 } from "@/store/memoAtom";
 
 export function AppSidebar() {
@@ -4859,9 +4888,8 @@ export function AppSidebar() {
   const fetchTimeline = useSetAtom(fetchTimelineMemosAtom);
   const currentMemo = useAtomValue(currentMemoAtom);
   
-  // ★ ブックマーク機能
   const bookmarkedMemos = useAtomValue(bookmarkedMemosAtom);
-  const fetchBookmarks = useSetAtom(fetchBookmarkedMemosAtom); // ★ ここも最新に修正
+  const fetchBookmarks = useSetAtom(fetchBookmarkedMemosAtom);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -4912,7 +4940,7 @@ export function AppSidebar() {
             <button type="button" onClick={() => { setCurrentView("timeline"); fetchTimeline(); }} className="flex items-center gap-2 hover:bg-green-50 text-green-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full">
               <Globe className="w-5 h-5" /><span>公開タイムライン</span>
             </button>
-            <button type="button" onClick={() => { setCurrentView("bookmarks" as any); fetchBookmarks(); }} className="flex items-center gap-2 hover:bg-yellow-50 text-yellow-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full">
+            <button type="button" onClick={() => { setCurrentView("bookmarks"); fetchBookmarks(); }} className="flex items-center gap-2 hover:bg-yellow-50 text-yellow-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full">
               <Bookmark className="w-5 h-5" /><span>ブックマーク</span>
             </button>
           </div>
@@ -4946,7 +4974,7 @@ export function AppSidebar() {
               </button>
             ))}
           </div>
-        ) : currentView === ("bookmarks" as any) ? (
+        ) : currentView === "bookmarks" ? (
           <div className="space-y-1">
             <div className="text-xs font-medium px-4 mb-2 text-yellow-600 font-bold">ブックマーク</div>
             {bookmarkedMemos.length === 0 ? (
