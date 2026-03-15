@@ -2,41 +2,20 @@
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
-  Check,
-  Globe,
-  Hourglass,
-  Loader2,
-  Lock,
-  Plus,
-  Save,
-  Search,
-  Sparkles,
-  Tag as TagIcon,
-  X,
+  Check, Globe, Hourglass, Loader2, Lock, Plus, Save, Search, Sparkles, Tag as TagIcon, X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVimKeyHandler } from "@/hooks/useVimKeyHandler";
 import { cn } from "@/lib/utils";
 import {
-  activeEditorAtom,
-  allTagsAtom,
-  editorContentAtom,
-  editorEmbeddingCacheAtom,
-  editorIsPublicAtom,
-  editorTagInputAtom,
-  isTagSearchingAtom,
-  tagSearchQueryAtom,
+  activeEditorAtom, allTagsAtom, editorContentAtom, editorEmbeddingCacheAtom,
+  editorIsPublicAtom, editorTagInputAtom, isTagSearchingAtom, tagSearchQueryAtom,
 } from "@/store/editorAtom";
 import {
-  fetchAllTagsAtom,
-  saveMemoAtom,
-  searchTagsSemanticAtom,
+  fetchAllTagsAtom, saveMemoAtom, searchTagsSemanticAtom,
 } from "@/store/memoAtom";
 import {
-  editorSettingsAtom,
-  editorTagsAtom,
-  editorTitleAtom,
-  selectedMemoIdAtom,
+  editorSettingsAtom, editorTagsAtom, editorTitleAtom, selectedMemoIdAtom,
 } from "@/store/models";
 import { cursorAtom, modeAtom, visualStartAtom } from "@/store/vim/core";
 import type { Tag } from "@/types/db";
@@ -307,7 +286,6 @@ export function EditorHeader() {
             onClick={handleAutoTitle}
             disabled={!content || isTitleAiLoading || cooldown > 0}
             className={cn(
-              // whitespace-nowrap（改行禁止）と shrink-0（縮小禁止）を追加
               "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap shrink-0",
               isTitleAiLoading || cooldown > 0
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
@@ -330,7 +308,7 @@ export function EditorHeader() {
             onClick={handleSave}
             disabled={!selectedId || isSaving}
             className={cn(
-              "p-2 rounded-full transition-all duration-200 shrink-0", // ここにも shrink-0 を追加
+              "p-2 rounded-full transition-all duration-200 shrink-0",
               selectedId
                 ? "text-gray-400 hover:bg-blue-50 hover:text-blue-600"
                 : "text-gray-200 cursor-not-allowed",
@@ -350,7 +328,6 @@ export function EditorHeader() {
             onClick={togglePublic}
             disabled={!selectedId}
             className={cn(
-              // whitespace-nowrap（改行禁止）を追加
               "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm whitespace-nowrap shrink-0",
               !selectedId
                 ? "opacity-30 cursor-not-allowed"

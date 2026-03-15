@@ -10,7 +10,6 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1. 自分の全メモのベクトルを取得
     const { data: myMemos } = await supabase
       .from("memos")
       .select("embedding")
@@ -38,34 +37,35 @@ export async function GET() {
 
       const averagedEmbedding = combinedEmbedding.map(val => val / myMemos.length);
 
-      // 2. 自分の思考（平均ベクトル）に近いメモを検索
       const { data: matchedMemos, error: rpcError } = await supabase.rpc(
         "match_memos",
         {
           query_embedding: averagedEmbedding,
-          match_threshold: 0.1, // ★少し緩めの0.1に設定して、関連しそうなものを拾う
+          match_threshold: 0.1,
           match_count: 50,
         }
       );
 
       if (rpcError) throw rpcError;
 
-      // 3. 自分以外 ＆ (公開中 または is_publicが未定義) のメモだけに絞り込む
-timeline_memos = (matchedMemos || [])
-  .filter((m: any) => {
-    const isNotMe = String(m.user_id) !== String(user.id);
-    
-    // デバッグ用：is_publicがundefined（SQLから返ってきていない）場合も通す
-    const isPublic = m.is_public === true || m.is_public === undefined;
-    
-    // どんなデータが来ているかコンソールで確認
-    console.log(`Memo ID: ${m.id}, User: ${m.user_id}, Public: ${m.is_public}`);
-    
-    return isNotMe && isPublic;
-  })
-  .slice(0, 30);
+      // --- タグ情報の補完処理 ---
+      const matchedIds = (matchedMemos || []).map((m: any) => m.id);
+      const { data: memosWithTags } = await supabase
+        .from("memos")
+        .select("id, tags")
+        .in("id", matchedIds);
+
+      timeline_memos = (matchedMemos || [])
+        .filter((m: any) => String(m.user_id) !== String(user.id))
+        .map((m: any) => {
+          const tagData = memosWithTags?.find(t => t.id === m.id);
+          return {
+            ...m,
+            tags: tagData?.tags || [] // ★ タグを結合
+          };
+        })
+        .slice(0, 30);
     } else {
-      // 自分のメモがない場合のフォールバック（他人の最新公開メモ）
       const { data: fallbackMemos } = await supabase
         .from("memos")
         .select("*")
