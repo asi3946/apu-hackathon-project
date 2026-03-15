@@ -102,14 +102,14 @@ export function AppSidebar() {
   });
 
   return (
-    <aside className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none shrink-0">
-      <div className="p-4 space-y-4">
+    <aside className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none shrink-0 ">
+      <div className="p-4 space-y-4 ">
         <SidebarAuth />
         {currentView !== "editor" && (
           <button
             type="button"
             onClick={() => setCurrentView("editor")}
-            className="flex items-center gap-2 hover:bg-gray-200 text-gray-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full border border-gray-300 bg-white shadow-sm"
+            className="flex items-center gap-2 hover:bg-gray-200 text-gray-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full border border-gray-300 bg-white shadow-sm "
           >
             <ArrowLeft className="w-5 h-5" />
             <span>自分のメモに戻る</span>
@@ -172,7 +172,7 @@ export function AppSidebar() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 py-2">
+      <div className="flex-1 overflow-y-auto px-2 py-2  [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {currentView === "explore" ? (
           <div className="space-y-1">
             <div className="px-4 mb-2">
