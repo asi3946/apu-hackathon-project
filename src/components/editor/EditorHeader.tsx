@@ -11,6 +11,8 @@ import {
   Tag as TagIcon,
   X,
   Search,
+  Globe, // ★ 追加
+  Lock,  // ★ 追加
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVimKeyHandler } from "@/hooks/useVimKeyHandler";
@@ -23,6 +25,7 @@ import {
   editorEmbeddingCacheAtom,
   tagSearchQueryAtom,
   isTagSearchingAtom,
+  editorIsPublicAtom, // ★ 追加
 } from "@/store/editorAtom";
 import { 
   fetchAllTagsAtom, 
@@ -52,6 +55,9 @@ export function EditorHeader() {
   const isTagSearching = useAtomValue(isTagSearchingAtom);
   const searchTags = useSetAtom(searchTagsSemanticAtom);
 
+  // ★ 個別公開状態の管理
+  const [isPublic, setIsPublic] = useAtom(editorIsPublicAtom);
+
   const setEmbeddingCache = useSetAtom(editorEmbeddingCacheAtom);
 
   const selectedId = useAtomValue(selectedMemoIdAtom);
@@ -63,18 +69,14 @@ export function EditorHeader() {
   const setCursor = useSetAtom(cursorAtom);
 
   const [isSaving, setIsSaving] = useState(false);
-  
   const [isTitleAiLoading, setIsTitleAiLoading] = useState(false);
   const [isTagAiLoading, setIsTagAiLoading] = useState(false);
-  
   const [cooldown, setCooldown] = useState(0);
-  
   const [showTagList, setShowTagList] = useState(false);
 
   const titleInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
   const ignoreSelectRef = useRef(false);
-
   const tagContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -119,6 +121,16 @@ export function EditorHeader() {
       }, 500);
     }
   }, [selectedId, isSaving, saveMemo]);
+
+  // ★ 公開状態を切り替える
+  const togglePublic = async () => {
+    const nextPublic = !isPublic;
+    setIsPublic(nextPublic);
+    // 状態を確実に反映させてから保存を走らせる
+    setTimeout(() => {
+      handleSave();
+    }, 50);
+  };
 
   const saveRef = useRef(handleSave);
   useEffect(() => {
@@ -344,6 +356,26 @@ export function EditorHeader() {
         />
 
         <div className="flex items-center gap-2">
+          {/* ★ 個別公開ボタン */}
+          <button
+            type="button"
+            onClick={togglePublic}
+            disabled={!selectedId}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm",
+              !selectedId ? "opacity-30 cursor-not-allowed" :
+              isPublic 
+                ? "bg-green-50 text-green-600 border-green-200 hover:bg-green-100" 
+                : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
+            )}
+          >
+            {isPublic ? (
+              <><Globe className="w-3.5 h-3.5" /> 公開中</>
+            ) : (
+              <><Lock className="w-3.5 h-3.5" /> 未公開</>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={handleAutoTitle}
@@ -362,7 +394,7 @@ export function EditorHeader() {
             ) : (
               <Sparkles className="w-4 h-4" />
             )}
-            <span>{cooldown > 0 ? `制限中 (${cooldown}秒)` : "AI タイトル生成"}</span>
+            <span>{cooldown > 0 ? `${cooldown}秒` : "AIタイトル"}</span>
           </button>
 
           <button
@@ -448,7 +480,6 @@ export function EditorHeader() {
           {showTagList && (
             <div className="absolute top-full left-0 mt-1 w-56 max-h-80 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg z-50 flex flex-col">
               
-              {/* 一番上固定のセマンティック検索バー */}
               <div className="sticky top-0 bg-white border-b border-gray-100 p-2 z-10">
                 <div className="relative flex items-center">
                   <input
@@ -532,7 +563,7 @@ export function EditorHeader() {
           ) : (
             <Sparkles className="w-3.5 h-3.5" />
           )}
-          <span>{cooldown > 0 ? `制限中 (${cooldown}秒)` : "AI 自動タグ付け"}</span>
+          <span>{cooldown > 0 ? `${cooldown}秒` : "AI自動タグ"}</span>
         </button>
       </div>
 

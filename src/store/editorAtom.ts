@@ -9,27 +9,31 @@ export interface EditorSettings {
   defaultIsPublic: boolean;
 }
 
-// 画面の
+// 画面のモード
+// ViewMode の定義をしっかり export
 export type ViewMode = "editor" | "explore" | "timeline";
+
+// ★ <ViewMode> を明示的に指定して、"editor" 以外の文字列も入ることを教える
 export const currentViewAtom = atom<ViewMode>("editor");
 
 export type ActiveEditor = "title" | "tags" | "content";
 export const activeEditorAtom = atom<ActiveEditor>("content");
 
 export const editorContentAtom = atom<string>("");
-
 export const editorTitleAtom = atom<string>("");
-
 export const editorTagsAtom = atom<Tag[]>([]);
 
-export const allTagsAtom = atom<Tag[]>([]);
+// ★ 追加：現在開いているメモの公開状態を管理する
+export const editorIsPublicAtom = atom<boolean>(false);
 
+export const allTagsAtom = atom<Tag[]>([]);
 export const editorTagInputAtom = atom<string>("");
 
-// ★追加：タグ検索用のステート
+// タグ検索用のステート
 export const tagSearchQueryAtom = atom<string>("");
 export const isTagSearchingAtom = atom<boolean>(false);
 
+// ユーザー全体のデフォルト設定
 export const editorSettingsAtom = atom<EditorSettings>({
   type: "standard",
   defaultIsPublic: false,
