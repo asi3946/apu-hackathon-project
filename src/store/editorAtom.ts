@@ -1,29 +1,99 @@
 import { atom } from "jotai";
+import type { Tag } from "@/types/db"; // ← 追加：データベースのTag型を読み込む
+import { createClient } from "@/utils/supabase/client";
 
 export type EditorType = "standard" | "vim";
 
 export interface EditorSettings {
   type: EditorType;
-  // 将来的な拡張性: fontSize?: number; など
+  defaultIsPublic: boolean;
 }
+// 画面の
+export type ViewMode = "editor" | "explore" | "timeline";
+export const currentViewAtom = atom<ViewMode>("editor");
 
-// どこの入力欄がアクティブかを判定する型とAtom
 export type ActiveEditor = "title" | "tags" | "content";
 export const activeEditorAtom = atom<ActiveEditor>("content");
 
-// エディタで現在編集中のテキスト
 export const editorContentAtom = atom<string>("");
 
-// エディタで現在編集中のタイトル
 export const editorTitleAtom = atom<string>("");
 
-// エディタで現在編集中のタグリスト（確定済みのタグ）
-export const editorTagsAtom = atom<string[]>([]);
+export const editorTagsAtom = atom<Tag[]>([]);
 
-// エディタで現在入力中のタグの文字列（Vim操作用に追加）
+export const allTagsAtom = atom<Tag[]>([]);
+
 export const editorTagInputAtom = atom<string>("");
 
-// エディタの設定（Vimモードか標準モードか）
 export const editorSettingsAtom = atom<EditorSettings>({
-  type: "standard", // デフォルトは標準モード
+  type: "standard",
+  defaultIsPublic: false,
 });
+
+// ★追加：AIコスト削減のためのベクトルキャッシュ
+// AIがメモをベクトル化した時の「メモ内容」と「ベクトルデータ」を記憶します。
+// 保存時にメモ内容が変わっていなければ、このベクトルを使い回して二重課金を防ぎます！
+export const editorEmbeddingCacheAtom = atom<{
+  text: string;
+  embedding: number[];
+} | null>(null);
+
+// --- ここからDB連携用のアクションを追加 ---
+
+export const fetchUserSettingsAtom = atom(null, async (get, set) => {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const { data, error } = await supabase
+    .from("user_settings")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  if (error) {
+    console.error("設定の取得に失敗しました:", error);
+    return;
+  }
+
+  if (data) {
+    set(editorSettingsAtom, {
+      type: data.use_vim_mode ? "vim" : "standard",
+      defaultIsPublic: data.default_is_public,
+    });
+  }
+});
+
+export const updateUserSettingsAtom = atom(
+  null,
+  async (get, set, update: Partial<EditorSettings>) => {
+    const current = get(editorSettingsAtom);
+    const next = { ...current, ...update };
+
+    set(editorSettingsAtom, next);
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("user_settings")
+      .update({
+        use_vim_mode: next.type === "vim",
+        default_is_public: next.defaultIsPublic,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("設定の保存に失敗しました:", error);
+      set(editorSettingsAtom, current);
+    }
+  },
+);

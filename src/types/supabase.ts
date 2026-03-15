@@ -34,11 +34,43 @@ export type Database = {
   }
   public: {
     Tables: {
+      memo_tags: {
+        Row: {
+          memo_id: string
+          tag_id: string
+        }
+        Insert: {
+          memo_id: string
+          tag_id: string
+        }
+        Update: {
+          memo_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memo_tags_memo_id_fkey"
+            columns: ["memo_id"]
+            isOneToOne: false
+            referencedRelation: "memos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memo_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memos: {
         Row: {
           content: string
           created_at: string
+          embedding: string | null
           id: string
+          is_public: boolean
           tags: string[]
           title: string
           updated_at: string
@@ -47,7 +79,9 @@ export type Database = {
         Insert: {
           content?: string
           created_at?: string
+          embedding?: string | null
           id?: string
+          is_public?: boolean
           tags?: string[]
           title?: string
           updated_at?: string
@@ -56,11 +90,58 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          embedding?: string | null
           id?: string
+          is_public?: boolean
           tags?: string[]
           title?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      tags: {
+        Row: {
+          created_at: string | null
+          embedding: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          created_at: string
+          default_is_public: boolean
+          id: string
+          updated_at: string
+          use_vim_mode: boolean
+        }
+        Insert: {
+          created_at?: string
+          default_is_public?: boolean
+          id: string
+          updated_at?: string
+          use_vim_mode?: boolean
+        }
+        Update: {
+          created_at?: string
+          default_is_public?: boolean
+          id?: string
+          updated_at?: string
+          use_vim_mode?: boolean
         }
         Relationships: []
       }
@@ -69,7 +150,39 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      match_memos: {
+        Args: {
+          match_count: number
+          match_threshold: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          similarity: number
+          title: string
+          user_id: string
+        }[]
+      }
+      match_tags: {
+        Args: {
+          match_count: number
+          match_threshold: number
+          query_embedding: string
+        }
+        Returns: {
+          created_at: string | null
+          embedding: string | null
+          id: string
+          name: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tags"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       [_ in never]: never

@@ -1,8 +1,9 @@
 "use client";
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react"; // ★ useRef を追加
 import {
+  allTagsAtom,
   createMemoAtom,
   currentMemoAtom,
   editorContentAtom,
@@ -21,6 +22,8 @@ export function EditorRoot() {
   const setEditorTitle = useSetAtom(editorTitleAtom);
   const setEditorTags = useSetAtom(editorTagsAtom);
 
+  const allTags = useAtomValue(allTagsAtom);
+
   const [vimMode, setVimMode] = useAtom(modeAtom);
   const [commandText, setCommandText] = useAtom(commandTextAtom);
   const settings = useAtomValue(editorSettingsAtom);
@@ -28,17 +31,38 @@ export function EditorRoot() {
   const saveMemo = useSetAtom(saveMemoAtom);
   const createMemo = useSetAtom(createMemoAtom);
 
+  // ★ 鉄壁の保護：現在読み込み済みのメモIDを記録し、意図しないリセットを防ぐ
+  const loadedMemoIdRef = useRef<string | null>(null);
+
+  // ★ 修正：Biome(リンター)の警告を解消しつつ、入力データが消えないようにロックをかける
   useEffect(() => {
-    if (currentMemo) {
+    if (!currentMemo) {
+      if (loadedMemoIdRef.current !== null) {
+        setEditorContent("");
+        setEditorTitle("");
+        setEditorTags([]);
+        loadedMemoIdRef.current = null;
+      }
+      return;
+    }
+
+    // メモを「切り替えた瞬間」だけDBからデータを画面にセットする
+    if (currentMemo.id !== loadedMemoIdRef.current) {
       setEditorContent(currentMemo.content || "");
       setEditorTitle(currentMemo.title || "");
-      setEditorTags(currentMemo.tags || []);
-    } else {
-      setEditorContent("");
-      setEditorTitle("");
-      setEditorTags([]);
+
+      const memoTags = currentMemo.tags || [];
+      const tagsAsObjects = memoTags.map((t: any) => {
+        // ★ 修正：タグが「文字」でも「オブジェクト」でも絶対に文字を取り出す安全処理（空っぽタグ防止）
+        const nameStr = typeof t === "string" ? t : t?.name || "";
+        const found = allTags.find((tag) => tag.name === nameStr);
+        return found ? found : { id: nameStr, name: nameStr };
+      });
+
+      setEditorTags(tagsAsObjects);
+      loadedMemoIdRef.current = currentMemo.id; // ロックをかける
     }
-  }, [currentMemo, setEditorContent, setEditorTitle, setEditorTags]);
+  }, [currentMemo, allTags, setEditorContent, setEditorTitle, setEditorTags]);
 
   const isVim = settings.type === "vim";
 
