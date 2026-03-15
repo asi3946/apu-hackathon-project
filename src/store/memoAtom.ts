@@ -2,13 +2,14 @@ import { atom } from "jotai";
 import type { Memo, Tag } from "@/types/models";
 import { createClient } from "@/utils/supabase/client";
 import {
-  allTagsAtom, // ← 追加：全タグリストのAtom
+  allTagsAtom,
   editorContentAtom,
   editorTagsAtom,
   editorTitleAtom,
+  editorEmbeddingCacheAtom,
 } from "./editorAtom";
 
-// 検索結果専用の型を定義（既存のMemo型を拡張）
+// 検索結果専用の型を定義
 export interface SearchedMemo extends Memo {
   similarity: number;
 }
@@ -20,11 +21,9 @@ export const selectedSearchedMemoAtom = atom<SearchedMemo | null>(null);
 
 const supabase = createClient();
 
-// メモのリストを保持するAtom
 export const memoListAtom = atom<Memo[]>([]);
 export const selectedMemoIdAtom = atom<string | null>(null);
 
-// 選択中のメモを取得する派生Atom
 export const currentMemoAtom = atom((get) => {
   const memos = get(memoListAtom);
   const selectedId = get(selectedMemoIdAtom);
@@ -33,7 +32,6 @@ export const currentMemoAtom = atom((get) => {
 
 // --- Actions (非同期処理) ---
 
-// 【追加】全タグ一覧をDBから取得するAction
 export const fetchAllTagsAtom = atom(null, async (get, set) => {
   const { data, error } = await supabase
     .from("tags")
@@ -45,7 +43,6 @@ export const fetchAllTagsAtom = atom(null, async (get, set) => {
   }
 });
 
-// 1. メモ一覧を取得するAction
 export const fetchMemosAtom = atom(null, async (get, set) => {
   const { data, error } = await supabase
     .from("memos")
@@ -65,42 +62,50 @@ export const fetchMemosAtom = atom(null, async (get, set) => {
   }
 });
 
-// 2. メモを保存するAction (修正版)
+// 2. メモを保存するAction (キャッシュ対応＆型エラー修正版)
 export const saveMemoAtom = atom(null, async (get, set) => {
   const id = get(selectedMemoIdAtom);
   const title = get(editorTitleAtom);
   const content = get(editorContentAtom);
-  const tags = get(editorTagsAtom); // ← 現在は Tag[] 型 (オブジェクトの配列)
+  const tags = get(editorTagsAtom);
+  const cache = get(editorEmbeddingCacheAtom);
 
   if (!id) return;
 
   try {
-    // あなたが作成したAPIを叩いてベクトルを取得する (既存の処理そのまま)
-    const res = await fetch("/api/embeddings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: `${title}\n${content}` }),
-    });
+    let currentEmbedding: number[] = [];
 
-    if (!res.ok) {
-      throw new Error("Failed to fetch embedding");
+    // キャッシュがあり、かつ内容が一致していれば再利用（課金回避）
+    if (cache && cache.text === content) {
+      console.log("♻️ ベクトルキャッシュを使い回して保存します（API料金 ¥0）");
+      currentEmbedding = cache.embedding;
+    } else {
+      console.log("⚡ 新しくベクトルを生成して保存します");
+      const res = await fetch("/api/embeddings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: `${title}\n${content}` }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch embedding");
+      }
+      const data = await res.json();
+      currentEmbedding = data.embedding;
     }
 
-    const { embedding } = await res.json();
     const updated_at = new Date().toISOString();
-
-    // 【エラー対策】DB(memos)とローカル状態には、オブジェクトから「名前(文字)」だけを抽出して渡す
     const tagNames = tags.map((t: Tag) => t.name);
 
-    // embeddingと一緒にDB(memos)に保存する
+    // DB(Supabase)へ保存
     const { error } = await supabase
       .from("memos")
       .update({
         title,
         content,
-        tags: tagNames, // ← Tag[] ではなく string[] を渡すのでエラーが消えます！
+        tags: tagNames,
         updated_at,
-        embedding,
+        embedding: currentEmbedding,
       })
       .eq("id", id);
 
@@ -109,21 +114,28 @@ export const saveMemoAtom = atom(null, async (get, set) => {
       return;
     }
 
-    // 成功したらローカルのリスト（Jotaiの状態）も更新
+    // ローカルのJotaiリストを更新
     set(memoListAtom, (prev) =>
       prev.map((memo) =>
         memo.id === id
-          ? { ...memo, title, content, tags: tagNames, updated_at, embedding } // ← ここも string[] を渡す
+          ? {
+              ...memo,
+              title,
+              content,
+              tags: tagNames,
+              updated_at,
+              embedding: JSON.stringify(currentEmbedding),
+            }
           : memo,
       ),
     );
 
-    // 【追加】タグの中間テーブル(memo_tags)同期APIを叩く
+    // タグの中間テーブル(memo_tags)同期
     const syncRes = await fetch("/api/memos/tags/sync", {
       method: "POST",
       body: JSON.stringify({
         memo_id: id,
-        tag_ids: tags.map((t: Tag) => t.id), // こっちはDBのIDの配列を送る
+        tag_ids: tags.map((t: Tag) => t.id),
       }),
       headers: { "Content-Type": "application/json" },
     });
@@ -131,6 +143,10 @@ export const saveMemoAtom = atom(null, async (get, set) => {
     if (!syncRes.ok) {
       console.error("Tags sync failed");
     }
+
+    // ★ 修正点：ここにあったキャッシュクリアの set(editorEmbeddingCacheAtom, null) を削除しました。
+    // これにより、内容が変わらない限りタイトル生成などの連続操作でもキャッシュが生き続けます。
+
   } catch (err) {
     console.error("Error in saveMemoAtom:", err);
   }

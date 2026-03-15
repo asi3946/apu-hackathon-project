@@ -27,8 +27,10 @@ export async function POST(request: Request) {
       以下のメモ内容を読み取り、内容を的確に表すタイトルを1つ作成してください。
       
       ルール:
-      - 20文字以内。
+      - 15文字以内。
       - タイトルの文字列のみを出力すること（「タイトル：」などは不要）。
+      - メモの内容が一目で把握できるようにしてください。技術、作家、などメモの主題を含めるよう心掛けてください。
+      - できるだけ文章で生成するようにし、単語の羅列は控えてください。
       
       メモ内容:
       ${truncatedContent}
@@ -40,10 +42,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ title: generatedTitle });
 
   } catch (error: any) {
-    console.error("AUTO TITLE API ERROR:", error);
+    console.error("API ERROR:", error.message);
+
+    // 429 Too Many Requests (制限超過) の検知
+    if (error.status === 429 || error.message?.includes("429 Too Many Requests")) {
+      // エラー文から "retry in 57.56...s" の数字部分を抽出
+      const match = error.message.match(/retry in ([\d.]+)s/);
+      // 数字が見つかれば切り上げて秒数にする（見つからなければ安全のためデフォルト60秒）
+      const retryAfter = match ? Math.ceil(parseFloat(match[1])) : 60;
+      
+      return NextResponse.json(
+        { error: "Rate limit exceeded", retryAfter },
+        { status: 429 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Internal Server Error", message: error.message },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
