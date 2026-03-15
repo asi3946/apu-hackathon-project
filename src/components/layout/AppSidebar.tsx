@@ -3,6 +3,7 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   ArrowLeft,
+  Bookmark,
   Compass,
   FileText,
   Globe,
@@ -22,82 +23,80 @@ import {
   updateUserSettingsAtom,
 } from "@/store/editorAtom";
 import {
+  bookmarkedMemosAtom,
   createMemoAtom,
+  currentMemoAtom,
   deleteMemoAtom,
+  fetchBookmarkedMemosAtom,
   fetchMemosAtom,
+  fetchRelatedMemosAtom,
   fetchTimelineMemosAtom,
+  isSearchingAtom,
   memoListAtom,
   searchedMemosAtom,
   selectedMemoIdAtom,
   selectedSearchedMemoAtom,
   timelineMemosAtom,
-  isSearchingAtom,
-  fetchRelatedMemosAtom,
-  currentMemoAtom, // ★ 追加
 } from "@/store/memoAtom";
 
 export function AppSidebar() {
   const [settings] = useAtom(editorSettingsAtom);
   const updateSettings = useSetAtom(updateUserSettingsAtom);
   const fetchUserSettings = useSetAtom(fetchUserSettingsAtom);
-
   const [memos] = useAtom(memoListAtom);
   const [selectedId, setSelectedId] = useAtom(selectedMemoIdAtom);
   const fetchMemos = useSetAtom(fetchMemosAtom);
   const createMemo = useSetAtom(createMemoAtom);
   const deleteMemo = useSetAtom(deleteMemoAtom);
-
   const [currentView, setCurrentView] = useAtom(currentViewAtom);
-
   const [searchedMemos] = useAtom(searchedMemosAtom);
   const [selectedSearchedMemo, setSelectedSearchedMemo] = useAtom(
     selectedSearchedMemoAtom,
   );
-  
   const isSearching = useAtomValue(isSearchingAtom);
   const fetchRelated = useSetAtom(fetchRelatedMemosAtom);
-
   const timelineMemos = useAtomValue(timelineMemosAtom);
   const fetchTimeline = useSetAtom(fetchTimelineMemosAtom);
-
-  // ★ 追加: 現在開いている自分のメモを取得
   const currentMemo = useAtomValue(currentMemoAtom);
+
+  const bookmarkedMemos = useAtomValue(bookmarkedMemosAtom);
+  const fetchBookmarks = useSetAtom(fetchBookmarkedMemosAtom);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
-
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchMemos();
     fetchUserSettings();
-  }, [fetchMemos, fetchUserSettings]);
+    fetchBookmarks();
+  }, [fetchMemos, fetchUserSettings, fetchBookmarks]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
         settingsRef.current &&
         !settingsRef.current.contains(event.target as Node)
-      ) {
+      )
         setIsSettingsOpen(false);
-      }
     };
     if (isSettingsOpen)
       document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isSettingsOpen]);
 
-  const toggleDefaultPublic = () => {
+  const toggleDefaultPublic = () =>
     updateSettings({ defaultIsPublic: !settings.defaultIsPublic });
+
+  const toggleVimMode = () => {
+    updateSettings({ type: settings.type === "standard" ? "vim" : "standard" });
   };
 
   const handleCreateMemo = async () => {
     setCurrentView("editor");
     await createMemo();
   };
-
   const filteredMemos = memos.filter((memo) => {
-    if (!searchQuery) return true;
     const title = memo.title || "無題のメモ";
     return title.toLowerCase().includes(searchQuery.toLowerCase());
   });
@@ -106,7 +105,6 @@ export function AppSidebar() {
     <aside className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none shrink-0">
       <div className="p-4 space-y-4">
         <SidebarAuth />
-
         {currentView !== "editor" && (
           <button
             type="button"
@@ -117,7 +115,6 @@ export function AppSidebar() {
             <span>自分のメモに戻る</span>
           </button>
         )}
-
         {currentView === "editor" && (
           <div className="space-y-1">
             <div className="relative group mb-2">
@@ -130,7 +127,6 @@ export function AppSidebar() {
                 className="w-full bg-transparent border border-transparent hover:bg-white focus:bg-white focus:border-blue-200 rounded-full py-2 pl-10 pr-4 text-sm outline-none transition-all"
               />
             </div>
-
             <button
               type="button"
               onClick={handleCreateMemo}
@@ -139,7 +135,6 @@ export function AppSidebar() {
               <Plus className="w-5 h-5 text-blue-500" />
               <span>メモを新規作成</span>
             </button>
-
             <button
               type="button"
               onClick={() => {
@@ -151,7 +146,6 @@ export function AppSidebar() {
               <Compass className="w-5 h-5" />
               <span>関連する公開メモを探す</span>
             </button>
-
             <button
               type="button"
               onClick={() => {
@@ -163,37 +157,46 @@ export function AppSidebar() {
               <Globe className="w-5 h-5" />
               <span>公開タイムライン</span>
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentView("bookmarks");
+                fetchBookmarks();
+              }}
+              className="flex items-center gap-2 hover:bg-yellow-50 text-yellow-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
+            >
+              <Bookmark className="w-5 h-5" />
+              <span>ブックマーク</span>
+            </button>
           </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex-1 overflow-y-auto px-2 py-2">
         {currentView === "explore" ? (
           <div className="space-y-1">
-            {/* ★ 修正: おおもとのメモのタイトルを表示するヘッダーを追加 */}
             <div className="px-4 mb-2">
-              <div className="text-[10px] uppercase tracking-wider text-blue-500 font-bold">
+              <div className="text-[10px] uppercase text-blue-500 font-bold">
                 Related to
               </div>
               <div className="text-xs font-bold text-gray-800 truncate">
                 {currentMemo?.title || "無題のメモ"}
               </div>
             </div>
-
-            <div className="h-px bg-gray-200 mx-4 my-2" /> {/* 区切り線 */}
-
+            <div className="h-px bg-gray-200 mx-4 my-2" />
             {isSearching ? (
-              <div className="flex flex-col items-center py-10 text-gray-400">
-                <Loader2 className="w-6 h-6 animate-spin mb-4 text-blue-500" />
-                <span className="text-xs font-bold text-blue-500">思考を解析中...</span>
+              <div className="text-center py-10 text-xs font-bold text-blue-500">
+                思考を解析中...
               </div>
             ) : searchedMemos.length === 0 ? (
-              <div className="text-center py-10 text-gray-400 text-xs">関連する他人のメモが見つかりません</div>
+              <div className="text-center py-10 text-gray-400 text-xs">
+                見つかりません
+              </div>
             ) : (
               searchedMemos.map((memo) => (
                 <button
-                  key={memo.id}
                   type="button"
+                  key={memo.id}
                   onClick={() => setSelectedSearchedMemo(memo)}
                   className={cn(
                     "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left",
@@ -214,13 +217,13 @@ export function AppSidebar() {
           </div>
         ) : currentView === "timeline" ? (
           <div className="space-y-1">
-            <div className="text-xs font-medium px-4 mb-2 text-green-600">
-              タイムライン (他人の公開メモ)
+            <div className="text-xs font-medium px-4 mb-2 text-green-600 font-bold">
+              タイムライン
             </div>
             {timelineMemos.map((memo) => (
               <button
-                key={memo.id}
                 type="button"
+                key={memo.id}
                 onClick={() => setSelectedSearchedMemo(memo as any)}
                 className={cn(
                   "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left",
@@ -238,51 +241,76 @@ export function AppSidebar() {
               </button>
             ))}
           </div>
+        ) : currentView === "bookmarks" ? (
+          <div className="space-y-1">
+            <div className="text-xs font-medium px-4 mb-2 text-yellow-600 font-bold">
+              ブックマーク
+            </div>
+            {bookmarkedMemos.length === 0 ? (
+              <div className="text-center py-6 text-gray-400 text-xs">
+                まだ保存されていません
+              </div>
+            ) : (
+              bookmarkedMemos.map((memo) => (
+                <button
+                  type="button"
+                  key={memo.id}
+                  onClick={() => setSelectedSearchedMemo(memo as any)}
+                  className={cn(
+                    "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left",
+                    selectedSearchedMemo?.id === memo.id
+                      ? "bg-yellow-50 border-yellow-200"
+                      : "bg-white border-transparent hover:border-gray-200",
+                  )}
+                >
+                  <div className="text-[10px] text-yellow-600 mb-1 font-bold">
+                    {new Date(memo.updated_at).toLocaleDateString()}
+                  </div>
+                  <div className="truncate text-sm font-medium text-gray-800">
+                    {memo.title || "無題のメモ"}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
         ) : (
           <div className="space-y-1">
             <div className="text-xs font-medium px-4 mb-2">自分のメモ</div>
-            
-            {filteredMemos.length === 0 ? (
-              <div className="text-center py-6 text-gray-400 text-xs">
-                メモが見つかりません
-              </div>
-            ) : (
-              filteredMemos.map((memo) => (
-                <div
-                  key={memo.id}
-                  className={cn(
-                    "w-full rounded-full flex items-center transition-colors group px-2",
-                    selectedId === memo.id && currentView === "editor"
-                      ? "bg-blue-100 text-[#0e42a0]"
-                      : "hover:bg-[#d3e3fd]",
-                  )}
+            {filteredMemos.map((memo) => (
+              <div
+                key={memo.id}
+                className={cn(
+                  "w-full rounded-full flex items-center transition-colors group px-2",
+                  selectedId === memo.id && currentView === "editor"
+                    ? "bg-blue-100 text-[#0e42a0]"
+                    : "hover:bg-[#d3e3fd]",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(memo.id);
+                    setCurrentView("editor");
+                  }}
+                  className="flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left outline-none"
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedId(memo.id);
-                      setCurrentView("editor");
-                    }}
-                    className="flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left outline-none"
-                  >
-                    <FileText className="w-4 h-4 opacity-50 shrink-0" />
-                    <span className="truncate text-sm font-medium">
-                      {memo.title || "無題のメモ"}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteMemo(memo.id);
-                    }}
-                    className="hidden group-hover:flex shrink-0 text-red-400 pr-3 pl-2 py-2 hover:text-red-600"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))
-            )}
+                  <FileText className="w-4 h-4 opacity-50 shrink-0" />
+                  <span className="truncate text-sm font-medium">
+                    {memo.title || "無題のメモ"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteMemo(memo.id);
+                  }}
+                  className="hidden group-hover:flex text-red-400 pr-3 pl-2 py-2 hover:text-red-600"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -293,34 +321,51 @@ export function AppSidebar() {
       >
         {isSettingsOpen && (
           <div className="absolute bottom-full left-4 mb-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-50">
-            <h3 className="text-sm font-semibold text-gray-800 mb-4">
-              エディタ設定
-            </h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">デフォルトで公開</span>
-                <button
-                  type="button"
-                  onClick={toggleDefaultPublic}
+            <h3 className="text-sm font-semibold text-gray-800 mb-4">設定</h3>
+
+            {/* 既存：デフォルトで公開のトグル */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">デフォルトで公開</span>
+              <button
+                type="button"
+                onClick={toggleDefaultPublic}
+                className={cn(
+                  "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                  settings.defaultIsPublic ? "bg-blue-500" : "bg-gray-300",
+                )}
+              >
+                <span
                   className={cn(
-                    "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
-                    settings.defaultIsPublic ? "bg-blue-500" : "bg-gray-300",
+                    "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                    settings.defaultIsPublic
+                      ? "translate-x-4"
+                      : "translate-x-0",
                   )}
-                >
-                  <span
-                    className={cn(
-                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
-                      settings.defaultIsPublic
-                        ? "translate-x-4"
-                        : "translate-x-0",
-                    )}
-                  />
-                </button>
-              </div>
+                />
+              </button>
+            </div>
+
+            {/* ★追加：Vimモードのトグル */}
+            <div className="flex items-center justify-between mt-4">
+              <span className="text-sm text-gray-600">Vimモード</span>
+              <button
+                type="button"
+                onClick={toggleVimMode}
+                className={cn(
+                  "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                  settings.type === "vim" ? "bg-blue-500" : "bg-gray-300",
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                    settings.type === "vim" ? "translate-x-4" : "translate-x-0",
+                  )}
+                />
+              </button>
             </div>
           </div>
         )}
-
         <button
           type="button"
           onClick={() => setIsSettingsOpen(!isSettingsOpen)}

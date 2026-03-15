@@ -56,6 +56,8 @@ src/
       embeddings/
         route.ts
       memos/
+        bookmarks/
+          route.ts
         search/
           route.ts
         tags/
@@ -120,6 +122,7 @@ supabase/
     20260314082909_add_match_memos_rpc.sql
     20260314083803_create_tags_table_and_functions.sql
     20260314090251_update_match_memos_with_similarity.sql
+    20260315094046_create_bookmarks.sql
   .gitignore
   config.toml
   seed.sql
@@ -483,6 +486,60 @@ async function seedTags() {
 seedTags();
 </file>
 
+<file path="src/app/api/memos/bookmarks/route.ts">
+import { NextResponse } from "next/server";
+import { createClient } from "@/utils/supabase/server";
+
+export async function GET() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { data, error } = await supabase
+      .from("bookmarks")
+      .select("memo_id, memos(id, title, content, updated_at, user_id, tags)")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    
+    const bookmarks = data.map((b: any) => b.memos).filter(Boolean);
+    return NextResponse.json({ bookmarks });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { memo_id } = await request.json();
+    if (!memo_id) return NextResponse.json({ error: "memo_id required" }, { status: 400 });
+
+    const { data: existing } = await supabase
+      .from("bookmarks")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("memo_id", memo_id)
+      .single();
+
+    if (existing) {
+      await supabase.from("bookmarks").delete().eq("id", existing.id);
+      return NextResponse.json({ bookmarked: false });
+    } else {
+      await supabase.from("bookmarks").insert([{ user_id: user.id, memo_id }]);
+      return NextResponse.json({ bookmarked: true });
+    }
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+</file>
+
 <file path="src/app/api/memos/tags/sync/route.ts">
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
@@ -636,6 +693,55 @@ export function SidebarAuth() {
     </div>
   );
 }
+</file>
+
+<file path="src/components/editor/SimpleEditor.tsx">
+"use client";
+
+import { useSetAtom } from "jotai";
+import { useVimEditor } from "@/hooks/useVimEditor";
+import { cn } from "@/lib/utils";
+import { activeEditorAtom } from "@/store/editorAtom";
+
+export function SimpleEditor() {
+  const {
+    textareaRef,
+    content,
+    vimMode,
+    settings,
+    handleChange,
+    handleSelect,
+    handleKeyDown,
+  } = useVimEditor();
+
+  const setActiveEditor = useSetAtom(activeEditorAtom);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={content}
+      onChange={handleChange}
+      onSelect={handleSelect}
+      onKeyDown={handleKeyDown}
+      onFocus={() => setActiveEditor("content")}
+      placeholder="ここにメモを入力..."
+      className={cn(
+        "w-full h-full resize-none outline-none bg-transparent",
+        "font-mono text-lg leading-relaxed",
+        "text-gray-800 placeholder:text-gray-300",
+        settings.type === "vim" &&
+          vimMode === "normal" &&
+          "selection:bg-gray-800 selection:text-white",
+      )}
+      spellCheck={false}
+    />
+  );
+}
+</file>
+
+<file path="src/types/editor.ts">
+export type VimMode = "normal" | "insert" | "visual" | "visualLine" | "command";
+export type CursorPosition = number;
 </file>
 
 <file path="src/types/search.ts">
@@ -898,6 +1004,24 @@ as $$
 $$;
 </file>
 
+<file path="supabase/migrations/20260315094046_create_bookmarks.sql">
+-- ブックマークテーブルの作成
+CREATE TABLE bookmarks (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users not null,
+  memo_id uuid references memos on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(user_id, memo_id) -- 同じメモの重複保存を防止
+);
+
+-- セキュリティ（RLS）の設定
+ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage their own bookmarks" 
+ON bookmarks FOR ALL 
+USING (auth.uid() = user_id);
+</file>
+
 <file path="middleware.ts">
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
@@ -979,88 +1103,6 @@ const nextConfig = {
 };
 
 export default nextConfig;
-</file>
-
-<file path="src/app/api/memos/timeline/route.ts">
-import { NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
-
-export async function GET() {
-  try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // 1. 自分の全メモのベクトルを取得
-    const { data: myMemos } = await supabase
-      .from("memos")
-      .select("embedding")
-      .eq("user_id", user.id)
-      .not("embedding", "is", null);
-
-    let timeline_memos = [];
-
-    if (myMemos && myMemos.length > 0) {
-      const firstEmb = typeof myMemos[0].embedding === 'string' 
-        ? JSON.parse(myMemos[0].embedding) 
-        : myMemos[0].embedding;
-      
-      const vectorLength = firstEmb.length;
-      const combinedEmbedding = new Array(vectorLength).fill(0);
-
-      myMemos.forEach(memo => {
-        const emb = typeof memo.embedding === 'string' ? JSON.parse(memo.embedding) : memo.embedding;
-        if (Array.isArray(emb)) {
-          for (let i = 0; i < vectorLength; i++) {
-            combinedEmbedding[i] += (emb[i] || 0);
-          }
-        }
-      });
-
-      const averagedEmbedding = combinedEmbedding.map(val => val / myMemos.length);
-
-      // 2. 自分の思考（平均ベクトル）に近いメモを検索
-      const { data: matchedMemos, error: rpcError } = await supabase.rpc(
-        "match_memos",
-        {
-          query_embedding: averagedEmbedding,
-          match_threshold: 0.1, // ★少し緩めの0.1に設定して、関連しそうなものを拾う
-          match_count: 50,
-        }
-      );
-
-      if (rpcError) throw rpcError;
-
-      // 3. 【重要】自分以外の「公開」メモだけに絞り込む
-      timeline_memos = (matchedMemos || [])
-        .filter((m: any) => {
-          const isNotMe = String(m.user_id) !== String(user.id);
-          const isPublic = m.is_public === true;
-          return isNotMe && isPublic;
-        })
-        .slice(0, 30);
-
-    } else {
-      // 自分のメモがない場合のフォールバック（他人の最新公開メモ）
-      const { data: fallbackMemos } = await supabase
-        .from("memos")
-        .select("*")
-        .eq("is_public", true)
-        .neq("user_id", user.id)
-        .order("updated_at", { ascending: false })
-        .limit(30);
-      timeline_memos = fallbackMemos || [];
-    }
-
-    return NextResponse.json({ timeline_memos });
-
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
 </file>
 
 <file path="src/app/api/memos/title/auto/route.ts">
@@ -1304,44 +1346,6 @@ export function AuthSection() {
 }
 </file>
 
-<file path="src/components/explore/ExploreViewer.tsx">
-"use client";
-
-import { useAtomValue } from "jotai";
-import { FileText } from "lucide-react";
-import { selectedSearchedMemoAtom } from "@/store/memoAtom"; // ← 追加
-
-export function ExploreViewer() {
-  // ダミーを消して、Jotaiのグローバル状態（選択された検索結果）を読み込む
-  const selectedSearchedMemo = useAtomValue(selectedSearchedMemoAtom);
-
-  return (
-    <div className="flex-1 flex flex-col h-full bg-white relative">
-      {selectedSearchedMemo ? (
-        <div className="flex-1 overflow-y-auto p-12 max-w-4xl mx-auto w-full">
-          <div className="mb-8 border-b pb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              {/* 実際のタイトルを表示 */}
-              {selectedSearchedMemo.title || "無題のメモ"}
-            </h1>
-          </div>
-
-          <div className="prose prose-gray max-w-none text-gray-700 whitespace-pre-wrap">
-            {/* 実際の本文を表示 */}
-            {selectedSearchedMemo.content || "本文がありません。"}
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
-          <FileText className="w-16 h-16 mb-4 opacity-20" />
-          <p>左のリストから気になるメモを選択してください</p>
-        </div>
-      )}
-    </div>
-  );
-}
-</file>
-
 <file path="src/store/vim/history.ts">
 import { atom } from "jotai";
 import { activeEditorAtom } from "../editorAtom";
@@ -1532,11 +1536,6 @@ export interface Tag {
   id: string;
   name: string;
 }
-</file>
-
-<file path="src/types/editor.ts">
-export type VimMode = "normal" | "insert" | "visual" | "visualLine" | "command";
-export type CursorPosition = number;
 </file>
 
 <file path="supabase/migrations/20260312054957_add_public_and_vector_to_memos.sql">
@@ -2215,30 +2214,6 @@ export async function POST(request: Request) {
 }
 </file>
 
-<file path="src/app/page.tsx">
-"use client";
-
-import { useAtomValue } from "jotai";
-import { EditorRoot } from "@/components/editor/EditorRoot";
-import { ExploreViewer } from "@/components/explore/ExploreViewer";
-import { AppSidebar } from "@/components/layout/AppSidebar";
-import { currentViewAtom } from "@/store/models";
-
-export default function Home() {
-  const currentView = useAtomValue(currentViewAtom);
-
-  return (
-    <main className="flex h-screen w-screen overflow-hidden bg-white">
-      <AppSidebar />
-      {/* timelineの時もExploreViewerを使い回す */}
-      {currentView === "timeline" && <ExploreViewer />}
-      {currentView === "explore" && <ExploreViewer />}
-      {currentView === "editor" && <EditorRoot />}
-    </main>
-  );
-}
-</file>
-
 <file path="src/store/vim/core.ts">
 import { atom } from "jotai";
 import type { CursorPosition, VimMode } from "@/types/models";
@@ -2621,91 +2596,205 @@ VALUES
 }
 </file>
 
-<file path="src/app/api/memos/search/route.ts">
+<file path="src/app/api/memos/timeline/route.ts">
 import { NextResponse } from "next/server";
-import type {
-  CrossUserSearchRequest,
-  CrossUserSearchResponse,
-} from "@/types/search";
 import { createClient } from "@/utils/supabase/server";
 
-export async function POST(request: Request) {
+export async function GET() {
   try {
-    const body = (await request.json()) as CrossUserSearchRequest;
-    const { source_memo_id, limit = 10 } = body; 
-
-    if (!source_memo_id) {
-      return NextResponse.json(
-        { error: "source_memo_id is required" },
-        { status: 400 },
-      );
-    }
-
     const supabase = await createClient();
 
-    // 1. 現在のユーザーを取得（自分のメモを弾くために必要）
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2. 検索元のメモのベクトルを取得
-    const { data: sourceMemo, error: fetchError } = await supabase
+    const { data: myMemos } = await supabase
       .from("memos")
       .select("embedding")
-      .eq("id", source_memo_id)
-      .single();
+      .eq("user_id", user.id)
+      .not("embedding", "is", null);
 
-    if (fetchError || !sourceMemo?.embedding) {
-      return NextResponse.json(
-        { error: "Source memo not found or has no embedding" },
-        { status: 404 },
+    let timeline_memos = [];
+
+    if (myMemos && myMemos.length > 0) {
+      const firstEmb = typeof myMemos[0].embedding === 'string' 
+        ? JSON.parse(myMemos[0].embedding) 
+        : myMemos[0].embedding;
+      
+      const vectorLength = firstEmb.length;
+      const combinedEmbedding = new Array(vectorLength).fill(0);
+
+      myMemos.forEach(memo => {
+        const emb = typeof memo.embedding === 'string' ? JSON.parse(memo.embedding) : memo.embedding;
+        if (Array.isArray(emb)) {
+          for (let i = 0; i < vectorLength; i++) {
+            combinedEmbedding[i] += (emb[i] || 0);
+          }
+        }
+      });
+
+      const averagedEmbedding = combinedEmbedding.map(val => val / myMemos.length);
+
+      const { data: matchedMemos, error: rpcError } = await supabase.rpc(
+        "match_memos",
+        {
+          query_embedding: averagedEmbedding,
+          match_threshold: 0.1,
+          match_count: 50,
+        }
       );
+
+      if (rpcError) throw rpcError;
+
+      // --- タグ情報の補完処理 ---
+      const matchedIds = (matchedMemos || []).map((m: any) => m.id);
+      const { data: memosWithTags } = await supabase
+        .from("memos")
+        .select("id, tags")
+        .in("id", matchedIds);
+
+      timeline_memos = (matchedMemos || [])
+        .filter((m: any) => String(m.user_id) !== String(user.id))
+        .map((m: any) => {
+          const tagData = memosWithTags?.find(t => t.id === m.id);
+          return {
+            ...m,
+            tags: tagData?.tags || [] // ★ タグを結合
+          };
+        })
+        .slice(0, 30);
+    } else {
+      const { data: fallbackMemos } = await supabase
+        .from("memos")
+        .select("*")
+        .eq("is_public", true)
+        .neq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(30);
+      timeline_memos = fallbackMemos || [];
     }
 
-    // 3. pgvectorで類似検索
-    // ※自分のメモが上位を占めても大丈夫なように、多め（50件）に取得しておきます
-    const { data: matchedMemos, error: rpcError } = await supabase.rpc(
-      "match_memos",
-      {
-        query_embedding: sourceMemo.embedding,
-        match_threshold: 0.1, // 他人のメモも引っかかりやすいように閾値を下げる
-        match_count: 50,
-      },
-    );
+    return NextResponse.json({ timeline_memos });
 
-    if (rpcError) throw rpcError;
-
-    // 4. データ整形: 「自分以外のメモ」だけに厳密に絞り込む
-    const related_memos = (matchedMemos || [])
-      .filter((memo: any) => {
-        // ★ ここが一番重要！自分の作成したメモはすべて除外する
-        const isNotMe = String(memo.user_id) !== String(user.id); 
-        const isNotSource = String(memo.id) !== String(source_memo_id); 
-        
-        // （他人の非公開メモはSupabaseのRLS機能で元々弾かれているため、
-        // ここに残るのは「他人の公開メモ」だけになります）
-        return isNotMe && isNotSource;
-      })
-      .slice(0, limit) // 指定された件数（10件）に絞る
-      .map((memo: any) => ({
-        id: memo.id,
-        title: memo.title,
-        content: memo.content,
-        similarity: typeof memo.similarity === "number" ? memo.similarity : 0,
-        user_id: memo.user_id,
-      }));
-
-    // 5. レスポンスを返す
-    const response: CrossUserSearchResponse = { related_memos };
-    return NextResponse.json(response);
   } catch (error: any) {
-    console.error("SEARCH API ERROR:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error", message: error.message },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+</file>
+
+<file path="src/app/page.tsx">
+"use client";
+
+import { useAtomValue } from "jotai";
+import { EditorRoot } from "@/components/editor/EditorRoot";
+import { ExploreViewer } from "@/components/explore/ExploreViewer";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { currentViewAtom } from "@/store/models";
+
+export default function Home() {
+  const currentView = useAtomValue(currentViewAtom);
+
+  return (
+    <main className="flex h-screen w-screen overflow-hidden bg-white">
+      <AppSidebar />
+      {/* ★ ここに bookmarks の時の表示条件を追加しました！ */}
+      {(currentView === "timeline" || currentView === "explore" || currentView === "bookmarks") && <ExploreViewer />}
+      {currentView === "editor" && <EditorRoot />}
+    </main>
+  );
+}
+</file>
+
+<file path="src/components/explore/ExploreViewer.tsx">
+"use client";
+
+import { useAtomValue, useSetAtom } from "jotai";
+import { FileText, Bookmark, BookmarkMinus } from "lucide-react";
+import { selectedSearchedMemoAtom, bookmarkedMemoIdsAtom, toggleBookmarkAtom } from "@/store/memoAtom";
+import { currentViewAtom } from "@/store/editorAtom";
+import { cn } from "@/lib/utils";
+
+export function ExploreViewer() {
+  const selectedSearchedMemo = useAtomValue(selectedSearchedMemoAtom);
+  const currentView = useAtomValue(currentViewAtom);
+
+  const bookmarkedIds = useAtomValue(bookmarkedMemoIdsAtom);
+  const toggleBookmark = useSetAtom(toggleBookmarkAtom);
+  const isBookmarked = selectedSearchedMemo ? bookmarkedIds.includes(selectedSearchedMemo.id) : false;
+
+  const isTimeline = currentView === "timeline";
+  const isBookmarks = currentView === "bookmarks";
+  
+  const tagColorClass = isBookmarks ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+    : isTimeline ? "bg-green-50 text-green-700 border-green-200"
+    : "bg-blue-50 text-blue-600 border-blue-200";
+
+  return (
+    <div className="flex-1 flex flex-col h-full bg-white relative">
+      {selectedSearchedMemo ? (
+        <div className="flex-1 overflow-y-auto p-12 max-w-4xl mx-auto w-full">
+          <div className="mb-8 border-b pb-6">
+            
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <h1 className="text-3xl font-bold text-gray-900">
+                {selectedSearchedMemo.title || "無題のメモ"}
+              </h1>
+              
+              {isBookmarks ? (
+                <button
+                  type="button"
+                  onClick={() => selectedSearchedMemo && toggleBookmark(selectedSearchedMemo.id)}
+                  className="px-4 py-2 rounded-full transition-all border shadow-sm shrink-0 flex items-center gap-2 bg-white text-red-500 border-red-200 hover:bg-red-50"
+                >
+                  <BookmarkMinus className="w-4 h-4" />
+                  <span className="text-xs font-bold">ブックマーク解除</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => selectedSearchedMemo && toggleBookmark(selectedSearchedMemo.id)}
+                  className={cn(
+                    "px-4 py-2 rounded-full transition-all border shadow-sm shrink-0 flex items-center gap-2",
+                    isBookmarked 
+                      ? "bg-yellow-50 text-yellow-600 border-yellow-200 hover:bg-yellow-100" 
+                      : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700"
+                  )}
+                >
+                  <Bookmark className={cn("w-4 h-4", isBookmarked && "fill-current")} />
+                  <span className="text-xs font-bold">{isBookmarked ? "保存済み" : "ブックマークに保存"}</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedSearchedMemo.tags && selectedSearchedMemo.tags.length > 0 ? (
+                selectedSearchedMemo.tags.map((tagName: string) => (
+                  <span 
+                    key={tagName} 
+                    className={`px-3 py-1 rounded-full text-sm font-medium border ${tagColorClass}`}
+                  >
+                    #{tagName}
+                  </span>
+                ))
+              ) : (
+                <span className="text-sm text-gray-300 italic">タグなし</span>
+              )}
+            </div>
+          </div>
+
+          <div className="prose prose-gray max-w-none text-gray-700 whitespace-pre-wrap">
+            {selectedSearchedMemo.content || "本文がありません。"}
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+          <FileText className="w-16 h-16 mb-4 opacity-20" />
+          <p>左のリストから気になるメモを選択してください</p>
+        </div>
+      )}
+    </div>
+  );
 }
 </file>
 
@@ -3243,47 +3332,92 @@ export const Constants = {
 } as const
 </file>
 
-<file path="src/components/editor/SimpleEditor.tsx">
-"use client";
+<file path="src/app/api/memos/search/route.ts">
+import { NextResponse } from "next/server";
+import type {
+  CrossUserSearchRequest,
+  CrossUserSearchResponse,
+} from "@/types/search";
+import { createClient } from "@/utils/supabase/server";
 
-import { useSetAtom } from "jotai";
-import { useVimEditor } from "@/hooks/useVimEditor";
-import { cn } from "@/lib/utils";
-import { activeEditorAtom } from "@/store/editorAtom";
+export async function POST(request: Request) {
+  try {
+    const body = (await request.json()) as CrossUserSearchRequest;
+    const { source_memo_id, limit = 10 } = body; 
 
-export function SimpleEditor() {
-  const {
-    textareaRef,
-    content,
-    vimMode,
-    settings,
-    handleChange,
-    handleSelect,
-    handleKeyDown,
-  } = useVimEditor();
+    if (!source_memo_id) {
+      return NextResponse.json(
+        { error: "source_memo_id is required" },
+        { status: 400 },
+      );
+    }
 
-  const setActiveEditor = useSetAtom(activeEditorAtom);
+    const supabase = await createClient();
 
-  return (
-    <textarea
-      ref={textareaRef}
-      value={content}
-      onChange={handleChange}
-      onSelect={handleSelect}
-      onKeyDown={handleKeyDown}
-      onFocus={() => setActiveEditor("content")}
-      placeholder="ここにメモを入力..."
-      className={cn(
-        "w-full h-full resize-none outline-none bg-transparent",
-        "font-mono text-lg leading-relaxed",
-        "text-gray-800 placeholder:text-gray-300",
-        settings.type === "vim" &&
-          vimMode === "normal" &&
-          "selection:bg-gray-800 selection:text-white",
-      )}
-      spellCheck={false}
-    />
-  );
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: sourceMemo, error: fetchError } = await supabase
+      .from("memos")
+      .select("embedding")
+      .eq("id", source_memo_id)
+      .single();
+
+    if (fetchError || !sourceMemo?.embedding) {
+      return NextResponse.json(
+        { error: "Source memo not found or has no embedding" },
+        { status: 404 },
+      );
+    }
+
+    const { data: matchedMemos, error: rpcError } = await supabase.rpc(
+      "match_memos",
+      {
+        query_embedding: sourceMemo.embedding,
+        match_threshold: 0.1,
+        match_count: 50,
+      },
+    );
+
+    if (rpcError) throw rpcError;
+
+    // --- タグ情報の補完処理 ---
+    const matchedIds = (matchedMemos || []).map((m: any) => m.id);
+    const { data: memosWithTags } = await supabase
+      .from("memos")
+      .select("id, tags")
+      .in("id", matchedIds);
+
+    const related_memos = (matchedMemos || [])
+      .filter((memo: any) => {
+        const isNotMe = String(memo.user_id) !== String(user.id); 
+        const isNotSource = String(memo.id) !== String(source_memo_id); 
+        return isNotMe && isNotSource;
+      })
+      .slice(0, limit)
+      .map((memo: any) => {
+        const tagData = memosWithTags?.find(t => t.id === memo.id);
+        return {
+          id: memo.id,
+          title: memo.title,
+          content: memo.content,
+          similarity: typeof memo.similarity === "number" ? memo.similarity : 0,
+          user_id: memo.user_id,
+          tags: tagData?.tags || [], // ★ タグを結合
+        };
+      });
+
+    const response: CrossUserSearchResponse = { related_memos };
+    return NextResponse.json(response);
+  } catch (error: any) {
+    console.error("SEARCH API ERROR:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error", message: error.message },
+      { status: 500 },
+    );
+  }
 }
 </file>
 
@@ -3920,11 +4054,8 @@ export interface EditorSettings {
   defaultIsPublic: boolean;
 }
 
-// 画面のモード
-// ViewMode の定義をしっかり export
-export type ViewMode = "editor" | "explore" | "timeline";
-
-// ★ <ViewMode> を明示的に指定して、"editor" 以外の文字列も入ることを教える
+// ★ ここに "bookmarks" を追加しました！
+export type ViewMode = "editor" | "explore" | "timeline" | "bookmarks";
 export const currentViewAtom = atom<ViewMode>("editor");
 
 export type ActiveEditor = "title" | "tags" | "content";
@@ -3933,50 +4064,33 @@ export const activeEditorAtom = atom<ActiveEditor>("content");
 export const editorContentAtom = atom<string>("");
 export const editorTitleAtom = atom<string>("");
 export const editorTagsAtom = atom<Tag[]>([]);
-
-// ★ 追加：現在開いているメモの公開状態を管理する
 export const editorIsPublicAtom = atom<boolean>(false);
 
 export const allTagsAtom = atom<Tag[]>([]);
 export const editorTagInputAtom = atom<string>("");
 
-// タグ検索用のステート
 export const tagSearchQueryAtom = atom<string>("");
 export const isTagSearchingAtom = atom<boolean>(false);
 
-// ユーザー全体のデフォルト設定
 export const editorSettingsAtom = atom<EditorSettings>({
   type: "standard",
   defaultIsPublic: false,
 });
 
-// AIコスト削減のためのベクトルキャッシュ
 export const editorEmbeddingCacheAtom = atom<{
   text: string;
   embedding: number[];
 } | null>(null);
 
-// --- DB連携用のアクション ---
-
 export const fetchUserSettingsAtom = atom(null, async (get, set) => {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-
-  const { data, error } = await supabase
-    .from("user_settings")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
+  const { data, error } = await supabase.from("user_settings").select("*").eq("id", user.id).single();
   if (error) {
     console.error("設定の取得に失敗しました:", error);
     return;
   }
-
   if (data) {
     set(editorSettingsAtom, {
       type: data.use_vim_mode ? "vim" : "standard",
@@ -3985,30 +4099,18 @@ export const fetchUserSettingsAtom = atom(null, async (get, set) => {
   }
 });
 
-export const updateUserSettingsAtom = atom(
-  null,
-  async (get, set, update: Partial<EditorSettings>) => {
+export const updateUserSettingsAtom = atom(null, async (get, set, update: Partial<EditorSettings>) => {
     const current = get(editorSettingsAtom);
     const next = { ...current, ...update };
-
     set(editorSettingsAtom, next);
-
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
-    const { error } = await supabase
-      .from("user_settings")
-      .update({
+    const { error } = await supabase.from("user_settings").update({
         use_vim_mode: next.type === "vim",
         default_is_public: next.defaultIsPublic,
         updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
-
+      }).eq("id", user.id);
     if (error) {
       console.error("設定の保存に失敗しました:", error);
       set(editorSettingsAtom, current);
@@ -4022,41 +4124,21 @@ export const updateUserSettingsAtom = atom(
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
-  Check,
-  Globe,
-  Hourglass,
-  Loader2,
-  Lock,
-  Plus,
-  Save,
-  Search,
-  Sparkles,
-  Tag as TagIcon,
-  X,
+  Check, Globe, Hourglass, Loader2, Lock, Plus, Save, Search, Sparkles, Tag as TagIcon, X, Bookmark // ★ Bookmarkを追加
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVimKeyHandler } from "@/hooks/useVimKeyHandler";
 import { cn } from "@/lib/utils";
 import {
-  activeEditorAtom,
-  allTagsAtom,
-  editorContentAtom,
-  editorEmbeddingCacheAtom,
-  editorIsPublicAtom,
-  editorTagInputAtom,
-  isTagSearchingAtom,
-  tagSearchQueryAtom,
+  activeEditorAtom, allTagsAtom, editorContentAtom, editorEmbeddingCacheAtom,
+  editorIsPublicAtom, editorTagInputAtom, isTagSearchingAtom, tagSearchQueryAtom,
 } from "@/store/editorAtom";
 import {
-  fetchAllTagsAtom,
-  saveMemoAtom,
-  searchTagsSemanticAtom,
+  fetchAllTagsAtom, saveMemoAtom, searchTagsSemanticAtom,
+  bookmarkedMemoIdsAtom, toggleBookmarkAtom // ★ ブックマーク用のAtomを追加
 } from "@/store/memoAtom";
 import {
-  editorSettingsAtom,
-  editorTagsAtom,
-  editorTitleAtom,
-  selectedMemoIdAtom,
+  editorSettingsAtom, editorTagsAtom, editorTitleAtom, selectedMemoIdAtom,
 } from "@/store/models";
 import { cursorAtom, modeAtom, visualStartAtom } from "@/store/vim/core";
 import type { Tag } from "@/types/db";
@@ -4085,6 +4167,11 @@ export function EditorHeader() {
   const cursor = useAtomValue(cursorAtom);
   const visualStart = useAtomValue(visualStartAtom);
   const setCursor = useSetAtom(cursorAtom);
+
+  // ★ ブックマーク状態の取得
+  const bookmarkedIds = useAtomValue(bookmarkedMemoIdsAtom);
+  const toggleBookmark = useSetAtom(toggleBookmarkAtom);
+  const isBookmarked = selectedId ? bookmarkedIds.includes(selectedId) : false;
 
   const [isSaving, setIsSaving] = useState(false);
   const [isTitleAiLoading, setIsTitleAiLoading] = useState(false);
@@ -4327,7 +4414,6 @@ export function EditorHeader() {
             onClick={handleAutoTitle}
             disabled={!content || isTitleAiLoading || cooldown > 0}
             className={cn(
-              // whitespace-nowrap（改行禁止）と shrink-0（縮小禁止）を追加
               "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap shrink-0",
               isTitleAiLoading || cooldown > 0
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
@@ -4350,7 +4436,7 @@ export function EditorHeader() {
             onClick={handleSave}
             disabled={!selectedId || isSaving}
             className={cn(
-              "p-2 rounded-full transition-all duration-200 shrink-0", // ここにも shrink-0 を追加
+              "p-2 rounded-full transition-all duration-200 shrink-0",
               selectedId
                 ? "text-gray-400 hover:bg-blue-50 hover:text-blue-600"
                 : "text-gray-200 cursor-not-allowed",
@@ -4370,7 +4456,6 @@ export function EditorHeader() {
             onClick={togglePublic}
             disabled={!selectedId}
             className={cn(
-              // whitespace-nowrap（改行禁止）を追加
               "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm whitespace-nowrap shrink-0",
               !selectedId
                 ? "opacity-30 cursor-not-allowed"
@@ -4388,6 +4473,25 @@ export function EditorHeader() {
                 <Lock className="w-3.5 h-3.5" /> 未公開
               </>
             )}
+          </button>
+
+          {/* 4. 自分のメモ用ブックマークボタン */}
+          <button
+            type="button"
+            onClick={() => selectedId && toggleBookmark(selectedId)}
+            disabled={!selectedId}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm whitespace-nowrap shrink-0",
+              !selectedId
+                ? "opacity-30 cursor-not-allowed"
+                : isBookmarked
+                  ? "bg-yellow-50 text-yellow-600 border-yellow-200 hover:bg-yellow-100"
+                  : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+            )}
+            title={isBookmarked ? "ブックマーク解除" : "ブックマークに保存"}
+          >
+            <Bookmark className={cn("w-3.5 h-3.5", isBookmarked && "fill-current")} />
+            <span>{isBookmarked ? "保存済み" : "保存する"}</span>
           </button>
         </div>
       </div>
@@ -4541,28 +4645,22 @@ export function EditorHeader() {
 </file>
 
 <file path="src/store/memoAtom.ts">
+"use client";
+
 import { atom } from "jotai";
 import type { Memo, Tag } from "@/types/models";
 import { createClient } from "@/utils/supabase/client";
 import {
-  allTagsAtom,
-  editorContentAtom,
-  editorTagsAtom,
-  editorTitleAtom,
-  editorEmbeddingCacheAtom,
-  tagSearchQueryAtom,
-  isTagSearchingAtom,
-  editorSettingsAtom,
-  editorIsPublicAtom,
+  allTagsAtom, editorContentAtom, editorTagsAtom, editorTitleAtom,
+  editorEmbeddingCacheAtom, tagSearchQueryAtom, isTagSearchingAtom,
+  editorSettingsAtom, editorIsPublicAtom, currentViewAtom
 } from "./editorAtom";
 
-// 検索結果専用の型を定義
 export interface SearchedMemo extends Memo {
   similarity: number;
 }
 
 export const isExploreModeAtom = atom(false);
-
 export const searchedMemosAtom = atom<SearchedMemo[]>([]);
 export const selectedSearchedMemoAtom = atom<SearchedMemo | null>(null);
 
@@ -4577,85 +4675,41 @@ export const currentMemoAtom = atom((get) => {
   return memos.find((m) => m.id === selectedId) || null;
 });
 
-// --- Actions (非同期処理) ---
-
 export const fetchAllTagsAtom = atom(null, async (get, set) => {
-  const { data, error } = await supabase
-    .from("tags")
-    .select("id, name")
-    .order("name");
-
-  if (!error && data) {
-    set(allTagsAtom, data);
-  }
+  const { data } = await supabase.from("tags").select("id, name").order("name");
+  if (data) set(allTagsAtom, data);
 });
 
 export const searchTagsSemanticAtom = atom(null, async (get, set) => {
   const query = get(tagSearchQueryAtom);
-
   if (!query.trim()) {
     set(isTagSearchingAtom, false);
-    const { data } = await supabase
-      .from("tags")
-      .select("id, name")
-      .order("name");
+    const { data } = await supabase.from("tags").select("id, name").order("name");
     if (data) set(allTagsAtom, data);
     return;
   }
-
   set(isTagSearchingAtom, true);
-
   try {
     const res = await fetch("/api/embeddings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: query }),
     });
-
-    if (!res.ok) throw new Error("Embedding failed");
     const { embedding } = await res.json();
-
     const { data, error } = await supabase.rpc("match_tags", {
       query_embedding: embedding,
       match_threshold: 0.1,
       match_count: 50,
     });
-
-    if (error) throw error;
     if (data) set(allTagsAtom, data as Tag[]);
-  } catch (err) {
-    console.error("Tag semantic search failed:", err);
-  } finally {
-    set(isTagSearchingAtom, false);
-  }
+  } catch (err) { console.error(err); } finally { set(isTagSearchingAtom, false); }
 });
 
 export const fetchMemosAtom = atom(null, async (get, set) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-
-  const { data, error } = await supabase
-    .from("memos")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("updated_at", { ascending: false });
-
-  if (error) {
-    console.error("Error fetching memos:", error);
-    return;
-  }
-
-  if (data) {
-    const memoData = data as Memo[];
-    set(memoListAtom, memoData);
-    
-    const selectedId = get(selectedMemoIdAtom) || (memoData.length > 0 ? memoData[0].id : null);
-    if (selectedId) {
-      if (!get(selectedMemoIdAtom)) set(selectedMemoIdAtom, selectedId);
-      const current = memoData.find((m) => m.id === selectedId);
-      if (current) set(editorIsPublicAtom, !!current.is_public);
-    }
-  }
+  const { data } = await supabase.from("memos").select("*").eq("user_id", user.id).order("updated_at", { ascending: false });
+  if (data) set(memoListAtom, data as Memo[]);
 });
 
 export const saveMemoAtom = atom(null, async (get, set) => {
@@ -4665,171 +4719,133 @@ export const saveMemoAtom = atom(null, async (get, set) => {
   const tags = get(editorTagsAtom);
   const isPublic = get(editorIsPublicAtom);
   const cache = get(editorEmbeddingCacheAtom);
-
   if (!id) return;
-
   try {
-    let currentEmbedding: number[] = [];
-
-    if (cache && cache.text === content) {
-      currentEmbedding = cache.embedding;
-    } else {
+    let currentEmbedding = (cache && cache.text === content) ? cache.embedding : null;
+    if (!currentEmbedding) {
       const res = await fetch("/api/embeddings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: `${title}\n${content}` }),
       });
-
-      if (!res.ok) throw new Error("Failed to fetch embedding");
       const data = await res.json();
       currentEmbedding = data.embedding;
     }
-
-    const updated_at = new Date().toISOString();
     const tagNames = tags.map((t: Tag) => t.name);
-
-    const { error } = await supabase
-      .from("memos")
-      .update({
-        title,
-        content,
-        tags: tagNames,
-        is_public: isPublic,
-        updated_at,
-        embedding: currentEmbedding,
-      })
-      .eq("id", id);
-
-    if (error) return;
-
-    set(memoListAtom, (prev) =>
-      prev.map((memo) =>
-        memo.id === id
-          ? {
-              ...memo,
-              title,
-              content,
-              tags: tagNames,
-              is_public: isPublic,
-              updated_at,
-              embedding: JSON.stringify(currentEmbedding),
-            }
-          : memo,
-      ),
-    );
-
-    await fetch("/api/memos/tags/sync", {
-      method: "POST",
-      body: JSON.stringify({
-        memo_id: id,
-        tag_ids: tags.map((t: Tag) => t.id),
-      }),
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    console.error("Error in saveMemoAtom:", err);
-  }
+    await supabase.from("memos").update({
+      title, content, tags: tagNames, is_public: isPublic, updated_at: new Date().toISOString(), embedding: currentEmbedding,
+    }).eq("id", id);
+    set(memoListAtom, (prev) => prev.map((m) => m.id === id ? { ...m, title, content, tags: tagNames, is_public: isPublic } : m));
+  } catch (err) { console.error(err); }
 });
 
 export const createMemoAtom = atom(null, async (get, set) => {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
   const settings = get(editorSettingsAtom);
-
-  const { data, error } = await supabase
-    .from("memos")
-    .insert([{ 
-      user_id: user.id,
-      title: "",
-      content: "",
-      tags: [],
-      is_public: settings.defaultIsPublic
-    }])
-    .select()
-    .single();
-
-  if (!error && data) {
-    const newMemo = data as Memo;
-    const currentList = get(memoListAtom);
-    set(memoListAtom, [newMemo, ...currentList]);
-    set(selectedMemoIdAtom, newMemo.id);
-    set(editorIsPublicAtom, !!newMemo.is_public);
+  const { data } = await supabase.from("memos").insert([{ user_id: user?.id, title: "", content: "", tags: [], is_public: settings.defaultIsPublic }]).select().single();
+  if (data) {
+    set(memoListAtom, [data as Memo, ...get(memoListAtom)]);
+    set(selectedMemoIdAtom, data.id);
   }
 });
 
 export const deleteMemoAtom = atom(null, async (get, set, memoId: string) => {
-  const { error } = await supabase.from("memos").delete().eq("id", memoId);
-  if (error) return;
-
-  const currentList = get(memoListAtom);
-  set(memoListAtom, currentList.filter((memo) => memo.id !== memoId));
-
+  await supabase.from("memos").delete().eq("id", memoId);
+  set(memoListAtom, get(memoListAtom).filter((m) => m.id !== memoId));
+  
   if (get(selectedMemoIdAtom) === memoId) {
     set(selectedMemoIdAtom, null);
+    set(editorTitleAtom, "");
+    set(editorContentAtom, "");
+    set(editorTagsAtom, []);
+    set(editorIsPublicAtom, false);
   }
 });
 
-export type TimelineMemo = Pick<
-  Memo,
-  "id" | "title" | "content" | "updated_at" | "user_id"
->;
-
+export type TimelineMemo = Pick<Memo, "id" | "title" | "content" | "updated_at" | "user_id" | "tags">;
 export const timelineMemosAtom = atom<TimelineMemo[]>([]);
 
 export const fetchTimelineMemosAtom = atom(null, async (get, set) => {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
-  try {
-    const response = await fetch("/api/memos/timeline");
-    if (response.ok) {
-      const data = await response.json();
-      
-      if (data.timeline_memos) {
-        const othersMemos = data.timeline_memos.filter((m: any) => {
-          const memoUserId = String(m.user_id);
-          const currentUserId = String(user.id);
-          return memoUserId !== currentUserId;
-        });
-
-        set(timelineMemosAtom, othersMemos);
-      }
+  const response = await fetch("/api/memos/timeline");
+  if (response.ok) {
+    const data = await response.json();
+    if (data.timeline_memos) {
+      set(timelineMemosAtom, data.timeline_memos.filter((m: any) => String(m.user_id) !== String(user?.id)));
     }
-  } catch (error) {
-    console.error("Timeline fetch error:", error);
   }
 });
 
-// ==========================================
-// ★ 関連公開メモ検索の機能
-// ==========================================
-
 export const isSearchingAtom = atom(false);
-
 export const fetchRelatedMemosAtom = atom(null, async (get, set) => {
   const selectedId = get(selectedMemoIdAtom);
   if (!selectedId) return;
-
   set(isSearchingAtom, true);
   try {
-    // ★ 検索前に自動で最新状態を保存（ベクトル化）する！
     await set(saveMemoAtom);
-
     const res = await fetch("/api/memos/search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ source_memo_id: selectedId, limit: 10 }),
     });
-
     if (res.ok) {
       const data = await res.json();
       set(searchedMemosAtom, data.related_memos || []);
     }
+  } catch (error) { console.error(error); } finally { set(isSearchingAtom, false); }
+});
+
+// ==========================================
+// ★ ブックマーク機能
+// ==========================================
+export const bookmarkedMemosAtom = atom<TimelineMemo[]>([]);
+export const bookmarkedMemoIdsAtom = atom<string[]>([]);
+
+export const fetchBookmarkedMemosAtom = atom(null, async (get, set) => {
+  try {
+    const res = await fetch("/api/memos/bookmarks");
+    if (res.ok) {
+      const data = await res.json();
+      set(bookmarkedMemosAtom, data.bookmarks || []);
+      set(bookmarkedMemoIdsAtom, (data.bookmarks || []).map((m: any) => m.id));
+    }
+  } catch (error) { 
+    console.error("Bookmark fetch error:", error); 
+  }
+});
+
+export const toggleBookmarkAtom = atom(null, async (get, set, memoId: string) => {
+  const currentIds = get(bookmarkedMemoIdsAtom);
+  const isBookmarked = currentIds.includes(memoId);
+  
+  // クリックした瞬間にUIの見た目を切り替える
+  set(bookmarkedMemoIdsAtom, isBookmarked 
+    ? currentIds.filter(id => id !== memoId) 
+    : [memoId, ...currentIds]
+  );
+
+  // ★ 追加: ブックマーク画面を開いている時に解除した場合、右側の表示を空にする
+  const currentView = get(currentViewAtom);
+  if (isBookmarked && currentView === "bookmarks") {
+    const selected = get(selectedSearchedMemoAtom);
+    if (selected?.id === memoId) {
+      set(selectedSearchedMemoAtom, null);
+    }
+  }
+
+  try {
+    const res = await fetch("/api/memos/bookmarks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memo_id: memoId }),
+    });
+    
+    if (!res.ok) throw new Error("Failed to toggle bookmark");
+    
+    await set(fetchBookmarkedMemosAtom);
   } catch (error) {
-    console.error("Related search error:", error);
-  } finally {
-    set(isSearchingAtom, false);
+    console.error(error);
+    set(bookmarkedMemoIdsAtom, currentIds);
   }
 });
 </file>
@@ -4839,102 +4855,64 @@ export const fetchRelatedMemosAtom = atom(null, async (get, set) => {
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
-  ArrowLeft,
-  Compass,
-  FileText,
-  Globe,
-  Loader2,
-  Plus,
-  Search,
-  Settings,
-  Trash2,
+  ArrowLeft, Compass, FileText, Globe, Loader2, Plus, Search, Settings, Trash2, Bookmark
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { SidebarAuth } from "@/components/auth/SidebarAuth";
 import { cn } from "@/lib/utils";
 import {
-  currentViewAtom,
-  editorSettingsAtom,
-  fetchUserSettingsAtom,
-  updateUserSettingsAtom,
+  currentViewAtom, editorSettingsAtom, fetchUserSettingsAtom, updateUserSettingsAtom,
 } from "@/store/editorAtom";
 import {
-  createMemoAtom,
-  deleteMemoAtom,
-  fetchMemosAtom,
-  fetchTimelineMemosAtom,
-  memoListAtom,
-  searchedMemosAtom,
-  selectedMemoIdAtom,
-  selectedSearchedMemoAtom,
-  timelineMemosAtom,
-  isSearchingAtom,
-  fetchRelatedMemosAtom
+  createMemoAtom, deleteMemoAtom, fetchMemosAtom, fetchTimelineMemosAtom,
+  memoListAtom, searchedMemosAtom, selectedMemoIdAtom, selectedSearchedMemoAtom,
+  timelineMemosAtom, isSearchingAtom, fetchRelatedMemosAtom, currentMemoAtom,
+  bookmarkedMemosAtom, fetchBookmarkedMemosAtom
 } from "@/store/memoAtom";
 
 export function AppSidebar() {
   const [settings] = useAtom(editorSettingsAtom);
   const updateSettings = useSetAtom(updateUserSettingsAtom);
   const fetchUserSettings = useSetAtom(fetchUserSettingsAtom);
-
   const [memos] = useAtom(memoListAtom);
   const [selectedId, setSelectedId] = useAtom(selectedMemoIdAtom);
   const fetchMemos = useSetAtom(fetchMemosAtom);
   const createMemo = useSetAtom(createMemoAtom);
   const deleteMemo = useSetAtom(deleteMemoAtom);
-
   const [currentView, setCurrentView] = useAtom(currentViewAtom);
-
   const [searchedMemos] = useAtom(searchedMemosAtom);
-  const [selectedSearchedMemo, setSelectedSearchedMemo] = useAtom(
-    selectedSearchedMemoAtom,
-  );
-  
+  const [selectedSearchedMemo, setSelectedSearchedMemo] = useAtom(selectedSearchedMemoAtom);
   const isSearching = useAtomValue(isSearchingAtom);
   const fetchRelated = useSetAtom(fetchRelatedMemosAtom);
-
   const timelineMemos = useAtomValue(timelineMemosAtom);
   const fetchTimeline = useSetAtom(fetchTimelineMemosAtom);
+  const currentMemo = useAtomValue(currentMemoAtom);
+  
+  const bookmarkedMemos = useAtomValue(bookmarkedMemosAtom);
+  const fetchBookmarks = useSetAtom(fetchBookmarkedMemosAtom);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
-
-  // ★ 新規追加: 検索キーワードを保存するステート
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchMemos();
     fetchUserSettings();
-  }, [fetchMemos, fetchUserSettings]);
+    fetchBookmarks();
+  }, [fetchMemos, fetchUserSettings, fetchBookmarks]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        settingsRef.current &&
-        !settingsRef.current.contains(event.target as Node)
-      ) {
-        setIsSettingsOpen(false);
-      }
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) setIsSettingsOpen(false);
     };
-    if (isSettingsOpen)
-      document.addEventListener("mousedown", handleClickOutside);
+    if (isSettingsOpen) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isSettingsOpen]);
 
-  const toggleDefaultPublic = () => {
-    updateSettings({ defaultIsPublic: !settings.defaultIsPublic });
-  };
-
-  const handleCreateMemo = async () => {
-    setCurrentView("editor");
-    await createMemo();
-  };
-
-  // ★ 新規追加: 検索キーワードで自分のメモを絞り込む
+  const toggleDefaultPublic = () => updateSettings({ defaultIsPublic: !settings.defaultIsPublic });
+  const handleCreateMemo = async () => { setCurrentView("editor"); await createMemo(); };
   const filteredMemos = memos.filter((memo) => {
-    if (!searchQuery) return true; // 検索文字がない場合はすべて表示
     const title = memo.title || "無題のメモ";
-    // 大文字・小文字を区別せずに部分一致検索を行う
     return title.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
@@ -4942,225 +4920,104 @@ export function AppSidebar() {
     <aside className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none shrink-0">
       <div className="p-4 space-y-4">
         <SidebarAuth />
-
         {currentView !== "editor" && (
-          <button
-            type="button"
-            onClick={() => setCurrentView("editor")}
-            className="flex items-center gap-2 hover:bg-gray-200 text-gray-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full border border-gray-300 bg-white shadow-sm"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>自分のメモに戻る</span>
+          <button type="button" onClick={() => setCurrentView("editor")} className="flex items-center gap-2 hover:bg-gray-200 text-gray-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full border border-gray-300 bg-white shadow-sm">
+            <ArrowLeft className="w-5 h-5" /><span>自分のメモに戻る</span>
           </button>
         )}
-
         {currentView === "editor" && (
           <div className="space-y-1">
             <div className="relative group mb-2">
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
-              <input
-                type="text"
-                value={searchQuery} // ★ 追加: ステートと入力を紐付け
-                onChange={(e) => setSearchQuery(e.target.value)} // ★ 追加: 入力されるたびにステートを更新
-                placeholder="自分のメモを検索..."
-                className="w-full bg-transparent border border-transparent hover:bg-white focus:bg-white focus:border-blue-200 rounded-full py-2 pl-10 pr-4 text-sm outline-none transition-all"
-              />
+              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="自分のメモを検索..." className="w-full bg-transparent border border-transparent hover:bg-white focus:bg-white focus:border-blue-200 rounded-full py-2 pl-10 pr-4 text-sm outline-none transition-all" />
             </div>
-
-            <button
-              type="button"
-              onClick={handleCreateMemo}
-              className="flex items-center gap-2 hover:bg-gray-200 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
-            >
-              <Plus className="w-5 h-5 text-blue-500" />
-              <span>メモを新規作成</span>
+            <button type="button" onClick={handleCreateMemo} className="flex items-center gap-2 hover:bg-gray-200 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full">
+              <Plus className="w-5 h-5 text-blue-500" /><span>メモを新規作成</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setCurrentView("explore");
-                fetchRelated();
-              }}
-              className="flex items-center gap-2 hover:bg-blue-50 text-blue-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
-            >
-              <Compass className="w-5 h-5" />
-              <span>関連する公開メモを探す</span>
+            <button type="button" onClick={() => { setCurrentView("explore"); fetchRelated(); }} className="flex items-center gap-2 hover:bg-blue-50 text-blue-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full">
+              <Compass className="w-5 h-5" /><span>関連する公開メモを探す</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setCurrentView("timeline");
-                fetchTimeline();
-              }}
-              className="flex items-center gap-2 hover:bg-green-50 text-green-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
-            >
-              <Globe className="w-5 h-5" />
-              <span>公開タイムライン</span>
+            <button type="button" onClick={() => { setCurrentView("timeline"); fetchTimeline(); }} className="flex items-center gap-2 hover:bg-green-50 text-green-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full">
+              <Globe className="w-5 h-5" /><span>公開タイムライン</span>
+            </button>
+            <button type="button" onClick={() => { setCurrentView("bookmarks"); fetchBookmarks(); }} className="flex items-center gap-2 hover:bg-yellow-50 text-yellow-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full">
+              <Bookmark className="w-5 h-5" /><span>ブックマーク</span>
             </button>
           </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex-1 overflow-y-auto px-2 py-2">
         {currentView === "explore" ? (
           <div className="space-y-1">
-            <div className="text-xs font-medium px-4 mb-2 text-blue-600">
-              検索結果
+            <div className="px-4 mb-2">
+              <div className="text-[10px] uppercase text-blue-500 font-bold">Related to</div>
+              <div className="text-xs font-bold text-gray-800 truncate">{currentMemo?.title || "無題のメモ"}</div>
             </div>
-            {isSearching ? (
-              <div className="flex flex-col items-center py-10 text-gray-400">
-                <Loader2 className="w-6 h-6 animate-spin mb-4 text-blue-500" />
-                <span className="text-xs font-bold text-blue-500">思考を解析中...</span>
-              </div>
-            ) : searchedMemos.length === 0 ? (
-              <div className="text-center py-10 text-gray-400 text-xs">関連する他人のメモが見つかりません</div>
-            ) : (
+            <div className="h-px bg-gray-200 mx-4 my-2" />
+            {isSearching ? <div className="text-center py-10 text-xs font-bold text-blue-500">思考を解析中...</div> : searchedMemos.length === 0 ? <div className="text-center py-10 text-gray-400 text-xs">見つかりません</div> : (
               searchedMemos.map((memo) => (
-                <button
-                  key={memo.id}
-                  type="button"
-                  onClick={() => setSelectedSearchedMemo(memo)}
-                  className={cn(
-                    "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left",
-                    selectedSearchedMemo?.id === memo.id
-                      ? "bg-blue-50 border-blue-200"
-                      : "bg-white border-transparent hover:border-gray-200",
-                  )}
-                >
-                  <div className="text-[10px] text-blue-600 mb-1 font-bold">
-                    MATCH {Math.round(memo.similarity * 100)}%
-                  </div>
-                  <div className="truncate text-sm font-medium text-gray-800">
-                    {memo.title || "無題のメモ"}
-                  </div>
+                <button type="button" key={memo.id} onClick={() => setSelectedSearchedMemo(memo)} className={cn("w-full rounded-2xl flex flex-col p-3 transition-colors border text-left", selectedSearchedMemo?.id === memo.id ? "bg-blue-50 border-blue-200" : "bg-white border-transparent hover:border-gray-200")}>
+                  <div className="text-[10px] text-blue-600 mb-1 font-bold">MATCH {Math.round(memo.similarity * 100)}%</div>
+                  <div className="truncate text-sm font-medium text-gray-800">{memo.title || "無題のメモ"}</div>
                 </button>
               ))
             )}
           </div>
         ) : currentView === "timeline" ? (
           <div className="space-y-1">
-            <div className="text-xs font-medium px-4 mb-2 text-green-600">
-              タイムライン (他人の公開メモ)
-            </div>
+            <div className="text-xs font-medium px-4 mb-2 text-green-600 font-bold">タイムライン</div>
             {timelineMemos.map((memo) => (
-              <button
-                key={memo.id}
-                type="button"
-                onClick={() => setSelectedSearchedMemo(memo as any)}
-                className={cn(
-                  "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left",
-                  selectedSearchedMemo?.id === memo.id
-                    ? "bg-green-50 border-green-200"
-                    : "bg-white border-transparent hover:border-gray-200",
-                )}
-              >
-                <div className="text-[10px] text-green-600 mb-1 font-bold">
-                  {new Date(memo.updated_at).toLocaleDateString()}
-                </div>
-                <div className="truncate text-sm font-medium text-gray-800">
-                  {memo.title || "無題のメモ"}
-                </div>
+              <button type="button" key={memo.id} onClick={() => setSelectedSearchedMemo(memo as any)} className={cn("w-full rounded-2xl flex flex-col p-3 transition-colors border text-left", selectedSearchedMemo?.id === memo.id ? "bg-green-50 border-green-200" : "bg-white border-transparent hover:border-gray-200")}>
+                <div className="text-[10px] text-green-600 mb-1 font-bold">{new Date(memo.updated_at).toLocaleDateString()}</div>
+                <div className="truncate text-sm font-medium text-gray-800">{memo.title || "無題のメモ"}</div>
               </button>
             ))}
+          </div>
+        ) : currentView === "bookmarks" ? (
+          <div className="space-y-1">
+            <div className="text-xs font-medium px-4 mb-2 text-yellow-600 font-bold">ブックマーク</div>
+            {bookmarkedMemos.length === 0 ? (
+              <div className="text-center py-6 text-gray-400 text-xs">まだ保存されていません</div>
+            ) : (
+              bookmarkedMemos.map((memo) => (
+                <button type="button" key={memo.id} onClick={() => setSelectedSearchedMemo(memo as any)} className={cn("w-full rounded-2xl flex flex-col p-3 transition-colors border text-left", selectedSearchedMemo?.id === memo.id ? "bg-yellow-50 border-yellow-200" : "bg-white border-transparent hover:border-gray-200")}>
+                  <div className="text-[10px] text-yellow-600 mb-1 font-bold">{new Date(memo.updated_at).toLocaleDateString()}</div>
+                  <div className="truncate text-sm font-medium text-gray-800">{memo.title || "無題のメモ"}</div>
+                </button>
+              ))
+            )}
           </div>
         ) : (
           <div className="space-y-1">
             <div className="text-xs font-medium px-4 mb-2">自分のメモ</div>
-            
-            {/* ★ 変更: memos を filteredMemos に変えて、検索結果が0件の時の表示も追加 */}
-            {filteredMemos.length === 0 ? (
-              <div className="text-center py-6 text-gray-400 text-xs">
-                メモが見つかりません
+            {filteredMemos.map((memo) => (
+              <div key={memo.id} className={cn("w-full rounded-full flex items-center transition-colors group px-2", selectedId === memo.id && currentView === "editor" ? "bg-blue-100 text-[#0e42a0]" : "hover:bg-[#d3e3fd]")}>
+                <button type="button" onClick={() => { setSelectedId(memo.id); setCurrentView("editor"); }} className="flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left outline-none">
+                  <FileText className="w-4 h-4 opacity-50 shrink-0" />
+                  <span className="truncate text-sm font-medium">{memo.title || "無題のメモ"}</span>
+                </button>
+                <button type="button" onClick={(e) => { e.stopPropagation(); deleteMemo(memo.id); }} className="hidden group-hover:flex text-red-400 pr-3 pl-2 py-2 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
               </div>
-            ) : (
-              filteredMemos.map((memo) => (
-                <div
-                  key={memo.id}
-                  className={cn(
-                    "w-full rounded-full flex items-center transition-colors group px-2",
-                    selectedId === memo.id && currentView === "editor"
-                      ? "bg-blue-100 text-[#0e42a0]"
-                      : "hover:bg-[#d3e3fd]",
-                  )}
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedId(memo.id);
-                      setCurrentView("editor");
-                    }}
-                    className="flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left outline-none"
-                  >
-                    <FileText className="w-4 h-4 opacity-50 shrink-0" />
-                    <span className="truncate text-sm font-medium">
-                      {memo.title || "無題のメモ"}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteMemo(memo.id);
-                    }}
-                    className="hidden group-hover:flex shrink-0 text-red-400 pr-3 pl-2 py-2 hover:text-red-600"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))
-            )}
+            ))}
           </div>
         )}
       </div>
 
-      <div
-        className="p-4 mt-auto border-t border-gray-200 relative"
-        ref={settingsRef}
-      >
+      <div className="p-4 mt-auto border-t border-gray-200 relative" ref={settingsRef}>
         {isSettingsOpen && (
           <div className="absolute bottom-full left-4 mb-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-50">
-            <h3 className="text-sm font-semibold text-gray-800 mb-4">
-              エディタ設定
-            </h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">デフォルトで公開</span>
-                <button
-                  type="button"
-                  onClick={toggleDefaultPublic}
-                  className={cn(
-                    "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
-                    settings.defaultIsPublic ? "bg-blue-500" : "bg-gray-300",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
-                      settings.defaultIsPublic
-                        ? "translate-x-4"
-                        : "translate-x-0",
-                    )}
-                  />
-                </button>
-              </div>
+            <h3 className="text-sm font-semibold text-gray-800 mb-4">設定</h3>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">デフォルトで公開</span>
+              <button type="button" onClick={toggleDefaultPublic} className={cn("relative inline-flex h-5 w-9 items-center rounded-full transition-colors", settings.defaultIsPublic ? "bg-blue-500" : "bg-gray-300")}>
+                <span className={cn("inline-block h-4 w-4 transform rounded-full bg-white transition duration-200", settings.defaultIsPublic ? "translate-x-4" : "translate-x-0")} />
+              </button>
             </div>
           </div>
         )}
-
-        <button
-          type="button"
-          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-          className={cn(
-            "flex items-center gap-3 w-full p-2 text-xs rounded-lg transition-colors",
-            isSettingsOpen
-              ? "bg-[#d3e3fd] text-[#0e42a0]"
-              : "text-gray-500 hover:text-gray-900 hover:bg-[#e1e5ea]",
-          )}
-        >
-          <Settings className="w-4 h-4" />
-          <span>設定</span>
+        <button type="button" onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={cn("flex items-center gap-3 w-full p-2 text-xs rounded-lg transition-colors", isSettingsOpen ? "bg-[#d3e3fd] text-[#0e42a0]" : "text-gray-500 hover:text-gray-900 hover:bg-[#e1e5ea]")}>
+          <Settings className="w-4 h-4" /><span>設定</span>
         </button>
       </div>
     </aside>

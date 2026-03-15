@@ -2,41 +2,21 @@
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
-  Check,
-  Globe,
-  Hourglass,
-  Loader2,
-  Lock,
-  Plus,
-  Save,
-  Search,
-  Sparkles,
-  Tag as TagIcon,
-  X,
+  Check, Globe, Hourglass, Loader2, Lock, Plus, Save, Search, Sparkles, Tag as TagIcon, X, Bookmark
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useVimKeyHandler } from "@/hooks/useVimKeyHandler";
 import { cn } from "@/lib/utils";
 import {
-  activeEditorAtom,
-  allTagsAtom,
-  editorContentAtom,
-  editorEmbeddingCacheAtom,
-  editorIsPublicAtom,
-  editorTagInputAtom,
-  isTagSearchingAtom,
-  tagSearchQueryAtom,
+  activeEditorAtom, allTagsAtom, editorContentAtom, editorEmbeddingCacheAtom,
+  editorIsPublicAtom, editorTagInputAtom, isTagSearchingAtom, tagSearchQueryAtom,
 } from "@/store/editorAtom";
 import {
-  fetchAllTagsAtom,
-  saveMemoAtom,
-  searchTagsSemanticAtom,
+  fetchAllTagsAtom, saveMemoAtom, searchTagsSemanticAtom,
+  bookmarkedMemoIdsAtom, toggleBookmarkAtom
 } from "@/store/memoAtom";
 import {
-  editorSettingsAtom,
-  editorTagsAtom,
-  editorTitleAtom,
-  selectedMemoIdAtom,
+  editorSettingsAtom, editorTagsAtom, editorTitleAtom, selectedMemoIdAtom,
 } from "@/store/models";
 import { cursorAtom, modeAtom, visualStartAtom } from "@/store/vim/core";
 import type { Tag } from "@/types/db";
@@ -65,6 +45,11 @@ export function EditorHeader() {
   const cursor = useAtomValue(cursorAtom);
   const visualStart = useAtomValue(visualStartAtom);
   const setCursor = useSetAtom(cursorAtom);
+
+  // ブックマーク状態
+  const bookmarkedIds = useAtomValue(bookmarkedMemoIdsAtom);
+  const toggleBookmark = useSetAtom(toggleBookmarkAtom);
+  const isBookmarked = selectedId ? bookmarkedIds.includes(selectedId) : false;
 
   const [isSaving, setIsSaving] = useState(false);
   const [isTitleAiLoading, setIsTitleAiLoading] = useState(false);
@@ -106,67 +91,11 @@ export function EditorHeader() {
     if (activeEditor !== "tags") setShowTagList(false);
   }, [activeEditor]);
 
-  const handleSave = useCallback(async () => {
-    if (selectedId && !isSaving) {
-      setIsSaving(true);
-      await saveMemo();
-      setTimeout(() => setIsSaving(false), 500);
-    }
-  }, [selectedId, isSaving, saveMemo]);
-
-  const togglePublic = async () => {
-    const nextPublic = !isPublic;
-    setIsPublic(nextPublic);
-    setTimeout(() => handleSave(), 50);
-  };
-
-  const saveRef = useRef(handleSave);
-  useEffect(() => {
-    saveRef.current = handleSave;
-  }, [handleSave]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        e.preventDefault();
-        saveRef.current();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  const handleAutoTag = async () => {
-    if (!content || isTagAiLoading || cooldown > 0) return;
-    setIsTagAiLoading(true);
-    try {
-      const res = await fetch("/api/memos/tags/auto", {
-        method: "POST",
-        body: JSON.stringify({ content }),
-        headers: { "Content-Type": "application/json" },
-      });
-      if (res.status === 429) {
-        const data = await res.json();
-        setCooldown(data.retryAfter || 60);
-        return;
-      }
-      const data = await res.json();
-      if (data.suggestedTags) {
-        setTags(data.suggestedTags);
-        fetchAllTags();
-        if (data.embedding)
-          setEmbeddingCache({ text: content, embedding: data.embedding });
-        setTimeout(() => saveRef.current(), 100);
-      }
-    } catch (err) {
-      console.error("AI Auto-tag failed:", err);
-    } finally {
-      setIsTagAiLoading(false);
-    }
-  };
-
-  const handleAutoTitle = async () => {
-    if (!content || isTitleAiLoading || cooldown > 0) return;
+  // ==========================================
+  // AI生成ロジックの切り出し
+  // ==========================================
+  const generateTitleLogic = async () => {
+    if (!content || isTitleAiLoading || cooldown > 0) return false;
     setIsTitleAiLoading(true);
     try {
       const res = await fetch("/api/memos/title/auto", {
@@ -177,19 +106,121 @@ export function EditorHeader() {
       if (res.status === 429) {
         const data = await res.json();
         setCooldown(data.retryAfter || 60);
-        return;
+        return false;
       }
       const data = await res.json();
       if (data.title) {
         setTitle(data.title);
-        setTimeout(() => saveRef.current(), 100);
+        return true;
       }
     } catch (err) {
       console.error("AI Auto-title failed:", err);
     } finally {
       setIsTitleAiLoading(false);
     }
+    return false;
   };
+
+  const generateTagsLogic = async () => {
+    if (!content || isTagAiLoading || cooldown > 0) return false;
+    setIsTagAiLoading(true);
+    try {
+      const res = await fetch("/api/memos/tags/auto", {
+        method: "POST",
+        body: JSON.stringify({ content }),
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.status === 429) {
+        const data = await res.json();
+        setCooldown(data.retryAfter || 60);
+        return false;
+      }
+      const data = await res.json();
+      if (data.suggestedTags) {
+        setTags(data.suggestedTags);
+        fetchAllTags();
+        if (data.embedding)
+          setEmbeddingCache({ text: content, embedding: data.embedding });
+        return true;
+      }
+    } catch (err) {
+      console.error("AI Auto-tag failed:", err);
+    } finally {
+      setIsTagAiLoading(false);
+    }
+    return false;
+  };
+
+  // AIボタンを押した時は「生成 → シンプルな保存」を実行する
+  const handleAutoTitle = async () => {
+    const success = await generateTitleLogic();
+    if (success) setTimeout(() => simpleSaveRef.current(), 100);
+  };
+
+  const handleAutoTag = async () => {
+    const success = await generateTagsLogic();
+    if (success) setTimeout(() => simpleSaveRef.current(), 100);
+  };
+
+  // ==========================================
+  // ユーザーが明示的に保存ボタンを押した時のロジック（空ならAI生成を挟む）
+  // ==========================================
+  const handleUserSave = async () => {
+    if (selectedId && !isSaving) {
+      setIsSaving(true);
+
+      // 1. タイトルが空なら自動生成して待機
+      if (!title || title.trim() === "") {
+        await generateTitleLogic();
+      }
+
+      // 2. タグが空なら自動生成して待機
+      if (!tags || tags.length === 0) {
+        await generateTagsLogic();
+      }
+
+      // 3. Jotaiの状態が更新されたのちに保存実行
+      await saveMemo();
+      setTimeout(() => setIsSaving(false), 500);
+    }
+  };
+
+  // ==========================================
+  // 単純なデータ保存（AI補完をしない）
+  // ==========================================
+  const handleSimpleSave = async () => {
+    if (selectedId && !isSaving) {
+      setIsSaving(true);
+      await saveMemo();
+      setTimeout(() => setIsSaving(false), 500);
+    }
+  };
+
+  // 公開設定を切り替えた時は「単純な保存」を実行する
+  const togglePublic = async () => {
+    const nextPublic = !isPublic;
+    setIsPublic(nextPublic);
+    setTimeout(() => simpleSaveRef.current(), 50);
+  };
+
+  const userSaveRef = useRef(handleUserSave);
+  const simpleSaveRef = useRef(handleSimpleSave);
+  useEffect(() => {
+    userSaveRef.current = handleUserSave;
+    simpleSaveRef.current = handleSimpleSave;
+  }); // 依存配列なしで毎レンダー更新し、常に最新のStateを参照させる
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl + S (または Cmd + S) の時は「ユーザーによる保存」を実行
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        userSaveRef.current();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const toggleTag = (tag: Tag) => {
     const isExists = tags.find((t) => t.id === tag.id);
@@ -305,11 +336,10 @@ export function EditorHeader() {
           <button
             type="button"
             onClick={handleAutoTitle}
-            disabled={!content || isTitleAiLoading || cooldown > 0}
+            disabled={!content || isTitleAiLoading || cooldown > 0 || isSaving}
             className={cn(
-              // whitespace-nowrap（改行禁止）と shrink-0（縮小禁止）を追加
               "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap shrink-0",
-              isTitleAiLoading || cooldown > 0
+              isTitleAiLoading || cooldown > 0 || isSaving
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : "bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:border-blue-300",
             )}
@@ -324,13 +354,13 @@ export function EditorHeader() {
             <span>{cooldown > 0 ? `${cooldown}秒` : "AIタイトル"}</span>
           </button>
 
-          {/* 2. 保存ボタン */}
+          {/* 2. 保存ボタン (ユーザー操作の保存処理を呼び出す) */}
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => userSaveRef.current()}
             disabled={!selectedId || isSaving}
             className={cn(
-              "p-2 rounded-full transition-all duration-200 shrink-0", // ここにも shrink-0 を追加
+              "p-2 rounded-full transition-all duration-200 shrink-0",
               selectedId
                 ? "text-gray-400 hover:bg-blue-50 hover:text-blue-600"
                 : "text-gray-200 cursor-not-allowed",
@@ -350,7 +380,6 @@ export function EditorHeader() {
             onClick={togglePublic}
             disabled={!selectedId}
             className={cn(
-              // whitespace-nowrap（改行禁止）を追加
               "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm whitespace-nowrap shrink-0",
               !selectedId
                 ? "opacity-30 cursor-not-allowed"
@@ -368,6 +397,25 @@ export function EditorHeader() {
                 <Lock className="w-3.5 h-3.5" /> 未公開
               </>
             )}
+          </button>
+
+          {/* 4. 自分のメモ用ブックマークボタン */}
+          <button
+            type="button"
+            onClick={() => selectedId && toggleBookmark(selectedId)}
+            disabled={!selectedId}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm whitespace-nowrap shrink-0",
+              !selectedId
+                ? "opacity-30 cursor-not-allowed"
+                : isBookmarked
+                  ? "bg-yellow-50 text-yellow-600 border-yellow-200 hover:bg-yellow-100"
+                  : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+            )}
+            title={isBookmarked ? "ブックマーク解除" : "ブックマークに保存"}
+          >
+            <Bookmark className={cn("w-3.5 h-3.5", isBookmarked && "fill-current")} />
+            <span>{isBookmarked ? "保存済み" : "保存する"}</span>
           </button>
         </div>
       </div>
@@ -494,10 +542,10 @@ export function EditorHeader() {
         <button
           type="button"
           onClick={handleAutoTag}
-          disabled={!content || isTagAiLoading || cooldown > 0}
+          disabled={!content || isTagAiLoading || cooldown > 0 || isSaving}
           className={cn(
             "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all ml-1",
-            isTagAiLoading || cooldown > 0
+            isTagAiLoading || cooldown > 0 || isSaving
               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
               : "bg-purple-50 text-purple-600 border border-purple-200 hover:bg-purple-100 hover:border-purple-300",
           )}
