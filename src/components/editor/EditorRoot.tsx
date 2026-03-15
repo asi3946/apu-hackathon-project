@@ -1,7 +1,7 @@
 "use client";
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { FileText, PlusCircle } from "lucide-react"; // ガイド用のアイコン
+import { FileText, PlusCircle } from "lucide-react";
 import { useEffect, useRef } from "react";
 import {
   allTagsAtom,
@@ -82,6 +82,33 @@ export function EditorRoot() {
 
   const isVim = settings.type === "vim";
 
+  // ★追加：メモが開かれていない時に、画面のどこにいても `:` をキャッチする処理
+  useEffect(() => {
+    if (!isVim || currentMemo) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // 検索窓など、他の入力欄にいる時は無視する
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      if (e.key === ":") {
+        e.preventDefault();
+        setVimMode("command");
+        setCommandText("");
+        setTimeout(() => {
+          document.getElementById("vim-command-input")?.focus();
+        }, 0);
+      }
+    };
+
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    return () => document.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [isVim, currentMemo, setVimMode, setCommandText]);
+
   const handleCommandKeyDown = async (
     e: React.KeyboardEvent<HTMLInputElement>,
   ) => {
@@ -106,37 +133,38 @@ export function EditorRoot() {
       } else if (cmd === "ti") {
         await autoTitle();
       } else if (cmd === "bm") {
-        // ★修正: await をつけてDBの更新を確実に待つ！
         if (selectedId) {
           await toggleBookmark(selectedId);
         }
       } else if (cmd === "pb") {
-        // ★修正: 古い状態を参照しないように `prev => !prev` の関数型アップデートを使用！
-        setIsPublic((prev) => !prev);
-
-        // ★修正: Jotaiの内部状態が確実に切り替わった直後にDBへ保存させる
-        setTimeout(async () => {
-          await saveMemo();
-        }, 150);
+        setIsPublic((prev) => {
+          const nextState = !prev;
+          setTimeout(() => saveMemo(), 100);
+          return nextState;
+        });
       }
 
       setVimMode("normal");
       setCommandText("");
-      document.querySelector("textarea")?.focus();
+
+      // ★修正：`:e` で新規作成した直後は、エディタが画面に描画されるのを少し待ってからフォーカスを当てる
+      setTimeout(() => {
+        document.querySelector("textarea")?.focus();
+      }, 50);
     }
   };
 
-  // メモが選択されていない時の表示 (ログイン直後など)
-  if (!currentMemo) {
-    return (
-      <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
-        {/* ロゴは常に表示 */}
-        <img
-          src="/images/app-logo.png"
-          alt="アプリロゴ"
-          className="absolute top-8 left-8 w-12 h-12 rounded-xl object-cover shadow-sm z-10"
-        />
+  // ★修正：if(!currentMemo)の早期returnをやめ、画面の構造を統一しました！
+  return (
+    <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
+      <img
+        src="/images/app-logo.png"
+        alt="アプリロゴ"
+        className="absolute top-8 left-8 w-12 h-12 rounded-xl object-cover shadow-sm z-10"
+      />
 
+      {!currentMemo ? (
+        // メモが選択されていない時の表示
         <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
           <div className="flex flex-col items-center max-w-sm text-center space-y-4">
             <div className="relative">
@@ -155,26 +183,19 @@ export function EditorRoot() {
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      ) : (
+        // 通常のエディタ表示
+        <>
+          <div className="w-full max-w-4xl ml-auto mr-50 px-8 pt-12 mb-6">
+            <EditorHeader />
+          </div>
+          <div className="flex-1 overflow-y-auto px-8 pb-8 max-w-4xl ml-auto mr-50 w-full relative [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <SimpleEditor />
+          </div>
+        </>
+      )}
 
-  // 通常のエディタ表示
-  return (
-    <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
-      <img
-        src="/images/app-logo.png"
-        alt="アプリロゴ"
-        className="absolute top-8 left-8 w-12 h-12 rounded-xl object-cover shadow-sm z-10"
-      />
-
-      <div className="w-full max-w-4xl ml-auto mr-50 px-8 pt-12 mb-6">
-        <EditorHeader />
-      </div>
-      <div className="flex-1 overflow-y-auto px-8 pb-8 max-w-4xl ml-auto mr-50 w-full relative [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <SimpleEditor />
-      </div>
-
+      {/* ★修正：コマンドバーを外側に出したことで、メモを開いていなくてもコマンドが打てるようになりました！ */}
       {isVim && vimMode === "command" ? (
         <div className="absolute bottom-0 left-0 right-0 bg-gray-800 text-white px-4 py-1 flex items-center font-mono text-sm z-50">
           <span className="mr-1">:</span>
