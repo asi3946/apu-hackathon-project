@@ -142,10 +142,12 @@ export function AppSidebar() {
       focusableElements[nextIndex]?.focus();
     } else if (e.key === "k") {
       e.preventDefault();
-      // 上へ移動
       const prevIndex = currentIndex > 0 ? currentIndex - 1 : 0;
       focusableElements[prevIndex]?.focus();
-    } else if (e.key === "l" || e.key === "Escape") {
+    } else if (e.key === "/") {
+      e.preventDefault(); // / が文字として入力されるのを防ぐ
+      document.getElementById("sidebar-search-input")?.focus();
+    } else if (e.key === "l" || e.key === "L" || e.key === "Escape") {
       e.preventDefault();
       // l（右）または Escape でエディタにフォーカスを戻す
       (document.querySelector("textarea") as HTMLElement)?.focus();
@@ -187,6 +189,7 @@ export function AppSidebar() {
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
               {/* input は j/k の対象から外れているため、マウスでクリックした時だけ使えます */}
               <input
+                id="sidebar-search-input"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}

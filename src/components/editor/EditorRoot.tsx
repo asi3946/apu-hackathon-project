@@ -15,6 +15,8 @@ import {
   editorTagsAtom,
   editorTitleAtom,
   saveMemoAtom,
+  selectedMemoIdAtom,
+  toggleBookmarkAtom,
 } from "@/store/models";
 import { commandTextAtom, modeAtom } from "@/store/vim/core";
 import { EditorHeader } from "./EditorHeader";
@@ -28,6 +30,9 @@ export function EditorRoot() {
   const setEditorIsPublic = useSetAtom(editorIsPublicAtom);
   const autoTag = useSetAtom(autoTagAtom);
   const autoTitle = useSetAtom(autoTitleAtom);
+  const toggleBookmark = useSetAtom(toggleBookmarkAtom);
+  const selectedId = useAtomValue(selectedMemoIdAtom);
+  const [isPublic, setIsPublic] = useAtom(editorIsPublicAtom);
 
   const allTags = useAtomValue(allTagsAtom);
 
@@ -92,16 +97,27 @@ export function EditorRoot() {
       e.preventDefault();
       const cmd = commandText.trim();
 
-      if (cmd === "w") {
+      if (cmd === "w" || cmd === "wq") {
         await saveMemo();
       } else if (cmd === "e") {
         await createMemo();
-      } else if (cmd === "wq") {
-        await saveMemo();
       } else if (cmd === "ta") {
         await autoTag();
       } else if (cmd === "ti") {
         await autoTitle();
+      } else if (cmd === "bm") {
+        // ★修正: await をつけてDBの更新を確実に待つ！
+        if (selectedId) {
+          await toggleBookmark(selectedId);
+        }
+      } else if (cmd === "pb") {
+        // ★修正: 古い状態を参照しないように `prev => !prev` の関数型アップデートを使用！
+        setIsPublic((prev) => !prev);
+
+        // ★修正: Jotaiの内部状態が確実に切り替わった直後にDBへ保存させる
+        setTimeout(async () => {
+          await saveMemo();
+        }, 150);
       }
 
       setVimMode("normal");
@@ -110,7 +126,7 @@ export function EditorRoot() {
     }
   };
 
-  // ★ 追加: メモが選択されていない時の表示 (ログイン直後など)
+  // メモが選択されていない時の表示 (ログイン直後など)
   if (!currentMemo) {
     return (
       <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
