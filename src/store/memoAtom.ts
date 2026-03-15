@@ -183,20 +183,17 @@ export type TimelineMemo = Pick<
 export const timelineMemosAtom = atom<TimelineMemo[]>([]);
 
 export const fetchTimelineMemosAtom = atom(null, async (get, set) => {
-  const { data, error } = await supabase
-    .from("memos")
-    .select("id, title, content, updated_at, user_id")
-    .eq("is_public", true)
-    .order("updated_at", { ascending: false })
-    .limit(50);
-
-  if (error) {
+  try {
+    const response = await fetch("/api/memos/timeline");
+    if (response.ok) {
+      const data = await response.json();
+      if (data.timeline_memos) {
+        set(timelineMemosAtom, data.timeline_memos as TimelineMemo[]);
+      }
+    } else {
+      console.error("Timeline API error:", await response.text());
+    }
+  } catch (error) {
     console.error("Timeline fetch error:", error);
-    return;
-  }
-
-  if (data) {
-    // データがTimelineMemoの配列であることを明記してセット
-    set(timelineMemosAtom, data as TimelineMemo[]);
   }
 });
