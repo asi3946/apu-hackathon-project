@@ -1,5 +1,5 @@
 import { atom } from "jotai";
-import type { Tag } from "@/types/db"; // ← 追加：データベースのTag型を読み込む
+import type { Tag } from "@/types/db";
 import { createClient } from "@/utils/supabase/client";
 
 export type EditorType = "standard" | "vim";
@@ -8,6 +8,7 @@ export interface EditorSettings {
   type: EditorType;
   defaultIsPublic: boolean;
 }
+
 // 画面の
 export type ViewMode = "editor" | "explore" | "timeline";
 export const currentViewAtom = atom<ViewMode>("editor");
@@ -25,20 +26,22 @@ export const allTagsAtom = atom<Tag[]>([]);
 
 export const editorTagInputAtom = atom<string>("");
 
+// ★追加：タグ検索用のステート
+export const tagSearchQueryAtom = atom<string>("");
+export const isTagSearchingAtom = atom<boolean>(false);
+
 export const editorSettingsAtom = atom<EditorSettings>({
   type: "standard",
   defaultIsPublic: false,
 });
 
-// ★追加：AIコスト削減のためのベクトルキャッシュ
-// AIがメモをベクトル化した時の「メモ内容」と「ベクトルデータ」を記憶します。
-// 保存時にメモ内容が変わっていなければ、このベクトルを使い回して二重課金を防ぎます！
+// AIコスト削減のためのベクトルキャッシュ
 export const editorEmbeddingCacheAtom = atom<{
   text: string;
   embedding: number[];
 } | null>(null);
 
-// --- ここからDB連携用のアクションを追加 ---
+// --- DB連携用のアクション ---
 
 export const fetchUserSettingsAtom = atom(null, async (get, set) => {
   const supabase = createClient();

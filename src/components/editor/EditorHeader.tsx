@@ -10,6 +10,7 @@ import {
   Sparkles,
   Tag as TagIcon,
   X,
+  Search,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVimKeyHandler } from "@/hooks/useVimKeyHandler";
@@ -19,9 +20,15 @@ import {
   allTagsAtom,
   editorContentAtom,
   editorTagInputAtom,
-  editorEmbeddingCacheAtom, // ★追加：キャッシュ用のAtomをインポート
+  editorEmbeddingCacheAtom,
+  tagSearchQueryAtom,
+  isTagSearchingAtom,
 } from "@/store/editorAtom";
-import { fetchAllTagsAtom, saveMemoAtom } from "@/store/memoAtom";
+import { 
+  fetchAllTagsAtom, 
+  saveMemoAtom,
+  searchTagsSemanticAtom 
+} from "@/store/memoAtom";
 import {
   editorSettingsAtom,
   editorTagsAtom,
@@ -41,7 +48,10 @@ export function EditorHeader() {
   const content = useAtomValue(editorContentAtom);
   const fetchAllTags = useSetAtom(fetchAllTagsAtom);
   
-  // ★追加：ベクトルをキャッシュ（記憶）するための関数
+  const [tagSearchQuery, setTagSearchQuery] = useAtom(tagSearchQueryAtom);
+  const isTagSearching = useAtomValue(isTagSearchingAtom);
+  const searchTags = useSetAtom(searchTagsSemanticAtom);
+
   const setEmbeddingCache = useSetAtom(editorEmbeddingCacheAtom);
 
   const selectedId = useAtomValue(selectedMemoIdAtom);
@@ -126,7 +136,6 @@ export function EditorHeader() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // AI自動タグ付け機能
   const handleAutoTag = async () => {
     if (!content || isTagAiLoading || cooldown > 0) return;
     setIsTagAiLoading(true);
@@ -148,12 +157,10 @@ export function EditorHeader() {
         setTags(data.suggestedTags);
         fetchAllTags();
         
-        // ★追加：APIから返ってきたベクトルをキャッシュに保存！
         if (data.embedding) {
           setEmbeddingCache({ text: content, embedding: data.embedding });
         }
         
-        // ★追加：タグ設定後、自動で保存を走らせる（State反映待ちのため100ms遅らせる）
         setTimeout(() => {
           saveRef.current();
         }, 100);
@@ -165,7 +172,6 @@ export function EditorHeader() {
     }
   };
 
-  // AI自動タイトル生成機能
   const handleAutoTitle = async () => {
     if (!content || isTitleAiLoading || cooldown > 0) return;
     setIsTitleAiLoading(true);
@@ -186,7 +192,6 @@ export function EditorHeader() {
       if (data.title) {
         setTitle(data.title);
         
-        // ★追加：タイトル設定後、自動で保存を走らせる
         setTimeout(() => {
           saveRef.current();
         }, 100);
@@ -339,7 +344,6 @@ export function EditorHeader() {
         />
 
         <div className="flex items-center gap-2">
-          {/* AIタイトル生成ボタン */}
           <button
             type="button"
             onClick={handleAutoTitle}
@@ -383,7 +387,6 @@ export function EditorHeader() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 min-h-8">
-        {/* タグ表示 */}
         {tags.length > 0 ? (
           tags.map((tag) => (
             <div
@@ -443,31 +446,73 @@ export function EditorHeader() {
           />
 
           {showTagList && (
-            <div className="absolute top-full left-0 mt-1 w-48 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1">
-              <div className="px-3 py-1 text-xs font-bold text-gray-400 border-b border-gray-100">
-                データベースのタグ
+            <div className="absolute top-full left-0 mt-1 w-56 max-h-80 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg z-50 flex flex-col">
+              
+              {/* 一番上固定のセマンティック検索バー */}
+              <div className="sticky top-0 bg-white border-b border-gray-100 p-2 z-10">
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={tagSearchQuery}
+                    onChange={(e) => setTagSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        searchTags();
+                      }
+                    }}
+                    placeholder="意味でタグを検索..."
+                    className="w-full pl-8 pr-12 py-1.5 text-xs text-gray-900 placeholder:text-gray-400 bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 shadow-sm"
+                  />
+                  <Search className="absolute left-2.5 w-3.5 h-3.5 text-gray-400" />
+                  
+                  <button
+                    type="button"
+                    onClick={searchTags}
+                    disabled={isTagSearching}
+                    className="absolute right-1 px-2 py-1 text-[10px] font-bold text-blue-600 hover:bg-blue-100 rounded disabled:text-gray-300"
+                  >
+                    {isTagSearching ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      "検索"
+                    )}
+                  </button>
+                </div>
               </div>
-              {allTags.map((tag) => (
-                <button
-                  type="button"
-                  key={tag.id}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    toggleTag(tag);
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors text-left"
-                >
-                  <span>{tag.name}</span>
-                  {tags.find((t) => t.id === tag.id) && (
-                    <Check className="w-4 h-4 text-blue-500" />
-                  )}
-                </button>
-              ))}
+
+              <div className="flex-1">
+                <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  {tagSearchQuery ? "関連度の高いタグ" : "すべてのタグ"}
+                </div>
+
+                {allTags.length === 0 ? (
+                  <div className="px-3 py-6 text-xs text-center text-gray-400">
+                    タグが見つかりません
+                  </div>
+                ) : (
+                  allTags.map((tag) => (
+                    <button
+                      type="button"
+                      key={tag.id}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        toggleTag(tag);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors text-left"
+                    >
+                      <span>{tag.name}</span>
+                      {tags.find((t) => t.id === tag.id) && (
+                        <Check className="w-4 h-4 text-blue-500" />
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>
 
-        {/* AI自動タグボタン */}
         <button
           type="button"
           onClick={handleAutoTag}

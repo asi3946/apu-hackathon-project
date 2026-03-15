@@ -7,6 +7,8 @@ import {
   editorTagsAtom,
   editorTitleAtom,
   editorEmbeddingCacheAtom,
+  tagSearchQueryAtom,   // ★追加
+  isTagSearchingAtom,   // ★追加
 } from "./editorAtom";
 
 // 検索結果専用の型を定義
@@ -32,6 +34,7 @@ export const currentMemoAtom = atom((get) => {
 
 // --- Actions (非同期処理) ---
 
+// タグ一覧をDBから取得するAction
 export const fetchAllTagsAtom = atom(null, async (get, set) => {
   const { data, error } = await supabase
     .from("tags")
@@ -40,6 +43,50 @@ export const fetchAllTagsAtom = atom(null, async (get, set) => {
 
   if (!error && data) {
     set(allTagsAtom, data);
+  }
+});
+
+// ★追加：タグをセマンティック検索（意味検索）するAction
+export const searchTagsSemanticAtom = atom(null, async (get, set) => {
+  const query = get(tagSearchQueryAtom);
+
+  // 検索ワードが空の場合は、通常の全タグ取得に戻す
+  if (!query.trim()) {
+    set(isTagSearchingAtom, false);
+    const { data } = await supabase
+      .from("tags")
+      .select("id, name")
+      .order("name");
+    if (data) set(allTagsAtom, data);
+    return;
+  }
+
+  set(isTagSearchingAtom, true);
+
+  try {
+    // 1. 検索ワードをベクトル化
+    const res = await fetch("/api/embeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: query }),
+    });
+
+    if (!res.ok) throw new Error("Embedding failed");
+    const { embedding } = await res.json();
+
+    // 2. Supabase RPC 'match_tags' を呼び出して関連タグを抽出
+    const { data, error } = await supabase.rpc("match_tags", {
+      query_embedding: embedding,
+      match_threshold: 0.1, // 関連度順に並べるため低めに設定
+      match_count: 50,
+    });
+
+    if (error) throw error;
+    if (data) set(allTagsAtom, data as Tag[]);
+  } catch (err) {
+    console.error("Tag semantic search failed:", err);
+  } finally {
+    set(isTagSearchingAtom, false);
   }
 });
 
@@ -62,7 +109,7 @@ export const fetchMemosAtom = atom(null, async (get, set) => {
   }
 });
 
-// 2. メモを保存するAction (キャッシュ対応＆型エラー修正版)
+// メモを保存するAction
 export const saveMemoAtom = atom(null, async (get, set) => {
   const id = get(selectedMemoIdAtom);
   const title = get(editorTitleAtom);
@@ -75,7 +122,6 @@ export const saveMemoAtom = atom(null, async (get, set) => {
   try {
     let currentEmbedding: number[] = [];
 
-    // キャッシュがあり、かつ内容が一致していれば再利用（課金回避）
     if (cache && cache.text === content) {
       console.log("♻️ ベクトルキャッシュを使い回して保存します（API料金 ¥0）");
       currentEmbedding = cache.embedding;
@@ -97,7 +143,6 @@ export const saveMemoAtom = atom(null, async (get, set) => {
     const updated_at = new Date().toISOString();
     const tagNames = tags.map((t: Tag) => t.name);
 
-    // DB(Supabase)へ保存
     const { error } = await supabase
       .from("memos")
       .update({
@@ -114,7 +159,6 @@ export const saveMemoAtom = atom(null, async (get, set) => {
       return;
     }
 
-    // ローカルのJotaiリストを更新
     set(memoListAtom, (prev) =>
       prev.map((memo) =>
         memo.id === id
@@ -130,7 +174,6 @@ export const saveMemoAtom = atom(null, async (get, set) => {
       ),
     );
 
-    // タグの中間テーブル(memo_tags)同期
     const syncRes = await fetch("/api/memos/tags/sync", {
       method: "POST",
       body: JSON.stringify({
@@ -143,9 +186,6 @@ export const saveMemoAtom = atom(null, async (get, set) => {
     if (!syncRes.ok) {
       console.error("Tags sync failed");
     }
-
-    // ★ 修正点：ここにあったキャッシュクリアの set(editorEmbeddingCacheAtom, null) を削除しました。
-    // これにより、内容が変わらない限りタイトル生成などの連続操作でもキャッシュが生き続けます。
   } catch (err) {
     console.error("Error in saveMemoAtom:", err);
   }
@@ -188,13 +228,11 @@ export const deleteMemoAtom = atom(null, async (get, set, memoId: string) => {
   }
 });
 
-// 取得するカラムに合わせた専用の型を定義
 export type TimelineMemo = Pick<
   Memo,
   "id" | "title" | "content" | "updated_at" | "user_id"
 >;
 
-// anyを排除し、作成したTimelineMemoの配列として定義
 export const timelineMemosAtom = atom<TimelineMemo[]>([]);
 
 export const fetchTimelineMemosAtom = atom(null, async (get, set) => {
