@@ -12,9 +12,8 @@ export default function Home() {
   return (
     <main className="flex h-screen w-screen overflow-hidden bg-white">
       <AppSidebar />
-      {/* timelineの時もExploreViewerを使い回す */}
-      {currentView === "timeline" && <ExploreViewer />}
-      {currentView === "explore" && <ExploreViewer />}
+      {/* ★ ここに bookmarks の時の表示条件を追加しました！ */}
+      {(currentView === "timeline" || currentView === "explore" || currentView === "bookmarks") && <ExploreViewer />}
       {currentView === "editor" && <EditorRoot />}
     </main>
   );

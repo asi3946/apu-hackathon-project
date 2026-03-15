@@ -4,15 +4,9 @@ import { atom } from "jotai";
 import type { Memo, Tag } from "@/types/models";
 import { createClient } from "@/utils/supabase/client";
 import {
-  allTagsAtom,
-  editorContentAtom,
-  editorTagsAtom,
-  editorTitleAtom,
-  editorEmbeddingCacheAtom,
-  tagSearchQueryAtom,
-  isTagSearchingAtom,
-  editorSettingsAtom,
-  editorIsPublicAtom,
+  allTagsAtom, editorContentAtom, editorTagsAtom, editorTitleAtom,
+  editorEmbeddingCacheAtom, tagSearchQueryAtom, isTagSearchingAtom,
+  editorSettingsAtom, editorIsPublicAtom, currentViewAtom
 } from "./editorAtom";
 
 export interface SearchedMemo extends Memo {
@@ -35,8 +29,8 @@ export const currentMemoAtom = atom((get) => {
 });
 
 export const fetchAllTagsAtom = atom(null, async (get, set) => {
-  const { data, error } = await supabase.from("tags").select("id, name").order("name");
-  if (!error && data) set(allTagsAtom, data);
+  const { data } = await supabase.from("tags").select("id, name").order("name");
+  if (data) set(allTagsAtom, data);
 });
 
 export const searchTagsSemanticAtom = atom(null, async (get, set) => {
@@ -94,15 +88,14 @@ export const saveMemoAtom = atom(null, async (get, set) => {
     await supabase.from("memos").update({
       title, content, tags: tagNames, is_public: isPublic, updated_at: new Date().toISOString(), embedding: currentEmbedding,
     }).eq("id", id);
-    set(memoListAtom, (prev) => prev.map((memo) => memo.id === id ? { ...memo, title, content, tags: tagNames, is_public: isPublic } : memo));
+    set(memoListAtom, (prev) => prev.map((m) => m.id === id ? { ...m, title, content, tags: tagNames, is_public: isPublic } : m));
   } catch (err) { console.error(err); }
 });
 
 export const createMemoAtom = atom(null, async (get, set) => {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
   const settings = get(editorSettingsAtom);
-  const { data } = await supabase.from("memos").insert([{ user_id: user.id, title: "", content: "", tags: [], is_public: settings.defaultIsPublic }]).select().single();
+  const { data } = await supabase.from("memos").insert([{ user_id: user?.id, title: "", content: "", tags: [], is_public: settings.defaultIsPublic }]).select().single();
   if (data) {
     set(memoListAtom, [data as Memo, ...get(memoListAtom)]);
     set(selectedMemoIdAtom, data.id);
@@ -112,24 +105,28 @@ export const createMemoAtom = atom(null, async (get, set) => {
 export const deleteMemoAtom = atom(null, async (get, set, memoId: string) => {
   await supabase.from("memos").delete().eq("id", memoId);
   set(memoListAtom, get(memoListAtom).filter((m) => m.id !== memoId));
+  
+  if (get(selectedMemoIdAtom) === memoId) {
+    set(selectedMemoIdAtom, null);
+    set(editorTitleAtom, "");
+    set(editorContentAtom, "");
+    set(editorTagsAtom, []);
+    set(editorIsPublicAtom, false);
+  }
 });
 
-// ★ Pick に tags を追加
 export type TimelineMemo = Pick<Memo, "id" | "title" | "content" | "updated_at" | "user_id" | "tags">;
 export const timelineMemosAtom = atom<TimelineMemo[]>([]);
 
 export const fetchTimelineMemosAtom = atom(null, async (get, set) => {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-  try {
-    const response = await fetch("/api/memos/timeline");
-    if (response.ok) {
-      const data = await response.json();
-      if (data.timeline_memos) {
-        set(timelineMemosAtom, data.timeline_memos.filter((m: any) => String(m.user_id) !== String(user.id)));
-      }
+  const response = await fetch("/api/memos/timeline");
+  if (response.ok) {
+    const data = await response.json();
+    if (data.timeline_memos) {
+      set(timelineMemosAtom, data.timeline_memos.filter((m: any) => String(m.user_id) !== String(user?.id)));
     }
-  } catch (error) { console.error(error); }
+  }
 });
 
 export const isSearchingAtom = atom(false);
@@ -149,4 +146,58 @@ export const fetchRelatedMemosAtom = atom(null, async (get, set) => {
       set(searchedMemosAtom, data.related_memos || []);
     }
   } catch (error) { console.error(error); } finally { set(isSearchingAtom, false); }
+});
+
+// ==========================================
+// ★ ブックマーク機能
+// ==========================================
+export const bookmarkedMemosAtom = atom<TimelineMemo[]>([]);
+export const bookmarkedMemoIdsAtom = atom<string[]>([]);
+
+export const fetchBookmarkedMemosAtom = atom(null, async (get, set) => {
+  try {
+    const res = await fetch("/api/memos/bookmarks");
+    if (res.ok) {
+      const data = await res.json();
+      set(bookmarkedMemosAtom, data.bookmarks || []);
+      set(bookmarkedMemoIdsAtom, (data.bookmarks || []).map((m: any) => m.id));
+    }
+  } catch (error) { 
+    console.error("Bookmark fetch error:", error); 
+  }
+});
+
+export const toggleBookmarkAtom = atom(null, async (get, set, memoId: string) => {
+  const currentIds = get(bookmarkedMemoIdsAtom);
+  const isBookmarked = currentIds.includes(memoId);
+  
+  // クリックした瞬間にUIの見た目を切り替える
+  set(bookmarkedMemoIdsAtom, isBookmarked 
+    ? currentIds.filter(id => id !== memoId) 
+    : [memoId, ...currentIds]
+  );
+
+  // ★ 追加: ブックマーク画面を開いている時に解除した場合、右側の表示を空にする
+  const currentView = get(currentViewAtom);
+  if (isBookmarked && currentView === "bookmarks") {
+    const selected = get(selectedSearchedMemoAtom);
+    if (selected?.id === memoId) {
+      set(selectedSearchedMemoAtom, null);
+    }
+  }
+
+  try {
+    const res = await fetch("/api/memos/bookmarks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memo_id: memoId }),
+    });
+    
+    if (!res.ok) throw new Error("Failed to toggle bookmark");
+    
+    await set(fetchBookmarkedMemosAtom);
+  } catch (error) {
+    console.error(error);
+    set(bookmarkedMemoIdsAtom, currentIds);
+  }
 });
