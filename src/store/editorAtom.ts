@@ -2,8 +2,6 @@ import { atom } from "jotai";
 import type { Tag } from "@/types/db"; // ← 追加：データベースのTag型を読み込む
 import { createClient } from "@/utils/supabase/client";
 
-import { Tag } from "@/types/db";
-
 export type EditorType = "standard" | "vim";
 
 export interface EditorSettings {

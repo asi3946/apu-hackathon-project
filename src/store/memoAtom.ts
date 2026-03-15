@@ -146,7 +146,6 @@ export const saveMemoAtom = atom(null, async (get, set) => {
 
     // ★ 修正点：ここにあったキャッシュクリアの set(editorEmbeddingCacheAtom, null) を削除しました。
     // これにより、内容が変わらない限りタイトル生成などの連続操作でもキャッシュが生き続けます。
-
   } catch (err) {
     console.error("Error in saveMemoAtom:", err);
   }
@@ -212,5 +211,4 @@ export const fetchTimelineMemosAtom = atom(null, async (get, set) => {
   } catch (error) {
     console.error("Timeline fetch error:", error);
   }
-});
 });
