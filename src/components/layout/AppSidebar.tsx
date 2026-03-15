@@ -86,12 +86,18 @@ export function AppSidebar() {
   }, [isSettingsOpen]);
 
   useEffect(() => {
-    if (settings.type === "vim" && currentView !== "editor") {
+    if (settings.type === "vim") {
       setTimeout(() => {
-        document.getElementById("back-to-memos-btn")?.focus();
+        if (currentView !== "editor") {
+          // 閲覧画面を開いている時は「戻る」ボタンへ
+          document.getElementById("back-to-memos-btn")?.focus();
+        } else if (!selectedId) {
+          // エディタ画面で何もメモを開いていない（初期状態）時は「新規作成」ボタンへ！
+          document.getElementById("new-memo-btn")?.focus();
+        }
       }, 50);
     }
-  }, [currentView, settings.type]);
+  }, [currentView, settings.type, selectedId]);
 
   const toggleDefaultPublic = () =>
     updateSettings({ defaultIsPublic: !settings.defaultIsPublic });
@@ -196,6 +202,7 @@ export function AppSidebar() {
               />
             </div>
             <button
+              id="new-memo-btn"
               type="button"
               onClick={handleCreateMemo}
               className="flex items-center gap-2 hover:bg-gray-200 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
