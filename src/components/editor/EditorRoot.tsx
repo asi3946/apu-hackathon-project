@@ -1,9 +1,12 @@
 "use client";
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { FileText, PlusCircle } from "lucide-react"; // ガイド用のアイコン
 import { useEffect, useRef } from "react";
 import {
   allTagsAtom,
+  autoTagAtom,
+  autoTitleAtom,
   createMemoAtom,
   currentMemoAtom,
   editorContentAtom,
@@ -23,6 +26,8 @@ export function EditorRoot() {
   const setEditorTitle = useSetAtom(editorTitleAtom);
   const setEditorTags = useSetAtom(editorTagsAtom);
   const setEditorIsPublic = useSetAtom(editorIsPublicAtom);
+  const autoTag = useSetAtom(autoTagAtom);
+  const autoTitle = useSetAtom(autoTitleAtom);
 
   const allTags = useAtomValue(allTagsAtom);
 
@@ -33,10 +38,8 @@ export function EditorRoot() {
   const saveMemo = useSetAtom(saveMemoAtom);
   const createMemo = useSetAtom(createMemoAtom);
 
-  // ★ 鉄壁の保護：現在読み込み済みのメモIDを記録し、意図しないリセットを防ぐ
   const loadedMemoIdRef = useRef<string | null>(null);
 
-  // ★ 修正：Biome(リンター)の警告を解消しつつ、入力データが消えないようにロックをかける
   useEffect(() => {
     if (!currentMemo) {
       if (loadedMemoIdRef.current !== null) {
@@ -48,7 +51,6 @@ export function EditorRoot() {
       return;
     }
 
-    // メモを「切り替えた瞬間」だけDBからデータを画面にセットする
     if (currentMemo.id !== loadedMemoIdRef.current) {
       setEditorContent(currentMemo.content || "");
       setEditorTitle(currentMemo.title || "");
@@ -61,13 +63,9 @@ export function EditorRoot() {
       });
 
       setEditorTags(tagsAsObjects);
-
-      // ★ 追加：DBの値をエディタに反映！(undefined対策で !! をつけてboolean化)
       setEditorIsPublic(!!currentMemo.is_public);
-
-      loadedMemoIdRef.current = currentMemo.id; // ロックをかける
+      loadedMemoIdRef.current = currentMemo.id;
     }
-    // ★ 追加：依存配列の一番最後に setEditorIsPublic を追加
   }, [
     currentMemo,
     allTags,
@@ -100,7 +98,10 @@ export function EditorRoot() {
         await createMemo();
       } else if (cmd === "wq") {
         await saveMemo();
-        // 終了や一覧へ戻る処理が必要な場合はここに追加します
+      } else if (cmd === "ta") {
+        await autoTag();
+      } else if (cmd === "ti") {
+        await autoTitle();
       }
 
       setVimMode("normal");
@@ -109,9 +110,42 @@ export function EditorRoot() {
     }
   };
 
+  // ★ 追加: メモが選択されていない時の表示 (ログイン直後など)
+  if (!currentMemo) {
+    return (
+      <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
+        {/* ロゴは常に表示 */}
+        <img
+          src="/images/app-logo.png"
+          alt="アプリロゴ"
+          className="absolute top-8 left-8 w-12 h-12 rounded-xl object-cover shadow-sm z-10"
+        />
+
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
+          <div className="flex flex-col items-center max-w-sm text-center space-y-4">
+            <div className="relative">
+              <FileText className="w-20 h-20 opacity-10" />
+              <PlusCircle className="w-8 h-8 text-blue-400 absolute -bottom-2 -right-2 bg-white rounded-full" />
+            </div>
+            <div className="space-y-2 px-4">
+              <h2 className="text-xl font-semibold text-gray-600">
+                メモを作成しましょう
+              </h2>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                左のリストからメモを選択するか、
+                <br />
+                「新規作成」ボタンから新しいメモを作成してください。
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 通常のエディタ表示
   return (
     <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
-      {/* ★ 追加：エディター領域の一番左上にアプリロゴを配置 ★ */}
       <img
         src="/images/app-logo.png"
         alt="アプリロゴ"

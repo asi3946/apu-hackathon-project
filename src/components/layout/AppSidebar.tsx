@@ -85,6 +85,15 @@ export function AppSidebar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isSettingsOpen]);
 
+  useEffect(() => {
+    if (settings.type === "vim" && currentView !== "editor") {
+      // DOMの描画を少し待ってからフォーカスを当てる
+      setTimeout(() => {
+        document.getElementById("back-to-memos-btn")?.focus();
+      }, 50);
+    }
+  }, [currentView, settings.type]);
+
   const toggleDefaultPublic = () =>
     updateSettings({ defaultIsPublic: !settings.defaultIsPublic });
 
@@ -96,20 +105,77 @@ export function AppSidebar() {
     setCurrentView("editor");
     await createMemo();
   };
+
   const filteredMemos = memos.filter((memo) => {
     const title = memo.title || "無題のメモ";
     return title.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
+  // ==========================================
+  // Vimモード時のサイドバーキーボード操作
+  // ==========================================
+  const handleSidebarKeyDown = (e: React.KeyboardEvent) => {
+    if (settings.type !== "vim") return;
+
+    // 検索窓(input)に入力中の時は j/k ナビゲーションを無効化
+    if (document.activeElement?.tagName === "INPUT") {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        (e.currentTarget as HTMLElement).focus(); // 検索窓から抜けてサイドバー自体にフォーカスを戻す
+      }
+      return;
+    }
+
+    const focusableElements = Array.from(
+      e.currentTarget.querySelectorAll('button:not([tabindex="-1"])'),
+    ) as HTMLElement[];
+
+    const currentIndex = focusableElements.indexOf(
+      document.activeElement as HTMLElement,
+    );
+
+    if (e.key === "j") {
+      e.preventDefault();
+      // 下へ移動
+      const nextIndex =
+        currentIndex < focusableElements.length - 1 ? currentIndex + 1 : 0;
+      focusableElements[nextIndex]?.focus();
+    } else if (e.key === "k") {
+      e.preventDefault();
+      // 上へ移動
+      const prevIndex = currentIndex > 0 ? currentIndex - 1 : 0;
+      focusableElements[prevIndex]?.focus();
+    } else if (e.key === "l" || e.key === "Escape") {
+      e.preventDefault();
+      // l（右）または Escape でエディタにフォーカスを戻す
+      (document.querySelector("textarea") as HTMLElement)?.focus();
+    }
+  };
+
   return (
-    <aside className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none shrink-0 ">
+    <aside
+      id="app-sidebar"
+      tabIndex={-1}
+      onKeyDown={handleSidebarKeyDown}
+      // ★修正2: Shift+H でサイドバーがフォーカスされた瞬間、現在のメモのボタンにフォーカスをリダイレクトする！
+      onFocus={(e) => {
+        if (e.target === e.currentTarget && selectedId) {
+          const activeBtn = document.getElementById(`memo-btn-${selectedId}`);
+          if (activeBtn) {
+            activeBtn.focus();
+          }
+        }
+      }}
+      className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none shrink-0 focus:ring-2 focus:ring-inset focus:ring-blue-300 transition-shadow"
+    >
       <div className="p-4 space-y-4 ">
         <SidebarAuth />
         {currentView !== "editor" && (
           <button
+            id="back-to-memos-btn" // ★追加: フォーカス用の目印
             type="button"
             onClick={() => setCurrentView("editor")}
-            className="flex items-center gap-2 hover:bg-gray-200 text-gray-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full border border-gray-300 bg-white shadow-sm "
+            className="flex items-center gap-2 hover:bg-gray-200 text-gray-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full border border-gray-300 bg-white shadow-sm outline-none focus:ring-2 focus:ring-blue-400" // ★追加: outline-none と focus:ring を追加
           >
             <ArrowLeft className="w-5 h-5" />
             <span>自分のメモに戻る</span>
@@ -119,6 +185,7 @@ export function AppSidebar() {
           <div className="space-y-1">
             <div className="relative group mb-2">
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
+              {/* input は j/k の対象から外れているため、マウスでクリックした時だけ使えます */}
               <input
                 type="text"
                 value={searchQuery}
@@ -172,7 +239,7 @@ export function AppSidebar() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 py-2  [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex-1 overflow-y-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {currentView === "explore" ? (
           <div className="space-y-1">
             <div className="px-4 mb-2">
@@ -199,7 +266,7 @@ export function AppSidebar() {
                   key={memo.id}
                   onClick={() => setSelectedSearchedMemo(memo)}
                   className={cn(
-                    "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left",
+                    "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left focus:ring-2 focus:ring-blue-300 outline-none",
                     selectedSearchedMemo?.id === memo.id
                       ? "bg-blue-50 border-blue-200"
                       : "bg-white border-transparent hover:border-gray-200",
@@ -226,7 +293,7 @@ export function AppSidebar() {
                 key={memo.id}
                 onClick={() => setSelectedSearchedMemo(memo as any)}
                 className={cn(
-                  "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left",
+                  "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left focus:ring-2 focus:ring-green-300 outline-none",
                   selectedSearchedMemo?.id === memo.id
                     ? "bg-green-50 border-green-200"
                     : "bg-white border-transparent hover:border-gray-200",
@@ -257,7 +324,7 @@ export function AppSidebar() {
                   key={memo.id}
                   onClick={() => setSelectedSearchedMemo(memo as any)}
                   className={cn(
-                    "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left",
+                    "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left focus:ring-2 focus:ring-yellow-300 outline-none",
                     selectedSearchedMemo?.id === memo.id
                       ? "bg-yellow-50 border-yellow-200"
                       : "bg-white border-transparent hover:border-gray-200",
@@ -287,12 +354,13 @@ export function AppSidebar() {
                 )}
               >
                 <button
+                  id={`memo-btn-${memo.id}`} // ★修正3: Shift+Hでここを狙い撃ちするためのID！
                   type="button"
                   onClick={() => {
                     setSelectedId(memo.id);
                     setCurrentView("editor");
                   }}
-                  className="flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left outline-none"
+                  className="flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left outline-none focus:ring-2 focus:ring-blue-300 rounded-full"
                 >
                   <FileText className="w-4 h-4 opacity-50 shrink-0" />
                   <span className="truncate text-sm font-medium">
@@ -301,11 +369,12 @@ export function AppSidebar() {
                 </button>
                 <button
                   type="button"
+                  tabIndex={-1} // ★これを追加！キーボード操作の対象から外す
                   onClick={(e) => {
                     e.stopPropagation();
                     deleteMemo(memo.id);
                   }}
-                  className="hidden group-hover:flex text-red-400 pr-3 pl-2 py-2 hover:text-red-600"
+                  className="hidden group-hover:flex text-red-400 pr-3 pl-2 py-2 hover:text-red-600 outline-none focus:ring-2 focus:ring-red-300 rounded-full"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -323,7 +392,6 @@ export function AppSidebar() {
           <div className="absolute bottom-full left-4 mb-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-50">
             <h3 className="text-sm font-semibold text-gray-800 mb-4">設定</h3>
 
-            {/* 既存：デフォルトで公開のトグル */}
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">デフォルトで公開</span>
               <button
@@ -345,7 +413,6 @@ export function AppSidebar() {
               </button>
             </div>
 
-            {/* ★追加：Vimモードのトグル */}
             <div className="flex items-center justify-between mt-4">
               <span className="text-sm text-gray-600">Vimモード</span>
               <button
@@ -370,7 +437,7 @@ export function AppSidebar() {
           type="button"
           onClick={() => setIsSettingsOpen(!isSettingsOpen)}
           className={cn(
-            "flex items-center gap-3 w-full p-2 text-xs rounded-lg transition-colors",
+            "flex items-center gap-3 w-full p-2 text-xs rounded-lg transition-colors outline-none focus:ring-2 focus:ring-blue-300",
             isSettingsOpen
               ? "bg-[#d3e3fd] text-[#0e42a0]"
               : "text-gray-500 hover:text-gray-900 hover:bg-[#e1e5ea]",
