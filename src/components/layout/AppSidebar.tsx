@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Compass,
   FileText,
+  Loader2,
   Plus,
   Search,
   Settings,
@@ -21,7 +22,9 @@ import {
   fetchUserSettingsAtom,
   isExploreModeAtom,
   memoListAtom,
+  searchedMemosAtom,
   selectedMemoIdAtom,
+  selectedSearchedMemoAtom,
   updateUserSettingsAtom,
 } from "@/store/models";
 
@@ -37,6 +40,12 @@ export function AppSidebar() {
   const deleteMemo = useSetAtom(deleteMemoAtom);
 
   const [isExploreMode, setIsExploreMode] = useAtom(isExploreModeAtom);
+
+  const [searchedMemos, setSearchedMemos] = useAtom(searchedMemosAtom);
+  const [selectedSearchedMemo, setSelectedSearchedMemo] = useAtom(
+    selectedSearchedMemoAtom,
+  );
+  const [isSearching, setIsSearching] = useState(false);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -62,6 +71,48 @@ export function AppSidebar() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isSettingsOpen]);
+
+  useEffect(() => {
+    if (!isExploreMode) return;
+
+    const fetchRelatedMemos = async () => {
+      if (!selectedId) {
+        setIsSearching(false);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const response = await fetch("/api/memos/search", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ source_memo_id: selectedId }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.related_memos) {
+            setSearchedMemos(data.related_memos);
+            if (data.related_memos.length > 0) {
+              setSelectedSearchedMemo(data.related_memos[0]);
+            } else {
+              setSelectedSearchedMemo(null);
+            }
+          }
+        } else {
+          console.error("検索APIがエラーを返しました", await response.text());
+        }
+      } catch (error) {
+        console.error("検索通信エラー:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    fetchRelatedMemos();
+  }, [isExploreMode, selectedId, setSearchedMemos, setSelectedSearchedMemo]);
 
   const toggleVimMode = () => {
     updateSettings({ type: settings.type === "standard" ? "vim" : "standard" });
@@ -190,10 +241,37 @@ export function AppSidebar() {
               検索結果
             </div>
             <div className="space-y-1">
-              {/* API連携後にここに検索結果を展開します */}
-              <div className="text-center py-10 text-gray-400 text-sm">
-                API接続待ち...
-              </div>
+              {isSearching ? (
+                <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                  <Loader2 className="w-6 h-6 animate-spin mb-4" />
+                  <span className="text-xs">関連メモを検索中...</span>
+                </div>
+              ) : searchedMemos.length === 0 ? (
+                <div className="text-center py-10 text-gray-400 text-sm">
+                  関連するメモが見つかりません
+                </div>
+              ) : (
+                searchedMemos.map((memo) => (
+                  <button // ← buttonに変更
+                    key={memo.id}
+                    type="button" // ← 追加
+                    className={cn(
+                      "w-full rounded-2xl flex flex-col p-3 transition-colors cursor-pointer border text-left", // ← text-left を追加
+                      selectedSearchedMemo?.id === memo.id
+                        ? "bg-blue-50 border-blue-200"
+                        : "bg-white border-transparent hover:border-gray-200",
+                    )}
+                    onClick={() => setSelectedSearchedMemo(memo)}
+                  >
+                    <div className="text-xs text-blue-600 mb-1 font-medium">
+                      マッチ度 {Math.round(memo.similarity * 100)}%
+                    </div>
+                    <div className="truncate text-sm font-medium text-gray-800">
+                      {memo.title || "無題のメモ"}
+                    </div>
+                  </button> // ← 閉じタグもbutton
+                ))
+              )}
             </div>
           </>
         ) : (

@@ -1,14 +1,22 @@
 import { atom } from "jotai";
-import type { Memo } from "@/types/models";
+import type { Memo, Tag } from "@/types/models";
 import { createClient } from "@/utils/supabase/client";
 import {
+  allTagsAtom, // ← 追加：全タグリストのAtom
   editorContentAtom,
   editorTagsAtom,
   editorTitleAtom,
-  allTagsAtom, // ← 追加：全タグリストのAtom
 } from "./editorAtom";
 
+// 検索結果専用の型を定義（既存のMemo型を拡張）
+export interface SearchedMemo extends Memo {
+  similarity: number;
+}
+
 export const isExploreModeAtom = atom(false);
+
+export const searchedMemosAtom = atom<SearchedMemo[]>([]);
+export const selectedSearchedMemoAtom = atom<SearchedMemo | null>(null);
 
 const supabase = createClient();
 
@@ -82,7 +90,7 @@ export const saveMemoAtom = atom(null, async (get, set) => {
     const updated_at = new Date().toISOString();
 
     // 【エラー対策】DB(memos)とローカル状態には、オブジェクトから「名前(文字)」だけを抽出して渡す
-    const tagNames = tags.map((t: any) => t.name);
+    const tagNames = tags.map((t: Tag) => t.name);
 
     // embeddingと一緒にDB(memos)に保存する
     const { error } = await supabase
@@ -115,15 +123,14 @@ export const saveMemoAtom = atom(null, async (get, set) => {
       method: "POST",
       body: JSON.stringify({
         memo_id: id,
-        tag_ids: tags.map((t: any) => t.id) // こっちはDBのIDの配列を送る
+        tag_ids: tags.map((t: Tag) => t.id), // こっちはDBのIDの配列を送る
       }),
-      headers: { "Content-Type": "application/json" }
+      headers: { "Content-Type": "application/json" },
     });
 
     if (!syncRes.ok) {
       console.error("Tags sync failed");
     }
-
   } catch (err) {
     console.error("Error in saveMemoAtom:", err);
   }
