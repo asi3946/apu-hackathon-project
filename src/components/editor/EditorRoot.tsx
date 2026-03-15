@@ -5,6 +5,8 @@ import { FileText, PlusCircle } from "lucide-react"; // ガイド用のアイコ
 import { useEffect, useRef } from "react";
 import {
   allTagsAtom,
+  autoTagAtom,
+  autoTitleAtom,
   createMemoAtom,
   currentMemoAtom,
   editorContentAtom,
@@ -24,6 +26,8 @@ export function EditorRoot() {
   const setEditorTitle = useSetAtom(editorTitleAtom);
   const setEditorTags = useSetAtom(editorTagsAtom);
   const setEditorIsPublic = useSetAtom(editorIsPublicAtom);
+  const autoTag = useSetAtom(autoTagAtom);
+  const autoTitle = useSetAtom(autoTitleAtom);
 
   const allTags = useAtomValue(allTagsAtom);
 
@@ -94,6 +98,10 @@ export function EditorRoot() {
         await createMemo();
       } else if (cmd === "wq") {
         await saveMemo();
+      } else if (cmd === "ta") {
+        await autoTag();
+      } else if (cmd === "ti") {
+        await autoTitle();
       }
 
       setVimMode("normal");

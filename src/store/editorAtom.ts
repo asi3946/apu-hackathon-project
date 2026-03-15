@@ -39,9 +39,15 @@ export const editorEmbeddingCacheAtom = atom<{
 
 export const fetchUserSettingsAtom = atom(null, async (get, set) => {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return;
-  const { data, error } = await supabase.from("user_settings").select("*").eq("id", user.id).single();
+  const { data, error } = await supabase
+    .from("user_settings")
+    .select("*")
+    .eq("id", user.id)
+    .single();
   if (error) {
     console.error("設定の取得に失敗しました:", error);
     return;
@@ -54,21 +60,32 @@ export const fetchUserSettingsAtom = atom(null, async (get, set) => {
   }
 });
 
-export const updateUserSettingsAtom = atom(null, async (get, set, update: Partial<EditorSettings>) => {
+export const updateUserSettingsAtom = atom(
+  null,
+  async (get, set, update: Partial<EditorSettings>) => {
     const current = get(editorSettingsAtom);
     const next = { ...current, ...update };
     set(editorSettingsAtom, next);
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
-    const { error } = await supabase.from("user_settings").update({
+    const { error } = await supabase
+      .from("user_settings")
+      .update({
         use_vim_mode: next.type === "vim",
         default_is_public: next.defaultIsPublic,
         updated_at: new Date().toISOString(),
-      }).eq("id", user.id);
+      })
+      .eq("id", user.id);
     if (error) {
       console.error("設定の保存に失敗しました:", error);
       set(editorSettingsAtom, current);
     }
   },
 );
+
+export const isTitleAiLoadingAtom = atom<boolean>(false);
+export const isTagAiLoadingAtom = atom<boolean>(false);
+export const aiCooldownAtom = atom<number>(0);
