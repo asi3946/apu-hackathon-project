@@ -53,6 +53,9 @@ scripts/
 src/
   app/
     api/
+      auth/
+        delete/
+          route.ts
       embeddings/
         route.ts
       memos/
@@ -159,6 +162,51 @@ This section contains the contents of the repository's files.
 <svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
 </file>
 
+<file path="src/app/api/auth/delete/route.ts">
+import { NextResponse } from "next/server";
+import { createClient as createServerClient } from "@/utils/supabase/server";
+import { createClient } from "@supabase/supabase-js";
+
+export async function DELETE() {
+  try {
+    // 1. セッションから現在のログインユーザーを確認
+    const supabase = await createServerClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // 2. 特権（Service Role Key）を持ったAdminクライアントを初期化
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // 3. 外部キー制約エラーを防ぐため、ユーザーに関連するデータを先に削除する
+    // ※ 順番は問わないが、ユーザーIDに紐づくものをすべて消す
+    await supabaseAdmin.from("bookmarks").delete().eq("user_id", user.id);
+    await supabaseAdmin.from("memos").delete().eq("user_id", user.id);
+    await supabaseAdmin.from("user_settings").delete().eq("id", user.id);
+
+    // 4. auth.users からアカウント本体を削除
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Account deletion error:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error", message: error.message },
+      { status: 500 }
+    );
+  }
+}
+</file>
+
 <file path="src/app/globals.css">
 @import "tailwindcss";
 
@@ -253,524 +301,6 @@ export * from "./db";
 export * from "./editor";
 </file>
 
-<file path="supabase/migrations/20260305130752_create_memos_table.sql">
-create table public.memos (
-id uuid not null default gen_random_uuid (),
-user_id text not null default 'dummy-user',
-title text not null default '',
-content text not null default '',
-tags text[] not null default '{}'::text[],
-created_at timestamp with time zone not null default now(),
-updated_at timestamp with time zone not null default now(),
-constraint memos_pkey primary key (id)
-);
-</file>
-
-<file path="supabase/.gitignore">
-# Supabase
-.branches
-.temp
-
-# dotenvx
-.env.keys
-.env.local
-.env.*.local
-</file>
-
-<file path=".gitignore">
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# supabase
-supabase/snippets/
-</file>
-
-<file path="biome.json">
-{
-  "$schema": "https://biomejs.dev/schemas/2.2.0/schema.json",
-  "vcs": {
-    "enabled": true,
-    "clientKind": "git",
-    "useIgnoreFile": true
-  },
-  "files": {
-    "ignoreUnknown": true,
-    "includes": ["**", "!node_modules", "!.next", "!dist", "!build"]
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "suspicious": {
-        "noUnknownAtRules": "off"
-      }
-    },
-    "domains": {
-      "next": "recommended",
-      "react": "recommended"
-    }
-  },
-  "assist": {
-    "actions": {
-      "source": {
-        "organizeImports": "on"
-      }
-    }
-  }
-}
-</file>
-
-<file path="postcss.config.mjs">
-const config = {
-  plugins: {
-    "@tailwindcss/postcss": {},
-  },
-};
-
-export default config;
-</file>
-
-<file path="tsconfig.json">
-{
-  "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
-  ],
-  "exclude": ["node_modules"]
-}
-</file>
-
-<file path="scripts/seed-tags.mjs">
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
-
-dotenv.config({ path: ".env.local" });
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY // こちらの名前に合わせる
-);
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
-
-const TAG_NAMES = [
-  "React",
-  "TypeScript",
-  "Next.js",
-  "TailwindCSS",
-  "Supabase",
-  "PostgreSQL",
-  "Vector Database",
-  "Gemini API",
-  "AI",
-  "LLM",
-  "Jotai",
-  "State Management",
-  "Frontend",
-  "Backend",
-  "Vim",
-  "Git",
-  "GitHub",
-  "Web Development",
-  "UI Design",
-  "UX",
-  "API Development",
-  "Serverless",
-  "Authentication",
-  "Fullstack",
-  "Node.js",
-  "Vercel",
-  "Markdown",
-  "RAG",
-  "Embedding",
-  "SQL",
-];
-
-async function seedTags() {
-  console.log("🚀 タグのベクトル化と登録を開始します...");
-
-  for (const name of TAG_NAMES) {
-    try {
-      // 1. ベクトル化 (あなたの魔法のロジック)
-      const result = await model.embedContent(name);
-      const embedding = result.embedding.values.slice(0, 768);
-
-      // 2. DBへ保存
-      const { error } = await supabase
-        .from("tags")
-        .upsert({ name, embedding }, { onConflict: "name" });
-
-      if (error) throw error;
-      console.log(`✅ 登録完了: ${name}`);
-    } catch (err) {
-      console.error(`❌ 失敗: ${name}`, err.message);
-    }
-  }
-
-  console.log("✨ すべてのタグの登録が完了しました！");
-}
-
-seedTags();
-</file>
-
-<file path="src/app/api/memos/bookmarks/route.ts">
-import { NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
-
-export async function GET() {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { data, error } = await supabase
-      .from("bookmarks")
-      .select("memo_id, memos(id, title, content, updated_at, user_id, tags)")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    
-    const bookmarks = data.map((b: any) => b.memos).filter(Boolean);
-    return NextResponse.json({ bookmarks });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { memo_id } = await request.json();
-    if (!memo_id) return NextResponse.json({ error: "memo_id required" }, { status: 400 });
-
-    const { data: existing } = await supabase
-      .from("bookmarks")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("memo_id", memo_id)
-      .single();
-
-    if (existing) {
-      await supabase.from("bookmarks").delete().eq("id", existing.id);
-      return NextResponse.json({ bookmarked: false });
-    } else {
-      await supabase.from("bookmarks").insert([{ user_id: user.id, memo_id }]);
-      return NextResponse.json({ bookmarked: true });
-    }
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-</file>
-
-<file path="src/app/api/memos/tags/sync/route.ts">
-import { NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
-
-export async function POST(request: Request) {
-  try {
-    const { memo_id, tag_ids } = await request.json() as { 
-      memo_id: string; 
-      tag_ids: string[] 
-    };
-
-    if (!memo_id) {
-      return NextResponse.json({ error: "memo_id is required" }, { status: 400 });
-    }
-
-    const supabase = await createClient();
-
-    // 1. 古い紐付けを一旦リセット（タグの更新・削除に対応するため）
-    const { error: deleteError } = await supabase
-      .from("memo_tags")
-      .delete()
-      .eq("memo_id", memo_id);
-
-    if (deleteError) throw deleteError;
-
-    // 2. 新しいタグが指定されている場合のみ、紐付けデータを作成して一括保存
-    if (tag_ids && tag_ids.length > 0) {
-      const insertData = tag_ids.map((tag_id) => ({
-        memo_id: memo_id,
-        tag_id: tag_id,
-      }));
-
-      const { error: insertError } = await supabase
-        .from("memo_tags")
-        .insert(insertData);
-
-      if (insertError) throw insertError;
-    }
-
-    return NextResponse.json({ success: true });
-
-  } catch (error: any) {
-    console.error("SYNC TAGS API ERROR:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error", message: error.message },
-      { status: 500 }
-    );
-  }
-}
-</file>
-
-<file path="src/app/login/page.tsx">
-import { AuthSection } from "@/components/auth/AuthSection";
-
-export default function LoginPage() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <AuthSection />
-    </div>
-  );
-}
-</file>
-
-<file path="src/components/auth/SidebarAuth.tsx">
-"use client";
-
-import type { User } from "@supabase/supabase-js";
-import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { createClient } from "@/utils/supabase/client";
-
-export function SidebarAuth() {
-  const supabase = createClient();
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // 初回マウント時にセッションを確認
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      setLoading(false);
-    });
-
-    // ログイン状態の変化を監視
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase.auth]);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  };
-
-  // 読み込み中は何も表示しない（チラつき防止）
-  if (loading) return <div className="h-10"></div>;
-
-  // --- ログイン済みの表示 ---
-  if (user) {
-    const avatarUrl = user.user_metadata?.avatar_url;
-    const userName =
-      user.user_metadata?.preferred_username ||
-      user.user_metadata?.full_name ||
-      user.email?.split("@")[0] ||
-      "ユーザー";
-
-    return (
-      <div className="flex items-center justify-between p-3 mt-auto">
-        <div className="flex items-center gap-2 overflow-hidden">
-          {avatarUrl && (
-            <Image
-              src={avatarUrl}
-              alt={userName}
-              width={24}
-              height={24}
-              className="rounded-full shrink-0"
-            />
-          )}
-          <span className="text-sm font-medium text-gray-700 truncate">
-            {userName}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="ml-2 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-red-50 hover:text-red-600 border border-transparent hover:border-red-200 transition-all shrink-0"
-        >
-          ログアウト
-        </button>
-      </div>
-    );
-  }
-
-  // --- 未ログインの表示 ---
-  return (
-    <div className="p-3 mt-auto">
-      <Link
-        href="/login"
-        className="block w-full text-center px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-      >
-        ログイン / 登録
-      </Link>
-    </div>
-  );
-}
-</file>
-
-<file path="src/components/editor/SimpleEditor.tsx">
-"use client";
-
-import { useSetAtom } from "jotai";
-import { useVimEditor } from "@/hooks/useVimEditor";
-import { cn } from "@/lib/utils";
-import { activeEditorAtom } from "@/store/editorAtom";
-
-export function SimpleEditor() {
-  const {
-    textareaRef,
-    content,
-    vimMode,
-    settings,
-    handleChange,
-    handleSelect,
-    handleKeyDown,
-  } = useVimEditor();
-
-  const setActiveEditor = useSetAtom(activeEditorAtom);
-
-  return (
-    <textarea
-      ref={textareaRef}
-      value={content}
-      onChange={handleChange}
-      onSelect={handleSelect}
-      onKeyDown={handleKeyDown}
-      onFocus={() => setActiveEditor("content")}
-      placeholder="ここにメモを入力..."
-      className={cn(
-        "w-full h-full resize-none outline-none bg-transparent",
-        "font-mono text-lg leading-relaxed",
-        "text-gray-800 placeholder:text-gray-300",
-        settings.type === "vim" &&
-          vimMode === "normal" &&
-          "selection:bg-gray-800 selection:text-white",
-      )}
-      spellCheck={false}
-    />
-  );
-}
-</file>
-
-<file path="src/types/editor.ts">
-export type VimMode = "normal" | "insert" | "visual" | "visualLine" | "command";
-export type CursorPosition = number;
-</file>
-
-<file path="src/types/search.ts">
-// メモ保存時にバックエンド内部で実行するベクトル化処理用
-export interface GenerateEmbeddingRequest {
-  content: string;
-}
-
-export interface GenerateEmbeddingResponse {
-  embedding: number[];
-}
-
-// 交流機能：指定した過去メモ(ID)に類似する、他ユーザーの公開メモを検索するAPI
-export interface CrossUserSearchRequest {
-  source_memo_id: string; // 検索の基準となる自分のメモID
-  limit?: number; // 取得する件数
-}
-
-export interface CrossUserSearchResponse {
-  related_memos: {
-    id: string;
-    title: string;
-    content: string;
-    similarity: number; // pgvectorで計算した類似度スコア
-    user_id: string; // 作成者のID
-  }[];
-}
-</file>
-
 <file path="src/utils/supabase/client.ts">
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -823,6 +353,19 @@ export async function createClient() {
 }
 </file>
 
+<file path="supabase/migrations/20260305130752_create_memos_table.sql">
+create table public.memos (
+id uuid not null default gen_random_uuid (),
+user_id text not null default 'dummy-user',
+title text not null default '',
+content text not null default '',
+tags text[] not null default '{}'::text[],
+created_at timestamp with time zone not null default now(),
+updated_at timestamp with time zone not null default now(),
+constraint memos_pkey primary key (id)
+);
+</file>
+
 <file path="supabase/migrations/20260310020255_add_rls_to_memos.sql">
 -- 既存のダミーデータをリセット（型変換エラーを防ぐため）
 TRUNCATE TABLE public.memos;
@@ -846,711 +389,15 @@ CREATE POLICY "Users can update their own memos." ON public.memos FOR UPDATE USI
 CREATE POLICY "Users can delete their own memos." ON public.memos FOR DELETE USING (auth.uid() = user_id);
 </file>
 
-<file path="supabase/migrations/20260312093227_create_user_settings.sql">
--- ユーザー設定テーブルの作成
-CREATE TABLE public.user_settings (
-  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
-  default_is_public BOOLEAN DEFAULT false NOT NULL,
-  use_vim_mode BOOLEAN DEFAULT false NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
-);
-
--- RLS（行単位セキュリティ）の有効化
-ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
-
--- ユーザーが自分の設定のみ閲覧できるポリシー
-CREATE POLICY "Users can view their own settings"
-  ON public.user_settings FOR SELECT
-  USING (auth.uid() = id);
-
--- ユーザーが自分の設定のみ更新できるポリシー
-CREATE POLICY "Users can update their own settings"
-  ON public.user_settings FOR UPDATE
-  USING (auth.uid() = id);
-
--- 新規ユーザー登録時に自動で設定レコードを作成する関数
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO public.user_settings (id)
-  VALUES (new.id);
-  RETURN new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- トリガーの作成（auth.usersへのinsert後に実行）
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-</file>
-
-<file path="supabase/migrations/20260314074022_add_match_memos_rpc.sql">
--- 類似度検索用のRPC関数
-create or replace function match_memos (
-  query_embedding vector(768),
-  match_threshold float,
-  match_count int
-)
-returns setof memos
-language sql
-as $$
-  -- <=> はコサイン距離。1 - 距離 = 類似度としてフィルタリング
-  select *
-  from memos
-  where memos.embedding <=> query_embedding < 1 - match_threshold
-  order by memos.embedding <=> query_embedding
-  limit match_count;
-$$;
-</file>
-
-<file path="supabase/migrations/20260314082909_add_match_memos_rpc.sql">
--- 1. タグマスターテーブル
-create table public.tags (
-  id uuid default gen_random_uuid() primary key,
-  name text not null unique,
-  embedding vector(768), -- タグ名のベクトル
-  created_at timestamp with time zone default now()
-);
-
--- 2. メモとタグの中間テーブル（多対多）
-create table public.memo_tags (
-  memo_id uuid references public.memos(id) on delete cascade,
-  tag_id uuid references public.tags(id) on delete cascade,
-  primary key (memo_id, tag_id)
-);
-
--- 3. タグ検索用のRPC関数
-create or replace function match_tags (
-  query_embedding vector(768),
-  match_threshold float,
-  match_count int
-)
-returns setof tags
-language sql
-as $$
-  select *
-  from tags
-  where tags.embedding <=> query_embedding < 1 - match_threshold
-  order by tags.embedding <=> query_embedding
-  limit match_count;
-$$;
-</file>
-
-<file path="supabase/migrations/20260314083803_create_tags_table_and_functions.sql">
--- 1. タグマスターテーブルの作成
-create table if not exists public.tags (
-  id uuid default gen_random_uuid() primary key,
-  name text not null unique,
-  embedding vector(768), -- 768次元のベクトル
-  created_at timestamp with time zone default now()
-);
-
--- 2. メモとタグの中間テーブル（多対多）の作成
--- これにより、1つのメモに複数のタグ、1つのタグを複数のメモに紐付けられます
-create table if not exists public.memo_tags (
-  memo_id uuid references public.memos(id) on delete cascade,
-  tag_id uuid references public.tags(id) on delete cascade,
-  primary key (memo_id, tag_id)
-);
-
--- 3. タグ検索用のRPC関数
--- メモの内容に近いタグを検索するために使用します
-create or replace function match_tags (
-  query_embedding vector(768),
-  match_threshold float,
-  match_count int
-)
-returns setof tags
-language sql
-as $$
-  select *
-  from tags
-  where tags.embedding <=> query_embedding < 1 - match_threshold
-  order by tags.embedding <=> query_embedding
-  limit match_count;
-$$;
-</file>
-
-<file path="supabase/migrations/20260314090251_update_match_memos_with_similarity.sql">
--- 1. 古い関数を一度削除する（戻り値の型が変わるため必須）
-drop function if exists match_memos(vector(768), float, int);
-
--- 2. 新しい関数を作成する（similarityを含める）
-create function match_memos (
-  query_embedding vector(768),
-  match_threshold float,
-  match_count int
-)
-returns table (
-  id uuid,
-  title text,
-  content text,
-  user_id uuid,
-  similarity float
-)
-language sql stable
-as $$
-  select
-    memos.id,
-    memos.title,
-    memos.content,
-    memos.user_id,
-    1 - (memos.embedding <=> query_embedding) as similarity
-  from memos
-  where memos.embedding <=> query_embedding < 1 - match_threshold
-  order by memos.embedding <=> query_embedding
-  limit match_count;
-$$;
-</file>
-
-<file path="supabase/migrations/20260315094046_create_bookmarks.sql">
--- ブックマークテーブルの作成
-CREATE TABLE bookmarks (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users not null,
-  memo_id uuid references memos on delete cascade not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  unique(user_id, memo_id) -- 同じメモの重複保存を防止
-);
-
--- セキュリティ（RLS）の設定
-ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can manage their own bookmarks" 
-ON bookmarks FOR ALL 
-USING (auth.uid() = user_id);
-</file>
-
-<file path="middleware.ts">
-import { createServerClient } from "@supabase/ssr";
-import { type NextRequest, NextResponse } from "next/server";
-
-export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Supabaseの環境変数が設定されていません。");
-  }
-
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => {
-          request.cookies.set(name, value);
-        });
-        supabaseResponse = NextResponse.next({
-          request,
-        });
-        cookiesToSet.forEach(({ name, value, options }) => {
-          supabaseResponse.cookies.set(name, value, options);
-        });
-      },
-    },
-  });
-
-  // 現在のセッションユーザーを取得
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  // 次に行こうとしているリンクを出すのがrequest.nextUrl.pathname.
-  const isAuthPage = request.nextUrl.pathname.startsWith("/login");
-
-  // 未ログインユーザーがログインページ以外（エディタ画面など）にアクセスした場合
-  if (!user && !isAuthPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-
-  // ログイン済みユーザーがログインページにアクセスした場合
-  if (user && isAuthPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
-
-  return supabaseResponse;
-}
-
-// ミドルウェアを実行するパスの条件を指定
-export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
-};
-</file>
-
-<file path="next.config.ts">
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "avatars.githubusercontent.com",
-      },
-    ],
-  },
-};
-
-export default nextConfig;
-</file>
-
-<file path="src/app/api/memos/title/auto/route.ts">
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { NextResponse } from "next/server";
-
-// タグ生成で成功しているキー名を使用
-const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-
-export async function POST(request: Request) {
-  try {
-    const { content } = await request.json();
-    
-    if (!content) {
-      return NextResponse.json({ title: "新しいメモ" });
-    }
-
-    if (!apiKey) {
-      return NextResponse.json({ error: "API key error" }, { status: 500 });
-    }
-
-    const genAI = new GoogleGenerativeAI(apiKey);
-    // モデルは 1.5-flash で統一
-    const chatModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-
-    // ★トークン節約：タイトル生成には冒頭2000文字あれば十分です
-    const truncatedContent = content.slice(0, 2000);
-
-    const prompt = `
-      以下のメモ内容を読み取り、内容を的確に表すタイトルを1つ作成してください。
-      
-      ルール:
-      - 15文字以内。
-      - タイトルの文字列のみを出力すること（「タイトル：」などは不要）。
-      - メモの内容が一目で把握できるようにしてください。技術、作家、などメモの主題を含めるよう心掛けてください。
-      - できるだけ文章で生成するようにし、単語の羅列は控えてください。
-      
-      メモ内容:
-      ${truncatedContent}
-    `;
-
-    const aiResult = await chatModel.generateContent(prompt);
-    const generatedTitle = aiResult.response.text().trim().replace(/^["'「]+|["'」]+$/g, '');
-
-    return NextResponse.json({ title: generatedTitle });
-
-  } catch (error: any) {
-    console.error("API ERROR:", error.message);
-
-    // 429 Too Many Requests (制限超過) の検知
-    if (error.status === 429 || error.message?.includes("429 Too Many Requests")) {
-      // エラー文から "retry in 57.56...s" の数字部分を抽出
-      const match = error.message.match(/retry in ([\d.]+)s/);
-      // 数字が見つかれば切り上げて秒数にする（見つからなければ安全のためデフォルト60秒）
-      const retryAfter = match ? Math.ceil(parseFloat(match[1])) : 60;
-      
-      return NextResponse.json(
-        { error: "Rate limit exceeded", retryAfter },
-        { status: 429 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Internal Server Error", message: error.message },
-      { status: 500 }
-    );
-  }
-}
-</file>
-
-<file path="src/components/auth/AuthSection.tsx">
-"use client";
-
-import type { Session } from "@supabase/supabase-js";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { createClient } from "@/utils/supabase/client"; // 新しいクライアントをインポート
-
-export function AuthSection() {
-  const supabase = createClient(); // コンポーネント内でクライアントを初期化
-  const router = useRouter();
-  const [session, setSession] = useState<Session | null>(null);
-
-  // メールアドレス認証用のState
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase.auth]);
-
-  // GitHubログイン処理
-  const handleGithubLogin = async () => {
-    setErrorMsg("");
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "github",
-      options: {
-        redirectTo: "http://localhost:3000",
-      },
-    });
-    if (error) setErrorMsg(error.message);
-  };
-
-  // メールアドレスで新規登録 or ログイン処理
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg("");
-
-    if (isSignUp) {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      if (error) {
-        setErrorMsg(error.message);
-      } else {
-        router.push("/");
-        router.refresh();
-      }
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) {
-        setErrorMsg("ログインに失敗しました。認証情報を確認してください。");
-      } else {
-        router.push("/");
-        router.refresh();
-      }
-    }
-  };
-
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) console.error("ログアウトエラー:", error.message);
-  };
-
-  // --- ログイン済み（セッションあり）の表示 ---
-  if (session) {
-    const user = session.user;
-    const avatarUrl = user.user_metadata?.avatar_url;
-    const userName =
-      user.user_metadata?.preferred_username ||
-      user.user_metadata?.full_name ||
-      user.email?.split("@")[0] ||
-      "ユーザー";
-
-    return (
-      <div className="flex items-center gap-3">
-        {avatarUrl && (
-          <Image
-            src={avatarUrl}
-            alt={userName}
-            width={32}
-            height={32}
-            className="rounded-full border border-gray-200"
-          />
-        )}
-        <span className="text-sm font-medium text-gray-700">{userName}</span>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="px-3 py-1.5 text-xs text-red-600 border border-red-200 rounded-md hover:bg-red-50 transition-colors"
-        >
-          ログアウト
-        </button>
-      </div>
-    );
-  }
-
-  // --- 未ログイン（セッションなし）の表示 ---
-  return (
-    <div className="flex flex-col gap-4 p-4 border border-gray-200 rounded-md bg-white w-full max-w-sm">
-      <form onSubmit={handleEmailAuth} className="flex flex-col gap-3">
-        <input
-          type="email"
-          placeholder="メールアドレス"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className="px-3 py-2 text-sm border border-gray-300 rounded-md outline-none focus:border-blue-500"
-        />
-        <input
-          type="password"
-          placeholder="パスワード (6文字以上)"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={6}
-          className="px-3 py-2 text-sm border border-gray-300 rounded-md outline-none focus:border-blue-500"
-        />
-        <button
-          type="submit"
-          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
-        >
-          {isSignUp ? "新規登録" : "ログイン"}
-        </button>
-      </form>
-
-      <div className="text-center">
-        <button
-          type="button"
-          onClick={() => setIsSignUp(!isSignUp)}
-          className="text-xs text-blue-600 hover:underline"
-        >
-          {isSignUp
-            ? "すでにアカウントをお持ちの方はこちら"
-            : "アカウントをお持ちでない方はこちら"}
-        </button>
-      </div>
-
-      {errorMsg && (
-        <p className="text-xs text-red-600 text-center">{errorMsg}</p>
-      )}
-
-      <hr className="border-gray-200" />
-
-      <button
-        onClick={handleGithubLogin}
-        type="button"
-        className="px-4 py-2 bg-[#24292e] text-white text-sm rounded-md hover:bg-[#2f363d] transition-colors"
-      >
-        GitHubでログイン
-      </button>
-    </div>
-  );
-}
-</file>
-
-<file path="src/store/vim/history.ts">
-import { atom } from "jotai";
-import { activeEditorAtom } from "../editorAtom";
-import { activeTextAtom, cursorAtom } from "./core";
-
-export interface HistoryRecord {
-  text: string;
-  cursor: number;
-}
-
-// 履歴の配列と、現在のインデックス（-1は初期状態）
-// --- 個別の履歴ステート ---
-const contentHistoryAtom = atom<HistoryRecord[]>([]);
-const contentHistoryIndexAtom = atom<number>(-1);
-
-const titleHistoryAtom = atom<HistoryRecord[]>([]);
-const titleHistoryIndexAtom = atom<number>(-1);
-
-const tagHistoryAtom = atom<HistoryRecord[]>([]);
-const tagHistoryIndexAtom = atom<number>(-1);
-
-// --- ルーティング用履歴Atom ---
-export const historyAtom = atom(
-  (get) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") return get(titleHistoryAtom);
-    if (active === "tags") return get(tagHistoryAtom);
-    return get(contentHistoryAtom);
-  },
-  (get, set, newHistory: HistoryRecord[]) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") set(titleHistoryAtom, newHistory);
-    else if (active === "tags") set(tagHistoryAtom, newHistory);
-    else set(contentHistoryAtom, newHistory);
-  },
-);
-
-export const historyIndexAtom = atom(
-  (get) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") return get(titleHistoryIndexAtom);
-    if (active === "tags") return get(tagHistoryIndexAtom);
-    return get(contentHistoryIndexAtom);
-  },
-  (get, set, newIndex: number) => {
-    const active = get(activeEditorAtom);
-    if (active === "title") set(titleHistoryIndexAtom, newIndex);
-    else if (active === "tags") set(tagHistoryIndexAtom, newIndex);
-    else set(contentHistoryIndexAtom, newIndex);
-  },
-);
-
-// --- Actions ---
-
-// 現在の状態を履歴に積む
-export const saveHistoryAtom = atom(null, (get, set) => {
-  const text = get(activeTextAtom);
-  const cursor = get(cursorAtom);
-  const history = get(historyAtom);
-  const currentIndex = get(historyIndexAtom);
-
-  // 連続で同じ内容が保存されるのを防ぐ
-  if (currentIndex >= 0 && history[currentIndex].text === text) {
-    return;
-  }
-
-  // もしUndoして過去に戻っている状態で新しい操作をしたら、それ以降の未来（Redo履歴）は捨てる
-  const newHistory = history.slice(0, currentIndex + 1);
-  newHistory.push({ text, cursor });
-
-  // メモリ肥大化を防ぐため最大100件に制限
-  if (newHistory.length > 100) {
-    newHistory.shift();
-  }
-
-  set(historyAtom, newHistory);
-  // lengthは0以上だからIndexに合わせるため、-1.
-  set(historyIndexAtom, newHistory.length - 1);
-});
-
-// u (Undo)
-export const undoAtom = atom(null, (get, set) => {
-  const history = get(historyAtom);
-  const currentIndex = get(historyIndexAtom);
-
-  // 1つ以上過去の履歴がある場合のみ戻る
-  if (currentIndex > 0) {
-    const prevIndex = currentIndex - 1;
-    const record = history[prevIndex];
-
-    set(historyIndexAtom, prevIndex);
-    set(activeTextAtom, record.text);
-    set(cursorAtom, record.cursor);
-  }
-});
-
-// Ctrl+R (Redo)
-export const redoAtom = atom(null, (get, set) => {
-  const history = get(historyAtom);
-  const currentIndex = get(historyIndexAtom);
-
-  // 現在より未来の履歴がある場合のみ進む
-  if (currentIndex < history.length - 1) {
-    const nextIndex = currentIndex + 1;
-    const record = history[nextIndex];
-
-    set(historyIndexAtom, nextIndex);
-    set(activeTextAtom, record.text);
-    set(cursorAtom, record.cursor);
-  }
-});
-</file>
-
-<file path="src/types/ai.ts">
-// 自動タイトル生成
-export interface GenerateTitleRequest {
-  content: string;
-}
-
-export interface GenerateTitleResponse {
-  title: string;
-}
-
-// 自動タグ生成
-export interface GenerateTagsRequest {
-  content: string;
-  existing_tags?: string[];
-}
-
-export interface GenerateTagsResponse {
-  tags: string[];
-}
-
-export async function suggestTags(
-  memoContent: string,
-  candidateTags: string[],
-) {
-  // Geminiに「候補の中から選ぶか、新しく作れ」と指示するプロンプト
-  const prompt = `
-    以下のメモ内容に最適なタグを3個以内で出力してください。
-    既存のタグ候補: [${candidateTags.join(", ")}]
-    
-    ルール:
-    1. 既存のタグに適切なものがあればそれを優先してください。
-    2. 既存のタグにない場合のみ、新しいタグを生成してください。
-    3. 出力はタグ名のみをカンマ区切りで返してください。
-    
-    メモ内容:
-    ${memoContent}
-  `;
-  // ... Gemini APIを叩く処理
-}
-</file>
-
-<file path="src/types/db.ts">
-import type { Tables, TablesInsert, TablesUpdate } from "./supabase";
-
-/**
- * データベースの 'memos' テーブルに対応するメインモデル
- */
-export type Memo = Tables<"memos">;
-
-/**
- * 新規作成用（IDや日付が自動生成されるため、それらがオプショナルになった型）
- */
-export type CreateMemoInput = TablesInsert<"memos">;
-
-/**
- * 更新用（すべての項目が任意だが、安全のためにIDだけは必須とした型）
- */
-export type UpdateMemoInput = TablesUpdate<"memos"> & { id: string };
-
-/**
- * データベースの 'user_settings' テーブルに対応するメインモデル
- */
-export type UserSettings = Tables<"user_settings">;
-
-/**
- * ユーザー設定更新用（すべての項目が任意だが、安全のためにIDだけは必須とした型）
- */
-export type UpdateUserSettingsInput = TablesUpdate<"user_settings"> & {
-  id: string;
-};
-
-// 今後、'users' や 'tags' テーブルをDBに追加したら、ここに同様の抽出コードを追記します。
-
-export interface Tag {
-  id: string;
-  name: string;
-}
-</file>
-
-<file path="supabase/migrations/20260312054957_add_public_and_vector_to_memos.sql">
--- 1. pgvector拡張機能の有効化
-create extension if not exists vector with schema public;
-
--- 2. memosテーブルにカラムを追加
-alter table public.memos
-add column is_public boolean not null default false,
-add column embedding vector(768);
-
--- 3. 公開メモを誰でも閲覧できるようにするRLSポリシーの追加
-create policy "Public memos are viewable by everyone"
-on public.memos for select
-using ( is_public = true );
+<file path="supabase/.gitignore">
+# Supabase
+.branches
+.temp
+
+# dotenvx
+.env.keys
+.env.local
+.env.*.local
 </file>
 
 <file path="supabase/config.toml">
@@ -1947,6 +794,1132 @@ enabled = true
 client_id = "env(GITHUB_CLIENT_ID)"
 secret = "env(GITHUB_CLIENT_SECRET)"
 redirect_uri = "http://localhost:54321/auth/v1/callback"
+</file>
+
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# supabase
+supabase/snippets/
+</file>
+
+<file path="biome.json">
+{
+  "$schema": "https://biomejs.dev/schemas/2.2.0/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": ["**", "!node_modules", "!.next", "!dist", "!build"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "suspicious": {
+        "noUnknownAtRules": "off"
+      }
+    },
+    "domains": {
+      "next": "recommended",
+      "react": "recommended"
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
+}
+</file>
+
+<file path="next.config.ts">
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "avatars.githubusercontent.com",
+      },
+    ],
+  },
+};
+
+export default nextConfig;
+</file>
+
+<file path="postcss.config.mjs">
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+</file>
+
+<file path="scripts/seed-tags.mjs">
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createClient } from "@supabase/supabase-js";
+import dotenv from "dotenv";
+
+dotenv.config({ path: ".env.local" });
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY // こちらの名前に合わせる
+);
+
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
+
+const TAG_NAMES = [
+  "React",
+  "TypeScript",
+  "Next.js",
+  "TailwindCSS",
+  "Supabase",
+  "PostgreSQL",
+  "Vector Database",
+  "Gemini API",
+  "AI",
+  "LLM",
+  "Jotai",
+  "State Management",
+  "Frontend",
+  "Backend",
+  "Vim",
+  "Git",
+  "GitHub",
+  "Web Development",
+  "UI Design",
+  "UX",
+  "API Development",
+  "Serverless",
+  "Authentication",
+  "Fullstack",
+  "Node.js",
+  "Vercel",
+  "Markdown",
+  "RAG",
+  "Embedding",
+  "SQL",
+];
+
+async function seedTags() {
+  console.log("🚀 タグのベクトル化と登録を開始します...");
+
+  for (const name of TAG_NAMES) {
+    try {
+      // 1. ベクトル化 (あなたの魔法のロジック)
+      const result = await model.embedContent(name);
+      const embedding = result.embedding.values.slice(0, 768);
+
+      // 2. DBへ保存
+      const { error } = await supabase
+        .from("tags")
+        .upsert({ name, embedding }, { onConflict: "name" });
+
+      if (error) throw error;
+      console.log(`✅ 登録完了: ${name}`);
+    } catch (err) {
+      console.error(`❌ 失敗: ${name}`, err.message);
+    }
+  }
+
+  console.log("✨ すべてのタグの登録が完了しました！");
+}
+
+seedTags();
+</file>
+
+<file path="src/app/api/memos/bookmarks/route.ts">
+import { NextResponse } from "next/server";
+import { createClient } from "@/utils/supabase/server";
+
+export async function GET() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { data, error } = await supabase
+      .from("bookmarks")
+      .select("memo_id, memos(id, title, content, updated_at, user_id, tags)")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    
+    const bookmarks = data.map((b: any) => b.memos).filter(Boolean);
+    return NextResponse.json({ bookmarks });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { memo_id } = await request.json();
+    if (!memo_id) return NextResponse.json({ error: "memo_id required" }, { status: 400 });
+
+    const { data: existing } = await supabase
+      .from("bookmarks")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("memo_id", memo_id)
+      .single();
+
+    if (existing) {
+      await supabase.from("bookmarks").delete().eq("id", existing.id);
+      return NextResponse.json({ bookmarked: false });
+    } else {
+      await supabase.from("bookmarks").insert([{ user_id: user.id, memo_id }]);
+      return NextResponse.json({ bookmarked: true });
+    }
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+</file>
+
+<file path="src/app/api/memos/tags/sync/route.ts">
+import { NextResponse } from "next/server";
+import { createClient } from "@/utils/supabase/server";
+
+export async function POST(request: Request) {
+  try {
+    const { memo_id, tag_ids } = await request.json() as { 
+      memo_id: string; 
+      tag_ids: string[] 
+    };
+
+    if (!memo_id) {
+      return NextResponse.json({ error: "memo_id is required" }, { status: 400 });
+    }
+
+    const supabase = await createClient();
+
+    // 1. 古い紐付けを一旦リセット（タグの更新・削除に対応するため）
+    const { error: deleteError } = await supabase
+      .from("memo_tags")
+      .delete()
+      .eq("memo_id", memo_id);
+
+    if (deleteError) throw deleteError;
+
+    // 2. 新しいタグが指定されている場合のみ、紐付けデータを作成して一括保存
+    if (tag_ids && tag_ids.length > 0) {
+      const insertData = tag_ids.map((tag_id) => ({
+        memo_id: memo_id,
+        tag_id: tag_id,
+      }));
+
+      const { error: insertError } = await supabase
+        .from("memo_tags")
+        .insert(insertData);
+
+      if (insertError) throw insertError;
+    }
+
+    return NextResponse.json({ success: true });
+
+  } catch (error: any) {
+    console.error("SYNC TAGS API ERROR:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error", message: error.message },
+      { status: 500 }
+    );
+  }
+}
+</file>
+
+<file path="src/app/login/page.tsx">
+import { AuthSection } from "@/components/auth/AuthSection";
+
+export default function LoginPage() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <AuthSection />
+    </div>
+  );
+}
+</file>
+
+<file path="src/components/auth/SidebarAuth.tsx">
+"use client";
+
+import type { User } from "@supabase/supabase-js";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
+import { createClient } from "@/utils/supabase/client";
+
+export function SidebarAuth() {
+  const supabase = createClient();
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  // ▼ メニュー開閉用のStateとRefを追加
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // 初回マウント時にセッションを確認
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      setLoading(false);
+    });
+
+    // ログイン状態の変化を監視
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
+
+  // ▼ 外側クリックでメニューを閉じる処理を追加
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    if (isMenuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isMenuOpen]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
+
+  // ▼ アカウント削除処理を追加（バックエンドのAPIを叩く）
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      "本当にアカウントを削除しますか？\nこれまでに作成したすべてのメモやデータが完全に削除され、復元することはできません。"
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch("/api/auth/delete", { method: "DELETE" });
+
+      if (res.ok) {
+        // 成功したらフロント側でもログアウト状態にしてログイン画面へ
+        await supabase.auth.signOut();
+        router.push("/login");
+        router.refresh();
+      } else {
+        const errorData = await res.json();
+        alert(`アカウントの削除に失敗しました: ${errorData.message || errorData.error}`);
+      }
+    } catch (error) {
+      console.error("削除エラー:", error);
+      alert("通信エラーが発生しました。");
+    }
+  };
+
+  // 読み込み中は何も表示しない（チラつき防止）
+  if (loading) return <div className="h-10"></div>;
+
+  // --- ログイン済みの表示 ---
+  if (user) {
+    const avatarUrl = user.user_metadata?.avatar_url;
+    const userName =
+      user.user_metadata?.preferred_username ||
+      user.user_metadata?.full_name ||
+      user.email?.split("@")[0] ||
+      "ユーザー";
+
+    return (
+      <div className="p-3 mt-auto relative" ref={menuRef}>
+        {/* ▼ ユーザー名をボタン化 */}
+        <button
+          type="button"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="flex items-center justify-between w-full hover:bg-gray-200 p-2 rounded-md transition-colors outline-none focus:ring-2 focus:ring-blue-300"
+        >
+          <div className="flex items-center gap-2 overflow-hidden">
+            {avatarUrl && (
+              <Image
+                src={avatarUrl}
+                alt={userName}
+                width={24}
+                height={24}
+                className="rounded-full shrink-0"
+              />
+            )}
+            <span className="text-sm font-medium text-gray-700 truncate">
+              {userName}
+            </span>
+          </div>
+        </button>
+
+        {/* ▼ ドロップダウンメニュー */}
+        {isMenuOpen && (
+          <div className="absolute top-full left-3 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden z-50">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors outline-none focus:bg-gray-100"
+            >
+              ログアウト
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteAccount}
+              className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100 outline-none focus:bg-red-50"
+            >
+              アカウントを削除
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // --- 未ログインの表示 ---
+  return (
+    <div className="p-3 mt-auto">
+      <Link
+        href="/login"
+        className="block w-full text-center px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+      >
+        ログイン / 登録
+      </Link>
+    </div>
+  );
+}
+</file>
+
+<file path="src/components/editor/SimpleEditor.tsx">
+"use client";
+
+import { useSetAtom } from "jotai";
+import { useVimEditor } from "@/hooks/useVimEditor";
+import { cn } from "@/lib/utils";
+import { activeEditorAtom } from "@/store/editorAtom";
+
+export function SimpleEditor() {
+  const {
+    textareaRef,
+    content,
+    vimMode,
+    settings,
+    handleChange,
+    handleSelect,
+    handleKeyDown,
+  } = useVimEditor();
+
+  const setActiveEditor = useSetAtom(activeEditorAtom);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={content}
+      onChange={handleChange}
+      onSelect={handleSelect}
+      onKeyDown={handleKeyDown}
+      onFocus={() => setActiveEditor("content")}
+      placeholder="ここにメモを入力..."
+      className={cn(
+        "w-full h-full resize-none outline-none bg-transparent",
+        "font-mono text-lg leading-relaxed",
+        "text-gray-800 placeholder:text-gray-300",
+        settings.type === "vim" &&
+          vimMode === "normal" &&
+          "selection:bg-gray-800 selection:text-white",
+      )}
+      spellCheck={false}
+    />
+  );
+}
+</file>
+
+<file path="src/types/editor.ts">
+export type VimMode = "normal" | "insert" | "visual" | "visualLine" | "command";
+export type CursorPosition = number;
+</file>
+
+<file path="src/types/search.ts">
+// メモ保存時にバックエンド内部で実行するベクトル化処理用
+export interface GenerateEmbeddingRequest {
+  content: string;
+}
+
+export interface GenerateEmbeddingResponse {
+  embedding: number[];
+}
+
+// 交流機能：指定した過去メモ(ID)に類似する、他ユーザーの公開メモを検索するAPI
+export interface CrossUserSearchRequest {
+  source_memo_id: string; // 検索の基準となる自分のメモID
+  limit?: number; // 取得する件数
+}
+
+export interface CrossUserSearchResponse {
+  related_memos: {
+    id: string;
+    title: string;
+    content: string;
+    similarity: number; // pgvectorで計算した類似度スコア
+    user_id: string; // 作成者のID
+  }[];
+}
+</file>
+
+<file path="supabase/migrations/20260312093227_create_user_settings.sql">
+-- ユーザー設定テーブルの作成
+CREATE TABLE public.user_settings (
+  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  default_is_public BOOLEAN DEFAULT false NOT NULL,
+  use_vim_mode BOOLEAN DEFAULT false NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+-- RLS（行単位セキュリティ）の有効化
+ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+
+-- ユーザーが自分の設定のみ閲覧できるポリシー
+CREATE POLICY "Users can view their own settings"
+  ON public.user_settings FOR SELECT
+  USING (auth.uid() = id);
+
+-- ユーザーが自分の設定のみ更新できるポリシー
+CREATE POLICY "Users can update their own settings"
+  ON public.user_settings FOR UPDATE
+  USING (auth.uid() = id);
+
+-- 新規ユーザー登録時に自動で設定レコードを作成する関数
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.user_settings (id)
+  VALUES (new.id);
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- トリガーの作成（auth.usersへのinsert後に実行）
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+</file>
+
+<file path="supabase/migrations/20260314074022_add_match_memos_rpc.sql">
+-- 類似度検索用のRPC関数
+create or replace function match_memos (
+  query_embedding vector(768),
+  match_threshold float,
+  match_count int
+)
+returns setof memos
+language sql
+as $$
+  -- <=> はコサイン距離。1 - 距離 = 類似度としてフィルタリング
+  select *
+  from memos
+  where memos.embedding <=> query_embedding < 1 - match_threshold
+  order by memos.embedding <=> query_embedding
+  limit match_count;
+$$;
+</file>
+
+<file path="supabase/migrations/20260314082909_add_match_memos_rpc.sql">
+-- 1. タグマスターテーブル
+create table public.tags (
+  id uuid default gen_random_uuid() primary key,
+  name text not null unique,
+  embedding vector(768), -- タグ名のベクトル
+  created_at timestamp with time zone default now()
+);
+
+-- 2. メモとタグの中間テーブル（多対多）
+create table public.memo_tags (
+  memo_id uuid references public.memos(id) on delete cascade,
+  tag_id uuid references public.tags(id) on delete cascade,
+  primary key (memo_id, tag_id)
+);
+
+-- 3. タグ検索用のRPC関数
+create or replace function match_tags (
+  query_embedding vector(768),
+  match_threshold float,
+  match_count int
+)
+returns setof tags
+language sql
+as $$
+  select *
+  from tags
+  where tags.embedding <=> query_embedding < 1 - match_threshold
+  order by tags.embedding <=> query_embedding
+  limit match_count;
+$$;
+</file>
+
+<file path="supabase/migrations/20260314083803_create_tags_table_and_functions.sql">
+-- 1. タグマスターテーブルの作成
+create table if not exists public.tags (
+  id uuid default gen_random_uuid() primary key,
+  name text not null unique,
+  embedding vector(768), -- 768次元のベクトル
+  created_at timestamp with time zone default now()
+);
+
+-- 2. メモとタグの中間テーブル（多対多）の作成
+-- これにより、1つのメモに複数のタグ、1つのタグを複数のメモに紐付けられます
+create table if not exists public.memo_tags (
+  memo_id uuid references public.memos(id) on delete cascade,
+  tag_id uuid references public.tags(id) on delete cascade,
+  primary key (memo_id, tag_id)
+);
+
+-- 3. タグ検索用のRPC関数
+-- メモの内容に近いタグを検索するために使用します
+create or replace function match_tags (
+  query_embedding vector(768),
+  match_threshold float,
+  match_count int
+)
+returns setof tags
+language sql
+as $$
+  select *
+  from tags
+  where tags.embedding <=> query_embedding < 1 - match_threshold
+  order by tags.embedding <=> query_embedding
+  limit match_count;
+$$;
+</file>
+
+<file path="supabase/migrations/20260314090251_update_match_memos_with_similarity.sql">
+-- 1. 古い関数を一度削除する（戻り値の型が変わるため必須）
+drop function if exists match_memos(vector(768), float, int);
+
+-- 2. 新しい関数を作成する（similarityを含める）
+create function match_memos (
+  query_embedding vector(768),
+  match_threshold float,
+  match_count int
+)
+returns table (
+  id uuid,
+  title text,
+  content text,
+  user_id uuid,
+  similarity float
+)
+language sql stable
+as $$
+  select
+    memos.id,
+    memos.title,
+    memos.content,
+    memos.user_id,
+    1 - (memos.embedding <=> query_embedding) as similarity
+  from memos
+  where memos.embedding <=> query_embedding < 1 - match_threshold
+  order by memos.embedding <=> query_embedding
+  limit match_count;
+$$;
+</file>
+
+<file path="supabase/migrations/20260315094046_create_bookmarks.sql">
+-- ブックマークテーブルの作成
+CREATE TABLE bookmarks (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users not null,
+  memo_id uuid references memos on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(user_id, memo_id) -- 同じメモの重複保存を防止
+);
+
+-- セキュリティ（RLS）の設定
+ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage their own bookmarks" 
+ON bookmarks FOR ALL 
+USING (auth.uid() = user_id);
+</file>
+
+<file path="middleware.ts">
+import { createServerClient } from "@supabase/ssr";
+import { type NextRequest, NextResponse } from "next/server";
+
+export async function middleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({
+    request,
+  });
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabaseの環境変数が設定されていません。");
+  }
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => {
+          request.cookies.set(name, value);
+        });
+        supabaseResponse = NextResponse.next({
+          request,
+        });
+        cookiesToSet.forEach(({ name, value, options }) => {
+          supabaseResponse.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
+
+  // 現在のセッションユーザーを取得
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  // 次に行こうとしているリンクを出すのがrequest.nextUrl.pathname.
+  const isAuthPage = request.nextUrl.pathname.startsWith("/login");
+
+  // 未ログインユーザーがログインページ以外（エディタ画面など）にアクセスした場合
+  if (!user && !isAuthPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  // ログイン済みユーザーがログインページにアクセスした場合
+  if (user && isAuthPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
+  return supabaseResponse;
+}
+
+// ミドルウェアを実行するパスの条件を指定
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
+};
+</file>
+
+<file path="src/app/api/memos/title/auto/route.ts">
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { NextResponse } from "next/server";
+
+// タグ生成で成功しているキー名を使用
+const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+
+export async function POST(request: Request) {
+  try {
+    const { content } = await request.json();
+    
+    if (!content) {
+      return NextResponse.json({ title: "新しいメモ" });
+    }
+
+    if (!apiKey) {
+      return NextResponse.json({ error: "API key error" }, { status: 500 });
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    // モデルは 1.5-flash で統一
+    const chatModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+
+    // ★トークン節約：タイトル生成には冒頭2000文字あれば十分です
+    const truncatedContent = content.slice(0, 2000);
+
+    const prompt = `
+      以下のメモ内容を読み取り、内容を的確に表すタイトルを1つ作成してください。
+      
+      ルール:
+      - 15文字以内。
+      - タイトルの文字列のみを出力すること（「タイトル：」などは不要）。
+      - メモの内容が一目で把握できるようにしてください。技術、作家、などメモの主題を含めるよう心掛けてください。
+      - できるだけ文章で生成するようにし、単語の羅列は控えてください。
+      
+      メモ内容:
+      ${truncatedContent}
+    `;
+
+    const aiResult = await chatModel.generateContent(prompt);
+    const generatedTitle = aiResult.response.text().trim().replace(/^["'「]+|["'」]+$/g, '');
+
+    return NextResponse.json({ title: generatedTitle });
+
+  } catch (error: any) {
+    console.error("API ERROR:", error.message);
+
+    // 429 Too Many Requests (制限超過) の検知
+    if (error.status === 429 || error.message?.includes("429 Too Many Requests")) {
+      // エラー文から "retry in 57.56...s" の数字部分を抽出
+      const match = error.message.match(/retry in ([\d.]+)s/);
+      // 数字が見つかれば切り上げて秒数にする（見つからなければ安全のためデフォルト60秒）
+      const retryAfter = match ? Math.ceil(parseFloat(match[1])) : 60;
+      
+      return NextResponse.json(
+        { error: "Rate limit exceeded", retryAfter },
+        { status: 429 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Internal Server Error", message: error.message },
+      { status: 500 }
+    );
+  }
+}
+</file>
+
+<file path="src/store/vim/history.ts">
+import { atom } from "jotai";
+import { activeEditorAtom } from "../editorAtom";
+import { activeTextAtom, cursorAtom } from "./core";
+
+export interface HistoryRecord {
+  text: string;
+  cursor: number;
+}
+
+// 履歴の配列と、現在のインデックス（-1は初期状態）
+// --- 個別の履歴ステート ---
+const contentHistoryAtom = atom<HistoryRecord[]>([]);
+const contentHistoryIndexAtom = atom<number>(-1);
+
+const titleHistoryAtom = atom<HistoryRecord[]>([]);
+const titleHistoryIndexAtom = atom<number>(-1);
+
+const tagHistoryAtom = atom<HistoryRecord[]>([]);
+const tagHistoryIndexAtom = atom<number>(-1);
+
+// --- ルーティング用履歴Atom ---
+export const historyAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleHistoryAtom);
+    if (active === "tags") return get(tagHistoryAtom);
+    return get(contentHistoryAtom);
+  },
+  (get, set, newHistory: HistoryRecord[]) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") set(titleHistoryAtom, newHistory);
+    else if (active === "tags") set(tagHistoryAtom, newHistory);
+    else set(contentHistoryAtom, newHistory);
+  },
+);
+
+export const historyIndexAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleHistoryIndexAtom);
+    if (active === "tags") return get(tagHistoryIndexAtom);
+    return get(contentHistoryIndexAtom);
+  },
+  (get, set, newIndex: number) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") set(titleHistoryIndexAtom, newIndex);
+    else if (active === "tags") set(tagHistoryIndexAtom, newIndex);
+    else set(contentHistoryIndexAtom, newIndex);
+  },
+);
+
+// --- Actions ---
+
+// 現在の状態を履歴に積む
+export const saveHistoryAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const cursor = get(cursorAtom);
+  const history = get(historyAtom);
+  const currentIndex = get(historyIndexAtom);
+
+  // 連続で同じ内容が保存されるのを防ぐ
+  if (currentIndex >= 0 && history[currentIndex].text === text) {
+    return;
+  }
+
+  // もしUndoして過去に戻っている状態で新しい操作をしたら、それ以降の未来（Redo履歴）は捨てる
+  const newHistory = history.slice(0, currentIndex + 1);
+  newHistory.push({ text, cursor });
+
+  // メモリ肥大化を防ぐため最大100件に制限
+  if (newHistory.length > 100) {
+    newHistory.shift();
+  }
+
+  set(historyAtom, newHistory);
+  // lengthは0以上だからIndexに合わせるため、-1.
+  set(historyIndexAtom, newHistory.length - 1);
+});
+
+// u (Undo)
+export const undoAtom = atom(null, (get, set) => {
+  const history = get(historyAtom);
+  const currentIndex = get(historyIndexAtom);
+
+  // 1つ以上過去の履歴がある場合のみ戻る
+  if (currentIndex > 0) {
+    const prevIndex = currentIndex - 1;
+    const record = history[prevIndex];
+
+    set(historyIndexAtom, prevIndex);
+    set(activeTextAtom, record.text);
+    set(cursorAtom, record.cursor);
+  }
+});
+
+// Ctrl+R (Redo)
+export const redoAtom = atom(null, (get, set) => {
+  const history = get(historyAtom);
+  const currentIndex = get(historyIndexAtom);
+
+  // 現在より未来の履歴がある場合のみ進む
+  if (currentIndex < history.length - 1) {
+    const nextIndex = currentIndex + 1;
+    const record = history[nextIndex];
+
+    set(historyIndexAtom, nextIndex);
+    set(activeTextAtom, record.text);
+    set(cursorAtom, record.cursor);
+  }
+});
+</file>
+
+<file path="src/types/ai.ts">
+// 自動タイトル生成
+export interface GenerateTitleRequest {
+  content: string;
+}
+
+export interface GenerateTitleResponse {
+  title: string;
+}
+
+// 自動タグ生成
+export interface GenerateTagsRequest {
+  content: string;
+  existing_tags?: string[];
+}
+
+export interface GenerateTagsResponse {
+  tags: string[];
+}
+
+export async function suggestTags(
+  memoContent: string,
+  candidateTags: string[],
+) {
+  // Geminiに「候補の中から選ぶか、新しく作れ」と指示するプロンプト
+  const prompt = `
+    以下のメモ内容に最適なタグを3個以内で出力してください。
+    既存のタグ候補: [${candidateTags.join(", ")}]
+    
+    ルール:
+    1. 既存のタグに適切なものがあればそれを優先してください。
+    2. 既存のタグにない場合のみ、新しいタグを生成してください。
+    3. 出力はタグ名のみをカンマ区切りで返してください。
+    
+    メモ内容:
+    ${memoContent}
+  `;
+  // ... Gemini APIを叩く処理
+}
+</file>
+
+<file path="src/types/db.ts">
+import type { Tables, TablesInsert, TablesUpdate } from "./supabase";
+
+/**
+ * データベースの 'memos' テーブルに対応するメインモデル
+ */
+export type Memo = Tables<"memos">;
+
+/**
+ * 新規作成用（IDや日付が自動生成されるため、それらがオプショナルになった型）
+ */
+export type CreateMemoInput = TablesInsert<"memos">;
+
+/**
+ * 更新用（すべての項目が任意だが、安全のためにIDだけは必須とした型）
+ */
+export type UpdateMemoInput = TablesUpdate<"memos"> & { id: string };
+
+/**
+ * データベースの 'user_settings' テーブルに対応するメインモデル
+ */
+export type UserSettings = Tables<"user_settings">;
+
+/**
+ * ユーザー設定更新用（すべての項目が任意だが、安全のためにIDだけは必須とした型）
+ */
+export type UpdateUserSettingsInput = TablesUpdate<"user_settings"> & {
+  id: string;
+};
+
+// 今後、'users' や 'tags' テーブルをDBに追加したら、ここに同様の抽出コードを追記します。
+
+export interface Tag {
+  id: string;
+  name: string;
+}
+</file>
+
+<file path="supabase/migrations/20260312054957_add_public_and_vector_to_memos.sql">
+-- 1. pgvector拡張機能の有効化
+create extension if not exists vector with schema public;
+
+-- 2. memosテーブルにカラムを追加
+alter table public.memos
+add column is_public boolean not null default false,
+add column embedding vector(768);
+
+-- 3. 公開メモを誰でも閲覧できるようにするRLSポリシーの追加
+create policy "Public memos are viewable by everyone"
+on public.memos for select
+using ( is_public = true );
+</file>
+
+<file path="package.json">
+{
+  "name": "apu-hakathon-project",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "biome check",
+    "format": "biome format --write"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/ssr": "^0.9.0",
+    "@supabase/supabase-js": "^2.99.0",
+    "clsx": "^2.1.1",
+    "dotenv": "^17.3.1",
+    "jotai": "^2.18.0",
+    "lucide-react": "^0.576.0",
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwind-merge": "^3.5.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.2.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "supabase": "^2.76.17",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
 </file>
 
 <file path="README.md">
@@ -2558,44 +2531,6 @@ VALUES
   ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'レイトレーシングでの屈折の計算', E'ガラスや水などの透明な物体を表現するためには、スネルの法則に基づいて光線の屈折方向を計算する。\n全反射の条件も考慮する必要があり、反射と屈折を組み合わせることでガラス玉のような美しいレンダリング結果が得られる。\n物理法則の数式がそのままコードに落ちていく感覚が楽しい。', ARRAY['グラフィックス', '物理', '数学']);
 </file>
 
-<file path="package.json">
-{
-  "name": "apu-hakathon-project",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "biome check",
-    "format": "biome format --write"
-  },
-  "dependencies": {
-    "@google/generative-ai": "^0.24.1",
-    "@supabase/ssr": "^0.9.0",
-    "@supabase/supabase-js": "^2.99.0",
-    "clsx": "^2.1.1",
-    "dotenv": "^17.3.1",
-    "jotai": "^2.18.0",
-    "lucide-react": "^0.576.0",
-    "next": "16.1.6",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "tailwind-merge": "^3.5.0"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "2.2.0",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "supabase": "^2.76.17",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  }
-}
-</file>
-
 <file path="src/app/api/memos/timeline/route.ts">
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
@@ -2795,6 +2730,119 @@ export function ExploreViewer() {
       )}
     </div>
   );
+}
+</file>
+
+<file path="src/hooks/useVimEditor.ts">
+import { useAtom, useAtomValue } from "jotai";
+import { useEffect, useRef } from "react";
+import {
+  cursorAtom,
+  editorContentAtom,
+  editorSettingsAtom,
+  modeAtom,
+  selectedMemoIdAtom,
+  visualStartAtom,
+} from "@/store/models";
+import { getLineEnd, getLineStart } from "@/store/vim/core"; // パスはディレクトリ構成に合わせて調整してください
+import { useVimKeyHandler } from "./useVimKeyHandler";
+
+export function useVimEditor() {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // プログラムによる変更時に、誤った select イベントを無視するためのフラグ
+  const ignoreSelectRef = useRef(false);
+
+  const [content, setContent] = useAtom(editorContentAtom);
+  const [vimMode] = useAtom(modeAtom);
+  const [cursor, setCursor] = useAtom(cursorAtom);
+  const settings = useAtomValue(editorSettingsAtom);
+  const [visualStart] = useAtom(visualStartAtom);
+
+  const selectedId = useAtomValue(selectedMemoIdAtom);
+
+  // 切り出したカスタムフックを呼び出す
+  const { handleKeyDown } = useVimKeyHandler(textareaRef, ignoreSelectRef);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea && settings.type === "vim") {
+      if (vimMode === "normal") {
+        // 一番端にカーソルが来たとき文字を囲えないから.minを使って判定.
+        // 現在のコードだとnomalモードでカーソルが端に来ることはないはず.
+        const endPos = Math.min(cursor + 1, content.length);
+        textarea.setSelectionRange(cursor, endPos);
+      } else if (
+        (vimMode === "visual" || vimMode === "visualLine") &&
+        visualStart !== null
+      ) {
+        if (vimMode === "visual") {
+          const start = Math.min(visualStart, cursor);
+          const end = Math.max(visualStart, cursor) + 1;
+          textarea.setSelectionRange(start, end);
+        } else {
+          // visualLine モード
+          const pos1 = Math.min(visualStart, cursor);
+          const pos2 = Math.max(visualStart, cursor);
+
+          const start = getLineStart(content, pos1);
+
+          const lineEndPos = getLineEnd(content, pos2);
+          const end =
+            lineEndPos === content.length ? content.length : lineEndPos + 1;
+
+          textarea.setSelectionRange(start, end);
+        }
+      } else {
+        textarea.setSelectionRange(cursor, cursor);
+      }
+
+      // 正しい選択範囲の適用が終わったら、フラグを解除して通常操作を受け付ける
+      ignoreSelectRef.current = false;
+    }
+  }, [cursor, vimMode, settings.type, content, visualStart]);
+
+  useEffect(() => {
+    if (selectedId) {
+      setCursor(0);
+
+      // DOMの描画が少し遅れるケースを考慮して、わずかな遅延（非同期）でフォーカスを当てる
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }, 0);
+    }
+  }, [selectedId, setCursor]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value);
+    setCursor(e.target.selectionStart);
+  };
+
+  // vimモードでマウスを使ったときにAtomに変更が渡されるようにするための記述.
+  const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    // プログラムで変更処理中の一瞬は、ブラウザネイティブの誤ったSelectイベントを無視する
+    if (ignoreSelectRef.current) return;
+    // visualモードの時はブラウザネイティブのイベントを無視.
+    if (
+      settings.type === "vim" &&
+      (vimMode === "visual" || vimMode === "visualLine")
+    )
+      return;
+    // ブラウザネイティブのイベントを受け入れ.
+    setCursor(e.currentTarget.selectionStart);
+  };
+
+  return {
+    textareaRef,
+    content,
+    vimMode,
+    settings,
+    handleChange,
+    handleSelect,
+    handleKeyDown,
+  };
 }
 </file>
 
@@ -3332,6 +3380,192 @@ export const Constants = {
 } as const
 </file>
 
+<file path="src/components/auth/AuthSection.tsx">
+"use client";
+
+import type { Session } from "@supabase/supabase-js";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/utils/supabase/client"; // 新しいクライアントをインポート
+
+export function AuthSection() {
+  const supabase = createClient(); // コンポーネント内でクライアントを初期化
+  const router = useRouter();
+  const [session, setSession] = useState<Session | null>(null);
+
+  // メールアドレス認証用のState
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      // ★ 追加：ログイン済みならトップページへ移動
+      if (session) {
+        router.push("/");
+        router.refresh();
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      // ★ 追加：ログイン状態が変化したときもトップページへ移動
+      if (session) {
+        router.push("/");
+        router.refresh();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth, router]); // ← ★ routerを依存配列に追加
+
+  // GitHubログイン処理
+  const handleGithubLogin = async () => {
+    setErrorMsg("");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        // ★ 確認：クォーテーションなしの変数になっているので完璧です！
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) setErrorMsg(error.message);
+  };
+
+  // メールアドレスで新規登録 or ログイン処理
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+
+    if (isSignUp) {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (error) {
+        setErrorMsg(error.message);
+      } else {
+        router.push("/");
+        router.refresh();
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) {
+        setErrorMsg("ログインに失敗しました。認証情報を確認してください。");
+      } else {
+        router.push("/");
+        router.refresh();
+      }
+    }
+  };
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) console.error("ログアウトエラー:", error.message);
+  };
+
+  // --- ログイン済み（セッションあり）の表示 ---
+  if (session) {
+    const user = session.user;
+    const avatarUrl = user.user_metadata?.avatar_url;
+    const userName =
+      user.user_metadata?.preferred_username ||
+      user.user_metadata?.full_name ||
+      user.email?.split("@")[0] ||
+      "ユーザー";
+
+    return (
+      <div className="flex items-center gap-3">
+        {avatarUrl && (
+          <Image
+            src={avatarUrl}
+            alt={userName}
+            width={32}
+            height={32}
+            className="rounded-full border border-gray-200"
+          />
+        )}
+        <span className="text-sm font-medium text-gray-700">{userName}</span>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="px-3 py-1.5 text-xs text-red-600 border border-red-200 rounded-md hover:bg-red-50 transition-colors"
+        >
+          ログアウト
+        </button>
+      </div>
+    );
+  }
+
+  // --- 未ログイン（セッションなし）の表示 ---
+  return (
+    <div className="flex flex-col gap-4 p-4 border border-gray-200 rounded-md bg-white w-full max-w-sm">
+      <form onSubmit={handleEmailAuth} className="flex flex-col gap-3">
+        <input
+          type="email"
+          placeholder="メールアドレス"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          // ★ text-gray-900 と placeholder:text-gray-400 を追加
+          className="px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 border border-gray-300 rounded-md outline-none focus:border-blue-500"
+        />
+        <input
+          type="password"
+          placeholder="パスワード (6文字以上)"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={6}
+          // ★ text-gray-900 と placeholder:text-gray-400 を追加
+          className="px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 border border-gray-300 rounded-md outline-none focus:border-blue-500"
+        />
+        <button
+          type="submit"
+          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+        >
+          {isSignUp ? "新規登録" : "ログイン"}
+        </button>
+      </form>
+
+      <div className="text-center">
+        <button
+          type="button"
+          onClick={() => setIsSignUp(!isSignUp)}
+          className="text-xs text-blue-600 hover:underline"
+        >
+          {isSignUp
+            ? "すでにアカウントをお持ちの方はこちら"
+            : "アカウントをお持ちでない方はこちら"}
+        </button>
+      </div>
+
+      {errorMsg && (
+        <p className="text-xs text-red-600 text-center">{errorMsg}</p>
+      )}
+
+      <hr className="border-gray-200" />
+
+      <button
+        onClick={handleGithubLogin}
+        type="button"
+        className="px-4 py-2 bg-[#24292e] text-white text-sm rounded-md hover:bg-[#2f363d] transition-colors"
+      >
+        GitHubでログイン
+      </button>
+    </div>
+  );
+}
+</file>
+
 <file path="src/app/api/memos/search/route.ts">
 import { NextResponse } from "next/server";
 import type {
@@ -3418,273 +3652,6 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
-</file>
-
-<file path="src/components/editor/EditorRoot.tsx">
-"use client";
-
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { useEffect, useRef } from "react";
-import {
-  allTagsAtom,
-  createMemoAtom,
-  currentMemoAtom,
-  editorContentAtom,
-  editorIsPublicAtom,
-  editorSettingsAtom,
-  editorTagsAtom,
-  editorTitleAtom,
-  saveMemoAtom,
-} from "@/store/models";
-import { commandTextAtom, modeAtom } from "@/store/vim/core";
-import { EditorHeader } from "./EditorHeader";
-import { SimpleEditor } from "./SimpleEditor";
-
-export function EditorRoot() {
-  const currentMemo = useAtomValue(currentMemoAtom);
-  const setEditorContent = useSetAtom(editorContentAtom);
-  const setEditorTitle = useSetAtom(editorTitleAtom);
-  const setEditorTags = useSetAtom(editorTagsAtom);
-  const setEditorIsPublic = useSetAtom(editorIsPublicAtom);
-
-  const allTags = useAtomValue(allTagsAtom);
-
-  const [vimMode, setVimMode] = useAtom(modeAtom);
-  const [commandText, setCommandText] = useAtom(commandTextAtom);
-  const settings = useAtomValue(editorSettingsAtom);
-
-  const saveMemo = useSetAtom(saveMemoAtom);
-  const createMemo = useSetAtom(createMemoAtom);
-
-  // ★ 鉄壁の保護：現在読み込み済みのメモIDを記録し、意図しないリセットを防ぐ
-  const loadedMemoIdRef = useRef<string | null>(null);
-
-  // ★ 修正：Biome(リンター)の警告を解消しつつ、入力データが消えないようにロックをかける
-  useEffect(() => {
-    if (!currentMemo) {
-      if (loadedMemoIdRef.current !== null) {
-        setEditorContent("");
-        setEditorTitle("");
-        setEditorTags([]);
-        loadedMemoIdRef.current = null;
-      }
-      return;
-    }
-
-    // メモを「切り替えた瞬間」だけDBからデータを画面にセットする
-    if (currentMemo.id !== loadedMemoIdRef.current) {
-      setEditorContent(currentMemo.content || "");
-      setEditorTitle(currentMemo.title || "");
-
-      const memoTags = currentMemo.tags || [];
-      const tagsAsObjects = memoTags.map((t: any) => {
-        const nameStr = typeof t === "string" ? t : t?.name || "";
-        const found = allTags.find((tag) => tag.name === nameStr);
-        return found ? found : { id: nameStr, name: nameStr };
-      });
-
-      setEditorTags(tagsAsObjects);
-
-      // ★ 追加：DBの値をエディタに反映！(undefined対策で !! をつけてboolean化)
-      setEditorIsPublic(!!currentMemo.is_public);
-
-      loadedMemoIdRef.current = currentMemo.id; // ロックをかける
-    }
-    // ★ 追加：依存配列の一番最後に setEditorIsPublic を追加
-  }, [
-    currentMemo,
-    allTags,
-    setEditorContent,
-    setEditorTitle,
-    setEditorTags,
-    setEditorIsPublic,
-  ]);
-
-  const isVim = settings.type === "vim";
-
-  const handleCommandKeyDown = async (
-    e: React.KeyboardEvent<HTMLInputElement>,
-  ) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      setVimMode("normal");
-      setCommandText("");
-      document.querySelector("textarea")?.focus();
-      return;
-    }
-
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const cmd = commandText.trim();
-
-      if (cmd === "w") {
-        await saveMemo();
-      } else if (cmd === "e") {
-        await createMemo();
-      } else if (cmd === "wq") {
-        await saveMemo();
-        // 終了や一覧へ戻る処理が必要な場合はここに追加します
-      }
-
-      setVimMode("normal");
-      setCommandText("");
-      document.querySelector("textarea")?.focus();
-    }
-  };
-
-  return (
-    <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
-      {/* ★ 追加：エディター領域の一番左上にアプリロゴを配置 ★ */}
-      <img
-        src="/images/app-logo.png"
-        alt="アプリロゴ"
-        className="absolute top-8 left-8 w-12 h-12 rounded-xl object-cover shadow-sm z-10"
-      />
-
-      <div className="w-full max-w-4xl ml-auto mr-50 px-8 pt-12 mb-6">
-        <EditorHeader />
-      </div>
-      <div className="flex-1 overflow-y-auto px-8 pb-8 max-w-4xl ml-auto mr-50 w-full relative [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <SimpleEditor />
-      </div>
-
-      {isVim && vimMode === "command" ? (
-        <div className="absolute bottom-0 left-0 right-0 bg-gray-800 text-white px-4 py-1 flex items-center font-mono text-sm z-50">
-          <span className="mr-1">:</span>
-          <input
-            id="vim-command-input"
-            type="text"
-            value={commandText}
-            onChange={(e) => setCommandText(e.target.value)}
-            onKeyDown={handleCommandKeyDown}
-            className="bg-transparent outline-none flex-1"
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </div>
-      ) : (
-        isVim && (
-          <div className="absolute bottom-4 right-4 px-3 py-1 rounded-full text-xs font-mono font-bold shadow-md transition-colors bg-gray-800 text-white z-50">
-            {vimMode.toUpperCase()}
-          </div>
-        )
-      )}
-    </div>
-  );
-}
-</file>
-
-<file path="src/hooks/useVimEditor.ts">
-import { useAtom, useAtomValue } from "jotai";
-import { useEffect, useRef } from "react";
-import {
-  cursorAtom,
-  editorContentAtom,
-  editorSettingsAtom,
-  modeAtom,
-  selectedMemoIdAtom,
-  visualStartAtom,
-} from "@/store/models";
-import { getLineEnd, getLineStart } from "@/store/vim/core"; // パスはディレクトリ構成に合わせて調整してください
-import { useVimKeyHandler } from "./useVimKeyHandler";
-
-export function useVimEditor() {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // プログラムによる変更時に、誤った select イベントを無視するためのフラグ
-  const ignoreSelectRef = useRef(false);
-
-  const [content, setContent] = useAtom(editorContentAtom);
-  const [vimMode] = useAtom(modeAtom);
-  const [cursor, setCursor] = useAtom(cursorAtom);
-  const settings = useAtomValue(editorSettingsAtom);
-  const [visualStart] = useAtom(visualStartAtom);
-
-  const selectedId = useAtomValue(selectedMemoIdAtom);
-
-  // 切り出したカスタムフックを呼び出す
-  const { handleKeyDown } = useVimKeyHandler(textareaRef, ignoreSelectRef);
-
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (textarea && settings.type === "vim") {
-      if (vimMode === "normal") {
-        // 一番端にカーソルが来たとき文字を囲えないから.minを使って判定.
-        // 現在のコードだとnomalモードでカーソルが端に来ることはないはず.
-        const endPos = Math.min(cursor + 1, content.length);
-        textarea.setSelectionRange(cursor, endPos);
-      } else if (
-        (vimMode === "visual" || vimMode === "visualLine") &&
-        visualStart !== null
-      ) {
-        if (vimMode === "visual") {
-          const start = Math.min(visualStart, cursor);
-          const end = Math.max(visualStart, cursor) + 1;
-          textarea.setSelectionRange(start, end);
-        } else {
-          // visualLine モード
-          const pos1 = Math.min(visualStart, cursor);
-          const pos2 = Math.max(visualStart, cursor);
-
-          const start = getLineStart(content, pos1);
-
-          const lineEndPos = getLineEnd(content, pos2);
-          const end =
-            lineEndPos === content.length ? content.length : lineEndPos + 1;
-
-          textarea.setSelectionRange(start, end);
-        }
-      } else {
-        textarea.setSelectionRange(cursor, cursor);
-      }
-
-      // 正しい選択範囲の適用が終わったら、フラグを解除して通常操作を受け付ける
-      ignoreSelectRef.current = false;
-    }
-  }, [cursor, vimMode, settings.type, content, visualStart]);
-
-  useEffect(() => {
-    if (selectedId) {
-      setCursor(0);
-
-      // DOMの描画が少し遅れるケースを考慮して、わずかな遅延（非同期）でフォーカスを当てる
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.focus();
-        }
-      }, 0);
-    }
-  }, [selectedId, setCursor]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
-    setCursor(e.target.selectionStart);
-  };
-
-  // vimモードでマウスを使ったときにAtomに変更が渡されるようにするための記述.
-  const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    // プログラムで変更処理中の一瞬は、ブラウザネイティブの誤ったSelectイベントを無視する
-    if (ignoreSelectRef.current) return;
-    // visualモードの時はブラウザネイティブのイベントを無視.
-    if (
-      settings.type === "vim" &&
-      (vimMode === "visual" || vimMode === "visualLine")
-    )
-      return;
-    // ブラウザネイティブのイベントを受け入れ.
-    setCursor(e.currentTarget.selectionStart);
-  };
-
-  return {
-    textareaRef,
-    content,
-    vimMode,
-    settings,
-    handleChange,
-    handleSelect,
-    handleKeyDown,
-  };
 }
 </file>
 
@@ -4042,6 +4009,210 @@ export function useVimKeyHandler(
 }
 </file>
 
+<file path="src/components/editor/EditorRoot.tsx">
+"use client";
+
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { FileText, PlusCircle } from "lucide-react"; // ガイド用のアイコン
+import { useEffect, useRef } from "react";
+import {
+  allTagsAtom,
+  autoTagAtom,
+  autoTitleAtom,
+  createMemoAtom,
+  currentMemoAtom,
+  editorContentAtom,
+  editorIsPublicAtom,
+  editorSettingsAtom,
+  editorTagsAtom,
+  editorTitleAtom,
+  saveMemoAtom,
+  selectedMemoIdAtom,
+  toggleBookmarkAtom,
+} from "@/store/models";
+import { commandTextAtom, modeAtom } from "@/store/vim/core";
+import { EditorHeader } from "./EditorHeader";
+import { SimpleEditor } from "./SimpleEditor";
+
+export function EditorRoot() {
+  const currentMemo = useAtomValue(currentMemoAtom);
+  const setEditorContent = useSetAtom(editorContentAtom);
+  const setEditorTitle = useSetAtom(editorTitleAtom);
+  const setEditorTags = useSetAtom(editorTagsAtom);
+  const setEditorIsPublic = useSetAtom(editorIsPublicAtom);
+  const autoTag = useSetAtom(autoTagAtom);
+  const autoTitle = useSetAtom(autoTitleAtom);
+  const toggleBookmark = useSetAtom(toggleBookmarkAtom);
+  const selectedId = useAtomValue(selectedMemoIdAtom);
+  const [isPublic, setIsPublic] = useAtom(editorIsPublicAtom);
+
+  const allTags = useAtomValue(allTagsAtom);
+
+  const [vimMode, setVimMode] = useAtom(modeAtom);
+  const [commandText, setCommandText] = useAtom(commandTextAtom);
+  const settings = useAtomValue(editorSettingsAtom);
+
+  const saveMemo = useSetAtom(saveMemoAtom);
+  const createMemo = useSetAtom(createMemoAtom);
+
+  const loadedMemoIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!currentMemo) {
+      if (loadedMemoIdRef.current !== null) {
+        setEditorContent("");
+        setEditorTitle("");
+        setEditorTags([]);
+        loadedMemoIdRef.current = null;
+      }
+      return;
+    }
+
+    if (currentMemo.id !== loadedMemoIdRef.current) {
+      setEditorContent(currentMemo.content || "");
+      setEditorTitle(currentMemo.title || "");
+
+      const memoTags = currentMemo.tags || [];
+      const tagsAsObjects = memoTags.map((t: any) => {
+        const nameStr = typeof t === "string" ? t : t?.name || "";
+        const found = allTags.find((tag) => tag.name === nameStr);
+        return found ? found : { id: nameStr, name: nameStr };
+      });
+
+      setEditorTags(tagsAsObjects);
+      setEditorIsPublic(!!currentMemo.is_public);
+      loadedMemoIdRef.current = currentMemo.id;
+    }
+  }, [
+    currentMemo,
+    allTags,
+    setEditorContent,
+    setEditorTitle,
+    setEditorTags,
+    setEditorIsPublic,
+  ]);
+
+  const isVim = settings.type === "vim";
+
+  const handleCommandKeyDown = async (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setVimMode("normal");
+      setCommandText("");
+      document.querySelector("textarea")?.focus();
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const cmd = commandText.trim();
+
+      if (cmd === "w" || cmd === "wq") {
+        await saveMemo();
+      } else if (cmd === "e") {
+        await createMemo();
+      } else if (cmd === "ta") {
+        await autoTag();
+      } else if (cmd === "ti") {
+        await autoTitle();
+      } else if (cmd === "bm") {
+        // ★修正: await をつけてDBの更新を確実に待つ！
+        if (selectedId) {
+          await toggleBookmark(selectedId);
+        }
+      } else if (cmd === "pb") {
+        // ★修正: 古い状態を参照しないように `prev => !prev` の関数型アップデートを使用！
+        setIsPublic((prev) => !prev);
+
+        // ★修正: Jotaiの内部状態が確実に切り替わった直後にDBへ保存させる
+        setTimeout(async () => {
+          await saveMemo();
+        }, 150);
+      }
+
+      setVimMode("normal");
+      setCommandText("");
+      document.querySelector("textarea")?.focus();
+    }
+  };
+
+  // メモが選択されていない時の表示 (ログイン直後など)
+  if (!currentMemo) {
+    return (
+      <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
+        {/* ロゴは常に表示 */}
+        <img
+          src="/images/app-logo.png"
+          alt="アプリロゴ"
+          className="absolute top-8 left-8 w-12 h-12 rounded-xl object-cover shadow-sm z-10"
+        />
+
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
+          <div className="flex flex-col items-center max-w-sm text-center space-y-4">
+            <div className="relative">
+              <FileText className="w-20 h-20 opacity-10" />
+              <PlusCircle className="w-8 h-8 text-blue-400 absolute -bottom-2 -right-2 bg-white rounded-full" />
+            </div>
+            <div className="space-y-2 px-4">
+              <h2 className="text-xl font-semibold text-gray-600">
+                メモを作成しましょう
+              </h2>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                左のリストからメモを選択するか、
+                <br />
+                「新規作成」ボタンから新しいメモを作成してください。
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 通常のエディタ表示
+  return (
+    <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
+      <img
+        src="/images/app-logo.png"
+        alt="アプリロゴ"
+        className="absolute top-8 left-8 w-12 h-12 rounded-xl object-cover shadow-sm z-10"
+      />
+
+      <div className="w-full max-w-4xl ml-auto mr-50 px-8 pt-12 mb-6">
+        <EditorHeader />
+      </div>
+      <div className="flex-1 overflow-y-auto px-8 pb-8 max-w-4xl ml-auto mr-50 w-full relative [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <SimpleEditor />
+      </div>
+
+      {isVim && vimMode === "command" ? (
+        <div className="absolute bottom-0 left-0 right-0 bg-gray-800 text-white px-4 py-1 flex items-center font-mono text-sm z-50">
+          <span className="mr-1">:</span>
+          <input
+            id="vim-command-input"
+            type="text"
+            value={commandText}
+            onChange={(e) => setCommandText(e.target.value)}
+            onKeyDown={handleCommandKeyDown}
+            className="bg-transparent outline-none flex-1"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+      ) : (
+        isVim && (
+          <div className="absolute bottom-4 right-4 px-3 py-1 rounded-full text-xs font-mono font-bold shadow-md transition-colors bg-gray-800 text-white z-50">
+            {vimMode.toUpperCase()}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+</file>
+
 <file path="src/store/editorAtom.ts">
 import { atom } from "jotai";
 import type { Tag } from "@/types/db";
@@ -4084,9 +4255,15 @@ export const editorEmbeddingCacheAtom = atom<{
 
 export const fetchUserSettingsAtom = atom(null, async (get, set) => {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return;
-  const { data, error } = await supabase.from("user_settings").select("*").eq("id", user.id).single();
+  const { data, error } = await supabase
+    .from("user_settings")
+    .select("*")
+    .eq("id", user.id)
+    .single();
   if (error) {
     console.error("設定の取得に失敗しました:", error);
     return;
@@ -4099,24 +4276,35 @@ export const fetchUserSettingsAtom = atom(null, async (get, set) => {
   }
 });
 
-export const updateUserSettingsAtom = atom(null, async (get, set, update: Partial<EditorSettings>) => {
+export const updateUserSettingsAtom = atom(
+  null,
+  async (get, set, update: Partial<EditorSettings>) => {
     const current = get(editorSettingsAtom);
     const next = { ...current, ...update };
     set(editorSettingsAtom, next);
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
-    const { error } = await supabase.from("user_settings").update({
+    const { error } = await supabase
+      .from("user_settings")
+      .update({
         use_vim_mode: next.type === "vim",
         default_is_public: next.defaultIsPublic,
         updated_at: new Date().toISOString(),
-      }).eq("id", user.id);
+      })
+      .eq("id", user.id);
     if (error) {
       console.error("設定の保存に失敗しました:", error);
       set(editorSettingsAtom, current);
     }
   },
 );
+
+export const isTitleAiLoadingAtom = atom<boolean>(false);
+export const isTagAiLoadingAtom = atom<boolean>(false);
+export const aiCooldownAtom = atom<number>(0);
 </file>
 
 <file path="src/components/editor/EditorHeader.tsx">
@@ -4124,21 +4312,49 @@ export const updateUserSettingsAtom = atom(null, async (get, set, update: Partia
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
-  Check, Globe, Hourglass, Loader2, Lock, Plus, Save, Search, Sparkles, Tag as TagIcon, X, Bookmark // ★ Bookmarkを追加
+  Bookmark,
+  Check,
+  Globe,
+  Hourglass,
+  Loader2,
+  Lock,
+  Plus,
+  Save,
+  Search,
+  Sparkles,
+  Tag as TagIcon,
+  X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useVimKeyHandler } from "@/hooks/useVimKeyHandler";
 import { cn } from "@/lib/utils";
 import {
-  activeEditorAtom, allTagsAtom, editorContentAtom, editorEmbeddingCacheAtom,
-  editorIsPublicAtom, editorTagInputAtom, isTagSearchingAtom, tagSearchQueryAtom,
+  activeEditorAtom,
+  aiCooldownAtom,
+  allTagsAtom,
+  editorContentAtom,
+  editorEmbeddingCacheAtom,
+  editorIsPublicAtom,
+  editorTagInputAtom,
+  isTagAiLoadingAtom,
+  isTagSearchingAtom,
+  isTitleAiLoadingAtom,
+  tagSearchQueryAtom,
 } from "@/store/editorAtom";
 import {
-  fetchAllTagsAtom, saveMemoAtom, searchTagsSemanticAtom,
-  bookmarkedMemoIdsAtom, toggleBookmarkAtom // ★ ブックマーク用のAtomを追加
+  autoTagAtom,
+  autoTitleAtom,
+  bookmarkedMemoIdsAtom,
+  fetchAllTagsAtom,
+  saveMemoAtom,
+  searchTagsSemanticAtom,
+  toggleBookmarkAtom,
 } from "@/store/memoAtom";
 import {
-  editorSettingsAtom, editorTagsAtom, editorTitleAtom, selectedMemoIdAtom,
+  editorSettingsAtom,
+  editorTagsAtom,
+  editorTitleAtom,
+  selectedMemoIdAtom,
 } from "@/store/models";
 import { cursorAtom, modeAtom, visualStartAtom } from "@/store/vim/core";
 import type { Tag } from "@/types/db";
@@ -4168,16 +4384,20 @@ export function EditorHeader() {
   const visualStart = useAtomValue(visualStartAtom);
   const setCursor = useSetAtom(cursorAtom);
 
-  // ★ ブックマーク状態の取得
+  // ブックマーク状態
   const bookmarkedIds = useAtomValue(bookmarkedMemoIdsAtom);
   const toggleBookmark = useSetAtom(toggleBookmarkAtom);
   const isBookmarked = selectedId ? bookmarkedIds.includes(selectedId) : false;
 
   const [isSaving, setIsSaving] = useState(false);
-  const [isTitleAiLoading, setIsTitleAiLoading] = useState(false);
-  const [isTagAiLoading, setIsTagAiLoading] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
+  const [isTitleAiLoading] = useAtom(isTitleAiLoadingAtom);
+  const [isTagAiLoading] = useAtom(isTagAiLoadingAtom);
+  const [cooldown, setCooldown] = useAtom(aiCooldownAtom);
   const [showTagList, setShowTagList] = useState(false);
+
+  // ★ AIロジックは memoAtom.ts から呼び出す
+  const handleAutoTag = useSetAtom(autoTagAtom);
+  const handleAutoTitle = useSetAtom(autoTitleAtom);
 
   const titleInputRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
@@ -4190,7 +4410,7 @@ export function EditorHeader() {
       setCooldown((prev) => prev - 1);
     }, 1000);
     return () => clearInterval(timer);
-  }, [cooldown]);
+  }, [cooldown, setCooldown]);
 
   useEffect(() => {
     fetchAllTags();
@@ -4213,90 +4433,58 @@ export function EditorHeader() {
     if (activeEditor !== "tags") setShowTagList(false);
   }, [activeEditor]);
 
-  const handleSave = useCallback(async () => {
+  // ==========================================
+  // ユーザーが明示的に保存ボタンを押した時のロジック（空ならAI生成を挟む）
+  // ==========================================
+  const handleUserSave = async () => {
+    if (selectedId && !isSaving) {
+      setIsSaving(true);
+
+      if (!title || title.trim() === "") {
+        await handleAutoTitle();
+      }
+
+      if (!tags || tags.length === 0) {
+        await handleAutoTag();
+      }
+
+      await saveMemo();
+      setTimeout(() => setIsSaving(false), 500);
+    }
+  };
+
+  // 単純なデータ保存
+  const handleSimpleSave = async () => {
     if (selectedId && !isSaving) {
       setIsSaving(true);
       await saveMemo();
       setTimeout(() => setIsSaving(false), 500);
     }
-  }, [selectedId, isSaving, saveMemo]);
+  };
 
   const togglePublic = async () => {
     const nextPublic = !isPublic;
     setIsPublic(nextPublic);
-    setTimeout(() => handleSave(), 50);
+    setTimeout(() => simpleSaveRef.current(), 50);
   };
 
-  const saveRef = useRef(handleSave);
+  const userSaveRef = useRef(handleUserSave);
+  const simpleSaveRef = useRef(handleSimpleSave);
   useEffect(() => {
-    saveRef.current = handleSave;
-  }, [handleSave]);
+    userSaveRef.current = handleUserSave;
+    simpleSaveRef.current = handleSimpleSave;
+  });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
-        saveRef.current();
+        userSaveRef.current();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  const handleAutoTag = async () => {
-    if (!content || isTagAiLoading || cooldown > 0) return;
-    setIsTagAiLoading(true);
-    try {
-      const res = await fetch("/api/memos/tags/auto", {
-        method: "POST",
-        body: JSON.stringify({ content }),
-        headers: { "Content-Type": "application/json" },
-      });
-      if (res.status === 429) {
-        const data = await res.json();
-        setCooldown(data.retryAfter || 60);
-        return;
-      }
-      const data = await res.json();
-      if (data.suggestedTags) {
-        setTags(data.suggestedTags);
-        fetchAllTags();
-        if (data.embedding)
-          setEmbeddingCache({ text: content, embedding: data.embedding });
-        setTimeout(() => saveRef.current(), 100);
-      }
-    } catch (err) {
-      console.error("AI Auto-tag failed:", err);
-    } finally {
-      setIsTagAiLoading(false);
-    }
-  };
-
-  const handleAutoTitle = async () => {
-    if (!content || isTitleAiLoading || cooldown > 0) return;
-    setIsTitleAiLoading(true);
-    try {
-      const res = await fetch("/api/memos/title/auto", {
-        method: "POST",
-        body: JSON.stringify({ content }),
-        headers: { "Content-Type": "application/json" },
-      });
-      if (res.status === 429) {
-        const data = await res.json();
-        setCooldown(data.retryAfter || 60);
-        return;
-      }
-      const data = await res.json();
-      if (data.title) {
-        setTitle(data.title);
-        setTimeout(() => saveRef.current(), 100);
-      }
-    } catch (err) {
-      console.error("AI Auto-title failed:", err);
-    } finally {
-      setIsTitleAiLoading(false);
-    }
-  };
 
   const toggleTag = (tag: Tag) => {
     const isExists = tags.find((t) => t.id === tag.id);
@@ -4411,11 +4599,11 @@ export function EditorHeader() {
           {/* 1. AIタイトルボタン */}
           <button
             type="button"
-            onClick={handleAutoTitle}
-            disabled={!content || isTitleAiLoading || cooldown > 0}
+            onClick={() => handleAutoTitle()}
+            disabled={!content || isTitleAiLoading || cooldown > 0 || isSaving}
             className={cn(
               "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap shrink-0",
-              isTitleAiLoading || cooldown > 0
+              isTitleAiLoading || cooldown > 0 || isSaving
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : "bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:border-blue-300",
             )}
@@ -4433,7 +4621,7 @@ export function EditorHeader() {
           {/* 2. 保存ボタン */}
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => userSaveRef.current()}
             disabled={!selectedId || isSaving}
             className={cn(
               "p-2 rounded-full transition-all duration-200 shrink-0",
@@ -4475,7 +4663,7 @@ export function EditorHeader() {
             )}
           </button>
 
-          {/* 4. 自分のメモ用ブックマークボタン */}
+          {/* 4. ブックマークボタン */}
           <button
             type="button"
             onClick={() => selectedId && toggleBookmark(selectedId)}
@@ -4486,11 +4674,13 @@ export function EditorHeader() {
                 ? "opacity-30 cursor-not-allowed"
                 : isBookmarked
                   ? "bg-yellow-50 text-yellow-600 border-yellow-200 hover:bg-yellow-100"
-                  : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+                  : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50",
             )}
             title={isBookmarked ? "ブックマーク解除" : "ブックマークに保存"}
           >
-            <Bookmark className={cn("w-3.5 h-3.5", isBookmarked && "fill-current")} />
+            <Bookmark
+              className={cn("w-3.5 h-3.5", isBookmarked && "fill-current")}
+            />
             <span>{isBookmarked ? "保存済み" : "保存する"}</span>
           </button>
         </div>
@@ -4615,13 +4805,14 @@ export function EditorHeader() {
           )}
         </div>
 
+        {/* 5. AI自動タグボタン */}
         <button
           type="button"
-          onClick={handleAutoTag}
-          disabled={!content || isTagAiLoading || cooldown > 0}
+          onClick={() => handleAutoTag()}
+          disabled={!content || isTagAiLoading || cooldown > 0 || isSaving}
           className={cn(
             "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all ml-1",
-            isTagAiLoading || cooldown > 0
+            isTagAiLoading || cooldown > 0 || isSaving
               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
               : "bg-purple-50 text-purple-600 border border-purple-200 hover:bg-purple-100 hover:border-purple-300",
           )}
@@ -4651,9 +4842,19 @@ import { atom } from "jotai";
 import type { Memo, Tag } from "@/types/models";
 import { createClient } from "@/utils/supabase/client";
 import {
-  allTagsAtom, editorContentAtom, editorTagsAtom, editorTitleAtom,
-  editorEmbeddingCacheAtom, tagSearchQueryAtom, isTagSearchingAtom,
-  editorSettingsAtom, editorIsPublicAtom, currentViewAtom
+  aiCooldownAtom,
+  allTagsAtom,
+  currentViewAtom,
+  editorContentAtom,
+  editorEmbeddingCacheAtom,
+  editorIsPublicAtom,
+  editorSettingsAtom,
+  editorTagsAtom,
+  editorTitleAtom,
+  isTagAiLoadingAtom,
+  isTagSearchingAtom,
+  isTitleAiLoadingAtom,
+  tagSearchQueryAtom,
 } from "./editorAtom";
 
 export interface SearchedMemo extends Memo {
@@ -4684,7 +4885,10 @@ export const searchTagsSemanticAtom = atom(null, async (get, set) => {
   const query = get(tagSearchQueryAtom);
   if (!query.trim()) {
     set(isTagSearchingAtom, false);
-    const { data } = await supabase.from("tags").select("id, name").order("name");
+    const { data } = await supabase
+      .from("tags")
+      .select("id, name")
+      .order("name");
     if (data) set(allTagsAtom, data);
     return;
   }
@@ -4702,13 +4906,23 @@ export const searchTagsSemanticAtom = atom(null, async (get, set) => {
       match_count: 50,
     });
     if (data) set(allTagsAtom, data as Tag[]);
-  } catch (err) { console.error(err); } finally { set(isTagSearchingAtom, false); }
+  } catch (err) {
+    console.error(err);
+  } finally {
+    set(isTagSearchingAtom, false);
+  }
 });
 
 export const fetchMemosAtom = atom(null, async (get, set) => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return;
-  const { data } = await supabase.from("memos").select("*").eq("user_id", user.id).order("updated_at", { ascending: false });
+  const { data } = await supabase
+    .from("memos")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("updated_at", { ascending: false });
   if (data) set(memoListAtom, data as Memo[]);
 });
 
@@ -4721,7 +4935,8 @@ export const saveMemoAtom = atom(null, async (get, set) => {
   const cache = get(editorEmbeddingCacheAtom);
   if (!id) return;
   try {
-    let currentEmbedding = (cache && cache.text === content) ? cache.embedding : null;
+    let currentEmbedding =
+      cache && cache.text === content ? cache.embedding : null;
     if (!currentEmbedding) {
       const res = await fetch("/api/embeddings", {
         method: "POST",
@@ -4732,17 +4947,47 @@ export const saveMemoAtom = atom(null, async (get, set) => {
       currentEmbedding = data.embedding;
     }
     const tagNames = tags.map((t: Tag) => t.name);
-    await supabase.from("memos").update({
-      title, content, tags: tagNames, is_public: isPublic, updated_at: new Date().toISOString(), embedding: currentEmbedding,
-    }).eq("id", id);
-    set(memoListAtom, (prev) => prev.map((m) => m.id === id ? { ...m, title, content, tags: tagNames, is_public: isPublic } : m));
-  } catch (err) { console.error(err); }
+    await supabase
+      .from("memos")
+      .update({
+        title,
+        content,
+        tags: tagNames,
+        is_public: isPublic,
+        updated_at: new Date().toISOString(),
+        embedding: currentEmbedding,
+      })
+      .eq("id", id);
+    set(memoListAtom, (prev) =>
+      prev.map((m) =>
+        m.id === id
+          ? { ...m, title, content, tags: tagNames, is_public: isPublic }
+          : m,
+      ),
+    );
+  } catch (err) {
+    console.error(err);
+  }
 });
 
 export const createMemoAtom = atom(null, async (get, set) => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const settings = get(editorSettingsAtom);
-  const { data } = await supabase.from("memos").insert([{ user_id: user?.id, title: "", content: "", tags: [], is_public: settings.defaultIsPublic }]).select().single();
+  const { data } = await supabase
+    .from("memos")
+    .insert([
+      {
+        user_id: user?.id,
+        title: "",
+        content: "",
+        tags: [],
+        is_public: settings.defaultIsPublic,
+      },
+    ])
+    .select()
+    .single();
   if (data) {
     set(memoListAtom, [data as Memo, ...get(memoListAtom)]);
     set(selectedMemoIdAtom, data.id);
@@ -4751,8 +4996,11 @@ export const createMemoAtom = atom(null, async (get, set) => {
 
 export const deleteMemoAtom = atom(null, async (get, set, memoId: string) => {
   await supabase.from("memos").delete().eq("id", memoId);
-  set(memoListAtom, get(memoListAtom).filter((m) => m.id !== memoId));
-  
+  set(
+    memoListAtom,
+    get(memoListAtom).filter((m) => m.id !== memoId),
+  );
+
   if (get(selectedMemoIdAtom) === memoId) {
     set(selectedMemoIdAtom, null);
     set(editorTitleAtom, "");
@@ -4762,16 +5010,26 @@ export const deleteMemoAtom = atom(null, async (get, set, memoId: string) => {
   }
 });
 
-export type TimelineMemo = Pick<Memo, "id" | "title" | "content" | "updated_at" | "user_id" | "tags">;
+export type TimelineMemo = Pick<
+  Memo,
+  "id" | "title" | "content" | "updated_at" | "user_id" | "tags"
+>;
 export const timelineMemosAtom = atom<TimelineMemo[]>([]);
 
 export const fetchTimelineMemosAtom = atom(null, async (get, set) => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const response = await fetch("/api/memos/timeline");
   if (response.ok) {
     const data = await response.json();
     if (data.timeline_memos) {
-      set(timelineMemosAtom, data.timeline_memos.filter((m: any) => String(m.user_id) !== String(user?.id)));
+      set(
+        timelineMemosAtom,
+        data.timeline_memos.filter(
+          (m: any) => String(m.user_id) !== String(user?.id),
+        ),
+      );
     }
   }
 });
@@ -4792,7 +5050,11 @@ export const fetchRelatedMemosAtom = atom(null, async (get, set) => {
       const data = await res.json();
       set(searchedMemosAtom, data.related_memos || []);
     }
-  } catch (error) { console.error(error); } finally { set(isSearchingAtom, false); }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    set(isSearchingAtom, false);
+  }
 });
 
 // ==========================================
@@ -4807,45 +5069,117 @@ export const fetchBookmarkedMemosAtom = atom(null, async (get, set) => {
     if (res.ok) {
       const data = await res.json();
       set(bookmarkedMemosAtom, data.bookmarks || []);
-      set(bookmarkedMemoIdsAtom, (data.bookmarks || []).map((m: any) => m.id));
+      set(
+        bookmarkedMemoIdsAtom,
+        (data.bookmarks || []).map((m: any) => m.id),
+      );
     }
-  } catch (error) { 
-    console.error("Bookmark fetch error:", error); 
+  } catch (error) {
+    console.error("Bookmark fetch error:", error);
   }
 });
 
-export const toggleBookmarkAtom = atom(null, async (get, set, memoId: string) => {
-  const currentIds = get(bookmarkedMemoIdsAtom);
-  const isBookmarked = currentIds.includes(memoId);
-  
-  // クリックした瞬間にUIの見た目を切り替える
-  set(bookmarkedMemoIdsAtom, isBookmarked 
-    ? currentIds.filter(id => id !== memoId) 
-    : [memoId, ...currentIds]
-  );
+export const toggleBookmarkAtom = atom(
+  null,
+  async (get, set, memoId: string) => {
+    const currentIds = get(bookmarkedMemoIdsAtom);
+    const isBookmarked = currentIds.includes(memoId);
 
-  // ★ 追加: ブックマーク画面を開いている時に解除した場合、右側の表示を空にする
-  const currentView = get(currentViewAtom);
-  if (isBookmarked && currentView === "bookmarks") {
-    const selected = get(selectedSearchedMemoAtom);
-    if (selected?.id === memoId) {
-      set(selectedSearchedMemoAtom, null);
+    // クリックした瞬間にUIの見た目を切り替える
+    set(
+      bookmarkedMemoIdsAtom,
+      isBookmarked
+        ? currentIds.filter((id) => id !== memoId)
+        : [memoId, ...currentIds],
+    );
+
+    // ★ 追加: ブックマーク画面を開いている時に解除した場合、右側の表示を空にする
+    const currentView = get(currentViewAtom);
+    if (isBookmarked && currentView === "bookmarks") {
+      const selected = get(selectedSearchedMemoAtom);
+      if (selected?.id === memoId) {
+        set(selectedSearchedMemoAtom, null);
+      }
     }
-  }
 
+    try {
+      const res = await fetch("/api/memos/bookmarks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memo_id: memoId }),
+      });
+
+      if (!res.ok) throw new Error("Failed to toggle bookmark");
+
+      await set(fetchBookmarkedMemosAtom);
+    } catch (error) {
+      console.error(error);
+      set(bookmarkedMemoIdsAtom, currentIds);
+    }
+  },
+);
+
+// --- src/store/memoAtom.ts の末尾に追加 ---
+export const autoTitleAtom = atom(null, async (get, set) => {
+  const content = get(editorContentAtom);
+  if (!content || get(isTitleAiLoadingAtom) || get(aiCooldownAtom) > 0) return;
+
+  set(isTitleAiLoadingAtom, true);
   try {
-    const res = await fetch("/api/memos/bookmarks", {
+    const res = await fetch("/api/memos/title/auto", {
       method: "POST",
+      body: JSON.stringify({ content }),
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ memo_id: memoId }),
     });
-    
-    if (!res.ok) throw new Error("Failed to toggle bookmark");
-    
-    await set(fetchBookmarkedMemosAtom);
-  } catch (error) {
-    console.error(error);
-    set(bookmarkedMemoIdsAtom, currentIds);
+    if (res.status === 429) {
+      const data = await res.json();
+      set(aiCooldownAtom, data.retryAfter || 60);
+      return;
+    }
+    const data = await res.json();
+    if (data.title) {
+      set(editorTitleAtom, data.title);
+      setTimeout(() => set(saveMemoAtom), 100); // 自動保存
+    }
+  } catch (err) {
+    console.error("AI Auto-title failed:", err);
+  } finally {
+    set(isTitleAiLoadingAtom, false);
+  }
+});
+
+export const autoTagAtom = atom(null, async (get, set) => {
+  const content = get(editorContentAtom);
+  if (!content || get(isTagAiLoadingAtom) || get(aiCooldownAtom) > 0) return;
+
+  set(isTagAiLoadingAtom, true);
+  try {
+    const res = await fetch("/api/memos/tags/auto", {
+      method: "POST",
+      body: JSON.stringify({ content }),
+      headers: { "Content-Type": "application/json" },
+    });
+    if (res.status === 429) {
+      const data = await res.json();
+      set(aiCooldownAtom, data.retryAfter || 60);
+      return;
+    }
+    const data = await res.json();
+    if (data.suggestedTags) {
+      set(editorTagsAtom, data.suggestedTags);
+      await set(fetchAllTagsAtom);
+      if (data.embedding) {
+        set(editorEmbeddingCacheAtom, {
+          text: content,
+          embedding: data.embedding,
+        });
+      }
+      setTimeout(() => set(saveMemoAtom), 100); // 自動保存
+    }
+  } catch (err) {
+    console.error("AI Auto-tag failed:", err);
+  } finally {
+    set(isTagAiLoadingAtom, false);
   }
 });
 </file>
@@ -4855,19 +5189,41 @@ export const toggleBookmarkAtom = atom(null, async (get, set, memoId: string) =>
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
-  ArrowLeft, Compass, FileText, Globe, Loader2, Plus, Search, Settings, Trash2, Bookmark
+  ArrowLeft,
+  Bookmark,
+  Compass,
+  FileText,
+  Globe,
+  Loader2,
+  Plus,
+  Search,
+  Settings,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { SidebarAuth } from "@/components/auth/SidebarAuth";
 import { cn } from "@/lib/utils";
 import {
-  currentViewAtom, editorSettingsAtom, fetchUserSettingsAtom, updateUserSettingsAtom,
+  currentViewAtom,
+  editorSettingsAtom,
+  fetchUserSettingsAtom,
+  updateUserSettingsAtom,
 } from "@/store/editorAtom";
 import {
-  createMemoAtom, deleteMemoAtom, fetchMemosAtom, fetchTimelineMemosAtom,
-  memoListAtom, searchedMemosAtom, selectedMemoIdAtom, selectedSearchedMemoAtom,
-  timelineMemosAtom, isSearchingAtom, fetchRelatedMemosAtom, currentMemoAtom,
-  bookmarkedMemosAtom, fetchBookmarkedMemosAtom
+  bookmarkedMemosAtom,
+  createMemoAtom,
+  currentMemoAtom,
+  deleteMemoAtom,
+  fetchBookmarkedMemosAtom,
+  fetchMemosAtom,
+  fetchRelatedMemosAtom,
+  fetchTimelineMemosAtom,
+  isSearchingAtom,
+  memoListAtom,
+  searchedMemosAtom,
+  selectedMemoIdAtom,
+  selectedSearchedMemoAtom,
+  timelineMemosAtom,
 } from "@/store/memoAtom";
 
 export function AppSidebar() {
@@ -4881,13 +5237,15 @@ export function AppSidebar() {
   const deleteMemo = useSetAtom(deleteMemoAtom);
   const [currentView, setCurrentView] = useAtom(currentViewAtom);
   const [searchedMemos] = useAtom(searchedMemosAtom);
-  const [selectedSearchedMemo, setSelectedSearchedMemo] = useAtom(selectedSearchedMemoAtom);
+  const [selectedSearchedMemo, setSelectedSearchedMemo] = useAtom(
+    selectedSearchedMemoAtom,
+  );
   const isSearching = useAtomValue(isSearchingAtom);
   const fetchRelated = useSetAtom(fetchRelatedMemosAtom);
   const timelineMemos = useAtomValue(timelineMemosAtom);
   const fetchTimeline = useSetAtom(fetchTimelineMemosAtom);
   const currentMemo = useAtomValue(currentMemoAtom);
-  
+
   const bookmarkedMemos = useAtomValue(bookmarkedMemosAtom);
   const fetchBookmarks = useSetAtom(fetchBookmarkedMemosAtom);
 
@@ -4903,87 +5261,271 @@ export function AppSidebar() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) setIsSettingsOpen(false);
+      if (
+        settingsRef.current &&
+        !settingsRef.current.contains(event.target as Node)
+      )
+        setIsSettingsOpen(false);
     };
-    if (isSettingsOpen) document.addEventListener("mousedown", handleClickOutside);
+    if (isSettingsOpen)
+      document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isSettingsOpen]);
 
-  const toggleDefaultPublic = () => updateSettings({ defaultIsPublic: !settings.defaultIsPublic });
-  const handleCreateMemo = async () => { setCurrentView("editor"); await createMemo(); };
+  useEffect(() => {
+    if (settings.type === "vim" && currentView !== "editor") {
+      // DOMの描画を少し待ってからフォーカスを当てる
+      setTimeout(() => {
+        document.getElementById("back-to-memos-btn")?.focus();
+      }, 50);
+    }
+  }, [currentView, settings.type]);
+
+  const toggleDefaultPublic = () =>
+    updateSettings({ defaultIsPublic: !settings.defaultIsPublic });
+
+  const toggleVimMode = () => {
+    updateSettings({ type: settings.type === "standard" ? "vim" : "standard" });
+  };
+
+  const handleCreateMemo = async () => {
+    setCurrentView("editor");
+    await createMemo();
+  };
+
   const filteredMemos = memos.filter((memo) => {
     const title = memo.title || "無題のメモ";
     return title.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
+  // ==========================================
+  // Vimモード時のサイドバーキーボード操作
+  // ==========================================
+  const handleSidebarKeyDown = (e: React.KeyboardEvent) => {
+    if (settings.type !== "vim") return;
+
+    // 検索窓(input)に入力中の時は j/k ナビゲーションを無効化
+    if (document.activeElement?.tagName === "INPUT") {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        (e.currentTarget as HTMLElement).focus(); // 検索窓から抜けてサイドバー自体にフォーカスを戻す
+      }
+      return;
+    }
+
+    const focusableElements = Array.from(
+      e.currentTarget.querySelectorAll('button:not([tabindex="-1"])'),
+    ) as HTMLElement[];
+
+    const currentIndex = focusableElements.indexOf(
+      document.activeElement as HTMLElement,
+    );
+
+    if (e.key === "j") {
+      e.preventDefault();
+      // 下へ移動
+      const nextIndex =
+        currentIndex < focusableElements.length - 1 ? currentIndex + 1 : 0;
+      focusableElements[nextIndex]?.focus();
+    } else if (e.key === "k") {
+      e.preventDefault();
+      const prevIndex = currentIndex > 0 ? currentIndex - 1 : 0;
+      focusableElements[prevIndex]?.focus();
+    } else if (e.key === "/") {
+      e.preventDefault(); // / が文字として入力されるのを防ぐ
+      document.getElementById("sidebar-search-input")?.focus();
+    } else if (e.key === "l" || e.key === "L" || e.key === "Escape") {
+      e.preventDefault();
+      // l（右）または Escape でエディタにフォーカスを戻す
+      (document.querySelector("textarea") as HTMLElement)?.focus();
+    }
+  };
+
   return (
-    <aside className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none shrink-0">
-      <div className="p-4 space-y-4">
+    <aside
+      id="app-sidebar"
+      tabIndex={-1}
+      onKeyDown={handleSidebarKeyDown}
+      // ★修正2: Shift+H でサイドバーがフォーカスされた瞬間、現在のメモのボタンにフォーカスをリダイレクトする！
+      onFocus={(e) => {
+        if (e.target === e.currentTarget && selectedId) {
+          const activeBtn = document.getElementById(`memo-btn-${selectedId}`);
+          if (activeBtn) {
+            activeBtn.focus();
+          }
+        }
+      }}
+      className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none shrink-0 focus:ring-2 focus:ring-inset focus:ring-blue-300 transition-shadow"
+    >
+      <div className="p-4 space-y-4 ">
         <SidebarAuth />
         {currentView !== "editor" && (
-          <button type="button" onClick={() => setCurrentView("editor")} className="flex items-center gap-2 hover:bg-gray-200 text-gray-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full border border-gray-300 bg-white shadow-sm">
-            <ArrowLeft className="w-5 h-5" /><span>自分のメモに戻る</span>
+          <button
+            id="back-to-memos-btn" // ★追加: フォーカス用の目印
+            type="button"
+            onClick={() => setCurrentView("editor")}
+            className="flex items-center gap-2 hover:bg-gray-200 text-gray-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full border border-gray-300 bg-white shadow-sm outline-none focus:ring-2 focus:ring-blue-400" // ★追加: outline-none と focus:ring を追加
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>自分のメモに戻る</span>
           </button>
         )}
         {currentView === "editor" && (
           <div className="space-y-1">
             <div className="relative group mb-2">
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="自分のメモを検索..." className="w-full bg-transparent border border-transparent hover:bg-white focus:bg-white focus:border-blue-200 rounded-full py-2 pl-10 pr-4 text-sm outline-none transition-all" />
+              {/* input は j/k の対象から外れているため、マウスでクリックした時だけ使えます */}
+              <input
+                id="sidebar-search-input"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="自分のメモを検索..."
+                className="w-full bg-transparent border border-transparent hover:bg-white focus:bg-white focus:border-blue-200 rounded-full py-2 pl-10 pr-4 text-sm outline-none transition-all"
+              />
             </div>
-            <button type="button" onClick={handleCreateMemo} className="flex items-center gap-2 hover:bg-gray-200 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full">
-              <Plus className="w-5 h-5 text-blue-500" /><span>メモを新規作成</span>
+            <button
+              type="button"
+              onClick={handleCreateMemo}
+              className="flex items-center gap-2 hover:bg-gray-200 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
+            >
+              <Plus className="w-5 h-5 text-blue-500" />
+              <span>メモを新規作成</span>
             </button>
-            <button type="button" onClick={() => { setCurrentView("explore"); fetchRelated(); }} className="flex items-center gap-2 hover:bg-blue-50 text-blue-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full">
-              <Compass className="w-5 h-5" /><span>関連する公開メモを探す</span>
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentView("explore");
+                fetchRelated();
+              }}
+              className="flex items-center gap-2 hover:bg-blue-50 text-blue-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
+            >
+              <Compass className="w-5 h-5" />
+              <span>関連する公開メモを探す</span>
             </button>
-            <button type="button" onClick={() => { setCurrentView("timeline"); fetchTimeline(); }} className="flex items-center gap-2 hover:bg-green-50 text-green-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full">
-              <Globe className="w-5 h-5" /><span>公開タイムライン</span>
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentView("timeline");
+                fetchTimeline();
+              }}
+              className="flex items-center gap-2 hover:bg-green-50 text-green-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
+            >
+              <Globe className="w-5 h-5" />
+              <span>公開タイムライン</span>
             </button>
-            <button type="button" onClick={() => { setCurrentView("bookmarks"); fetchBookmarks(); }} className="flex items-center gap-2 hover:bg-yellow-50 text-yellow-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full">
-              <Bookmark className="w-5 h-5" /><span>ブックマーク</span>
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentView("bookmarks");
+                fetchBookmarks();
+              }}
+              className="flex items-center gap-2 hover:bg-yellow-50 text-yellow-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
+            >
+              <Bookmark className="w-5 h-5" />
+              <span>ブックマーク</span>
             </button>
           </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 py-2">
+      <div className="flex-1 overflow-y-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {currentView === "explore" ? (
           <div className="space-y-1">
             <div className="px-4 mb-2">
-              <div className="text-[10px] uppercase text-blue-500 font-bold">Related to</div>
-              <div className="text-xs font-bold text-gray-800 truncate">{currentMemo?.title || "無題のメモ"}</div>
+              <div className="text-[10px] uppercase text-blue-500 font-bold">
+                Related to
+              </div>
+              <div className="text-xs font-bold text-gray-800 truncate">
+                {currentMemo?.title || "無題のメモ"}
+              </div>
             </div>
             <div className="h-px bg-gray-200 mx-4 my-2" />
-            {isSearching ? <div className="text-center py-10 text-xs font-bold text-blue-500">思考を解析中...</div> : searchedMemos.length === 0 ? <div className="text-center py-10 text-gray-400 text-xs">見つかりません</div> : (
+            {isSearching ? (
+              <div className="text-center py-10 text-xs font-bold text-blue-500">
+                思考を解析中...
+              </div>
+            ) : searchedMemos.length === 0 ? (
+              <div className="text-center py-10 text-gray-400 text-xs">
+                見つかりません
+              </div>
+            ) : (
               searchedMemos.map((memo) => (
-                <button type="button" key={memo.id} onClick={() => setSelectedSearchedMemo(memo)} className={cn("w-full rounded-2xl flex flex-col p-3 transition-colors border text-left", selectedSearchedMemo?.id === memo.id ? "bg-blue-50 border-blue-200" : "bg-white border-transparent hover:border-gray-200")}>
-                  <div className="text-[10px] text-blue-600 mb-1 font-bold">MATCH {Math.round(memo.similarity * 100)}%</div>
-                  <div className="truncate text-sm font-medium text-gray-800">{memo.title || "無題のメモ"}</div>
+                <button
+                  type="button"
+                  key={memo.id}
+                  onClick={() => setSelectedSearchedMemo(memo)}
+                  className={cn(
+                    "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left focus:ring-2 focus:ring-blue-300 outline-none",
+                    selectedSearchedMemo?.id === memo.id
+                      ? "bg-blue-50 border-blue-200"
+                      : "bg-white border-transparent hover:border-gray-200",
+                  )}
+                >
+                  <div className="text-[10px] text-blue-600 mb-1 font-bold">
+                    MATCH {Math.round(memo.similarity * 100)}%
+                  </div>
+                  <div className="truncate text-sm font-medium text-gray-800">
+                    {memo.title || "無題のメモ"}
+                  </div>
                 </button>
               ))
             )}
           </div>
         ) : currentView === "timeline" ? (
           <div className="space-y-1">
-            <div className="text-xs font-medium px-4 mb-2 text-green-600 font-bold">タイムライン</div>
+            <div className="text-xs font-medium px-4 mb-2 text-green-600 font-bold">
+              タイムライン
+            </div>
             {timelineMemos.map((memo) => (
-              <button type="button" key={memo.id} onClick={() => setSelectedSearchedMemo(memo as any)} className={cn("w-full rounded-2xl flex flex-col p-3 transition-colors border text-left", selectedSearchedMemo?.id === memo.id ? "bg-green-50 border-green-200" : "bg-white border-transparent hover:border-gray-200")}>
-                <div className="text-[10px] text-green-600 mb-1 font-bold">{new Date(memo.updated_at).toLocaleDateString()}</div>
-                <div className="truncate text-sm font-medium text-gray-800">{memo.title || "無題のメモ"}</div>
+              <button
+                type="button"
+                key={memo.id}
+                onClick={() => setSelectedSearchedMemo(memo as any)}
+                className={cn(
+                  "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left focus:ring-2 focus:ring-green-300 outline-none",
+                  selectedSearchedMemo?.id === memo.id
+                    ? "bg-green-50 border-green-200"
+                    : "bg-white border-transparent hover:border-gray-200",
+                )}
+              >
+                <div className="text-[10px] text-green-600 mb-1 font-bold">
+                  {new Date(memo.updated_at).toLocaleDateString()}
+                </div>
+                <div className="truncate text-sm font-medium text-gray-800">
+                  {memo.title || "無題のメモ"}
+                </div>
               </button>
             ))}
           </div>
         ) : currentView === "bookmarks" ? (
           <div className="space-y-1">
-            <div className="text-xs font-medium px-4 mb-2 text-yellow-600 font-bold">ブックマーク</div>
+            <div className="text-xs font-medium px-4 mb-2 text-yellow-600 font-bold">
+              ブックマーク
+            </div>
             {bookmarkedMemos.length === 0 ? (
-              <div className="text-center py-6 text-gray-400 text-xs">まだ保存されていません</div>
+              <div className="text-center py-6 text-gray-400 text-xs">
+                まだ保存されていません
+              </div>
             ) : (
               bookmarkedMemos.map((memo) => (
-                <button type="button" key={memo.id} onClick={() => setSelectedSearchedMemo(memo as any)} className={cn("w-full rounded-2xl flex flex-col p-3 transition-colors border text-left", selectedSearchedMemo?.id === memo.id ? "bg-yellow-50 border-yellow-200" : "bg-white border-transparent hover:border-gray-200")}>
-                  <div className="text-[10px] text-yellow-600 mb-1 font-bold">{new Date(memo.updated_at).toLocaleDateString()}</div>
-                  <div className="truncate text-sm font-medium text-gray-800">{memo.title || "無題のメモ"}</div>
+                <button
+                  type="button"
+                  key={memo.id}
+                  onClick={() => setSelectedSearchedMemo(memo as any)}
+                  className={cn(
+                    "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left focus:ring-2 focus:ring-yellow-300 outline-none",
+                    selectedSearchedMemo?.id === memo.id
+                      ? "bg-yellow-50 border-yellow-200"
+                      : "bg-white border-transparent hover:border-gray-200",
+                  )}
+                >
+                  <div className="text-[10px] text-yellow-600 mb-1 font-bold">
+                    {new Date(memo.updated_at).toLocaleDateString()}
+                  </div>
+                  <div className="truncate text-sm font-medium text-gray-800">
+                    {memo.title || "無題のメモ"}
+                  </div>
                 </button>
               ))
             )}
@@ -4992,32 +5534,107 @@ export function AppSidebar() {
           <div className="space-y-1">
             <div className="text-xs font-medium px-4 mb-2">自分のメモ</div>
             {filteredMemos.map((memo) => (
-              <div key={memo.id} className={cn("w-full rounded-full flex items-center transition-colors group px-2", selectedId === memo.id && currentView === "editor" ? "bg-blue-100 text-[#0e42a0]" : "hover:bg-[#d3e3fd]")}>
-                <button type="button" onClick={() => { setSelectedId(memo.id); setCurrentView("editor"); }} className="flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left outline-none">
+              <div
+                key={memo.id}
+                className={cn(
+                  "w-full rounded-full flex items-center transition-colors group px-2",
+                  selectedId === memo.id && currentView === "editor"
+                    ? "bg-blue-100 text-[#0e42a0]"
+                    : "hover:bg-[#d3e3fd]",
+                )}
+              >
+                <button
+                  id={`memo-btn-${memo.id}`} // ★修正3: Shift+Hでここを狙い撃ちするためのID！
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(memo.id);
+                    setCurrentView("editor");
+                  }}
+                  className="flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left outline-none focus:ring-2 focus:ring-blue-300 rounded-full"
+                >
                   <FileText className="w-4 h-4 opacity-50 shrink-0" />
-                  <span className="truncate text-sm font-medium">{memo.title || "無題のメモ"}</span>
+                  <span className="truncate text-sm font-medium">
+                    {memo.title || "無題のメモ"}
+                  </span>
                 </button>
-                <button type="button" onClick={(e) => { e.stopPropagation(); deleteMemo(memo.id); }} className="hidden group-hover:flex text-red-400 pr-3 pl-2 py-2 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                <button
+                  type="button"
+                  tabIndex={-1} // ★これを追加！キーボード操作の対象から外す
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteMemo(memo.id);
+                  }}
+                  className="hidden group-hover:flex text-red-400 pr-3 pl-2 py-2 hover:text-red-600 outline-none focus:ring-2 focus:ring-red-300 rounded-full"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <div className="p-4 mt-auto border-t border-gray-200 relative" ref={settingsRef}>
+      <div
+        className="p-4 mt-auto border-t border-gray-200 relative"
+        ref={settingsRef}
+      >
         {isSettingsOpen && (
           <div className="absolute bottom-full left-4 mb-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-50">
             <h3 className="text-sm font-semibold text-gray-800 mb-4">設定</h3>
+
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">デフォルトで公開</span>
-              <button type="button" onClick={toggleDefaultPublic} className={cn("relative inline-flex h-5 w-9 items-center rounded-full transition-colors", settings.defaultIsPublic ? "bg-blue-500" : "bg-gray-300")}>
-                <span className={cn("inline-block h-4 w-4 transform rounded-full bg-white transition duration-200", settings.defaultIsPublic ? "translate-x-4" : "translate-x-0")} />
+              <button
+                type="button"
+                onClick={toggleDefaultPublic}
+                className={cn(
+                  "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                  settings.defaultIsPublic ? "bg-blue-500" : "bg-gray-300",
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                    settings.defaultIsPublic
+                      ? "translate-x-4"
+                      : "translate-x-0",
+                  )}
+                />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between mt-4">
+              <span className="text-sm text-gray-600">Vimモード</span>
+              <button
+                type="button"
+                onClick={toggleVimMode}
+                className={cn(
+                  "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                  settings.type === "vim" ? "bg-blue-500" : "bg-gray-300",
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                    settings.type === "vim" ? "translate-x-4" : "translate-x-0",
+                  )}
+                />
               </button>
             </div>
           </div>
         )}
-        <button type="button" onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={cn("flex items-center gap-3 w-full p-2 text-xs rounded-lg transition-colors", isSettingsOpen ? "bg-[#d3e3fd] text-[#0e42a0]" : "text-gray-500 hover:text-gray-900 hover:bg-[#e1e5ea]")}>
-          <Settings className="w-4 h-4" /><span>設定</span>
+        <button
+          type="button"
+          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+          className={cn(
+            "flex items-center gap-3 w-full p-2 text-xs rounded-lg transition-colors outline-none focus:ring-2 focus:ring-blue-300",
+            isSettingsOpen
+              ? "bg-[#d3e3fd] text-[#0e42a0]"
+              : "text-gray-500 hover:text-gray-900 hover:bg-[#e1e5ea]",
+          )}
+        >
+          <Settings className="w-4 h-4" />
+          <span>設定</span>
         </button>
       </div>
     </aside>
