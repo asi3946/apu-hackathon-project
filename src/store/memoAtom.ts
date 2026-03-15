@@ -10,7 +10,7 @@ import {
   tagSearchQueryAtom,
   isTagSearchingAtom,
   editorSettingsAtom,
-  editorIsPublicAtom, // ★ 追加
+  editorIsPublicAtom,
 } from "./editorAtom";
 
 // 検索結果専用の型を定義
@@ -87,7 +87,6 @@ export const searchTagsSemanticAtom = atom(null, async (get, set) => {
   }
 });
 
-// メモ一覧取得：選択したメモの公開状態もAtomに反映させる
 export const fetchMemosAtom = atom(null, async (get, set) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
@@ -107,7 +106,6 @@ export const fetchMemosAtom = atom(null, async (get, set) => {
     const memoData = data as Memo[];
     set(memoListAtom, memoData);
     
-    // 選択中のメモがあれば、その公開状態をセット
     const selectedId = get(selectedMemoIdAtom) || (memoData.length > 0 ? memoData[0].id : null);
     if (selectedId) {
       if (!get(selectedMemoIdAtom)) set(selectedMemoIdAtom, selectedId);
@@ -122,7 +120,7 @@ export const saveMemoAtom = atom(null, async (get, set) => {
   const title = get(editorTitleAtom);
   const content = get(editorContentAtom);
   const tags = get(editorTagsAtom);
-  const isPublic = get(editorIsPublicAtom); // ★ 追加
+  const isPublic = get(editorIsPublicAtom);
   const cache = get(editorEmbeddingCacheAtom);
 
   if (!id) return;
@@ -153,7 +151,7 @@ export const saveMemoAtom = atom(null, async (get, set) => {
         title,
         content,
         tags: tagNames,
-        is_public: isPublic, // ★ 追加
+        is_public: isPublic,
         updated_at,
         embedding: currentEmbedding,
       })
@@ -169,7 +167,7 @@ export const saveMemoAtom = atom(null, async (get, set) => {
               title,
               content,
               tags: tagNames,
-              is_public: isPublic, // ★ 追加
+              is_public: isPublic,
               updated_at,
               embedding: JSON.stringify(currentEmbedding),
             }
@@ -203,7 +201,7 @@ export const createMemoAtom = atom(null, async (get, set) => {
       title: "",
       content: "",
       tags: [],
-      is_public: settings.defaultIsPublic // ★ デフォルト設定を適用
+      is_public: settings.defaultIsPublic
     }])
     .select()
     .single();
@@ -213,7 +211,7 @@ export const createMemoAtom = atom(null, async (get, set) => {
     const currentList = get(memoListAtom);
     set(memoListAtom, [newMemo, ...currentList]);
     set(selectedMemoIdAtom, newMemo.id);
-    set(editorIsPublicAtom, !!newMemo.is_public); // ★ 新規作成時の状態を反映
+    set(editorIsPublicAtom, !!newMemo.is_public);
   }
 });
 
@@ -236,7 +234,6 @@ export type TimelineMemo = Pick<
 
 export const timelineMemosAtom = atom<TimelineMemo[]>([]);
 
-// fetchTimelineMemosAtom の部分のみ差し替え
 export const fetchTimelineMemosAtom = atom(null, async (get, set) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
@@ -247,19 +244,48 @@ export const fetchTimelineMemosAtom = atom(null, async (get, set) => {
       const data = await response.json();
       
       if (data.timeline_memos) {
-        // APIから返ってきたメモのうち、自分以外のものを厳密に抽出
         const othersMemos = data.timeline_memos.filter((m: any) => {
-          // user_id が存在し、かつ自分のものではないことを確認
           const memoUserId = String(m.user_id);
           const currentUserId = String(user.id);
           return memoUserId !== currentUserId;
         });
 
-        console.log("📱 タイムライン表示対象（他人のメモ）:", othersMemos.length);
         set(timelineMemosAtom, othersMemos);
       }
     }
   } catch (error) {
     console.error("Timeline fetch error:", error);
+  }
+});
+
+// ==========================================
+// ★ 関連公開メモ検索の機能
+// ==========================================
+
+export const isSearchingAtom = atom(false);
+
+export const fetchRelatedMemosAtom = atom(null, async (get, set) => {
+  const selectedId = get(selectedMemoIdAtom);
+  if (!selectedId) return;
+
+  set(isSearchingAtom, true);
+  try {
+    // ★ 検索前に自動で最新状態を保存（ベクトル化）する！
+    await set(saveMemoAtom);
+
+    const res = await fetch("/api/memos/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_memo_id: selectedId, limit: 10 }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      set(searchedMemosAtom, data.related_memos || []);
+    }
+  } catch (error) {
+    console.error("Related search error:", error);
+  } finally {
+    set(isSearchingAtom, false);
   }
 });

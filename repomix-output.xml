@@ -1,0 +1,5067 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+public/
+  images/
+    app-logo.png
+  file.svg
+  globe.svg
+  next.svg
+  vercel.svg
+  window.svg
+scripts/
+  seed-tags.mjs
+src/
+  app/
+    api/
+      embeddings/
+        route.ts
+      memos/
+        search/
+          route.ts
+        tags/
+          auto/
+            route.ts
+          sync/
+            route.ts
+        timeline/
+          route.ts
+        title/
+          auto/
+            route.ts
+    login/
+      page.tsx
+    globals.css
+    layout.tsx
+    page.tsx
+  components/
+    auth/
+      AuthSection.tsx
+      SidebarAuth.tsx
+    editor/
+      EditorHeader.tsx
+      EditorRoot.tsx
+      SimpleEditor.tsx
+    explore/
+      ExploreViewer.tsx
+    layout/
+      AppSidebar.tsx
+  hooks/
+    useVimEditor.ts
+    useVimKeyHandler.ts
+  lib/
+    utils.ts
+  store/
+    vim/
+      core.ts
+      edit.ts
+      history.ts
+      movement.ts
+    editorAtom.ts
+    memoAtom.ts
+    models.ts
+  types/
+    ai.ts
+    db.ts
+    editor.ts
+    models.ts
+    search.ts
+    supabase.ts
+  utils/
+    supabase/
+      client.ts
+      server.ts
+supabase/
+  migrations/
+    20260305130752_create_memos_table.sql
+    20260310020255_add_rls_to_memos.sql
+    20260312054957_add_public_and_vector_to_memos.sql
+    20260312093227_create_user_settings.sql
+    20260314074022_add_match_memos_rpc.sql
+    20260314082909_add_match_memos_rpc.sql
+    20260314083803_create_tags_table_and_functions.sql
+    20260314090251_update_match_memos_with_similarity.sql
+  .gitignore
+  config.toml
+  seed.sql
+.gitignore
+biome.json
+middleware.ts
+next.config.ts
+package.json
+postcss.config.mjs
+README.md
+tsconfig.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="public/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="public/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="public/next.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+</file>
+
+<file path="public/vercel.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+</file>
+
+<file path="public/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path="src/app/globals.css">
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+</file>
+
+<file path="src/app/layout.tsx">
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Create Next App",
+  description: "Generated by create next app",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {children}
+      </body>
+    </html>
+  );
+}
+</file>
+
+<file path="src/lib/utils.ts">
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+/**
+ * Tailwindのクラス名をうまく結合する関数
+ * 例: cn("p-4", isActive && "bg-blue-500") -> "p-4 bg-blue-500"
+ */
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+</file>
+
+<file path="src/types/models.ts">
+export * from "./db";
+export * from "./editor";
+</file>
+
+<file path="supabase/migrations/20260305130752_create_memos_table.sql">
+create table public.memos (
+id uuid not null default gen_random_uuid (),
+user_id text not null default 'dummy-user',
+title text not null default '',
+content text not null default '',
+tags text[] not null default '{}'::text[],
+created_at timestamp with time zone not null default now(),
+updated_at timestamp with time zone not null default now(),
+constraint memos_pkey primary key (id)
+);
+</file>
+
+<file path="supabase/.gitignore">
+# Supabase
+.branches
+.temp
+
+# dotenvx
+.env.keys
+.env.local
+.env.*.local
+</file>
+
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# supabase
+supabase/snippets/
+</file>
+
+<file path="biome.json">
+{
+  "$schema": "https://biomejs.dev/schemas/2.2.0/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": ["**", "!node_modules", "!.next", "!dist", "!build"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "suspicious": {
+        "noUnknownAtRules": "off"
+      }
+    },
+    "domains": {
+      "next": "recommended",
+      "react": "recommended"
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
+}
+</file>
+
+<file path="postcss.config.mjs">
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+</file>
+
+<file path="scripts/seed-tags.mjs">
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createClient } from "@supabase/supabase-js";
+import dotenv from "dotenv";
+
+dotenv.config({ path: ".env.local" });
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY // こちらの名前に合わせる
+);
+
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
+
+const TAG_NAMES = [
+  "React",
+  "TypeScript",
+  "Next.js",
+  "TailwindCSS",
+  "Supabase",
+  "PostgreSQL",
+  "Vector Database",
+  "Gemini API",
+  "AI",
+  "LLM",
+  "Jotai",
+  "State Management",
+  "Frontend",
+  "Backend",
+  "Vim",
+  "Git",
+  "GitHub",
+  "Web Development",
+  "UI Design",
+  "UX",
+  "API Development",
+  "Serverless",
+  "Authentication",
+  "Fullstack",
+  "Node.js",
+  "Vercel",
+  "Markdown",
+  "RAG",
+  "Embedding",
+  "SQL",
+];
+
+async function seedTags() {
+  console.log("🚀 タグのベクトル化と登録を開始します...");
+
+  for (const name of TAG_NAMES) {
+    try {
+      // 1. ベクトル化 (あなたの魔法のロジック)
+      const result = await model.embedContent(name);
+      const embedding = result.embedding.values.slice(0, 768);
+
+      // 2. DBへ保存
+      const { error } = await supabase
+        .from("tags")
+        .upsert({ name, embedding }, { onConflict: "name" });
+
+      if (error) throw error;
+      console.log(`✅ 登録完了: ${name}`);
+    } catch (err) {
+      console.error(`❌ 失敗: ${name}`, err.message);
+    }
+  }
+
+  console.log("✨ すべてのタグの登録が完了しました！");
+}
+
+seedTags();
+</file>
+
+<file path="src/app/api/memos/tags/sync/route.ts">
+import { NextResponse } from "next/server";
+import { createClient } from "@/utils/supabase/server";
+
+export async function POST(request: Request) {
+  try {
+    const { memo_id, tag_ids } = await request.json() as { 
+      memo_id: string; 
+      tag_ids: string[] 
+    };
+
+    if (!memo_id) {
+      return NextResponse.json({ error: "memo_id is required" }, { status: 400 });
+    }
+
+    const supabase = await createClient();
+
+    // 1. 古い紐付けを一旦リセット（タグの更新・削除に対応するため）
+    const { error: deleteError } = await supabase
+      .from("memo_tags")
+      .delete()
+      .eq("memo_id", memo_id);
+
+    if (deleteError) throw deleteError;
+
+    // 2. 新しいタグが指定されている場合のみ、紐付けデータを作成して一括保存
+    if (tag_ids && tag_ids.length > 0) {
+      const insertData = tag_ids.map((tag_id) => ({
+        memo_id: memo_id,
+        tag_id: tag_id,
+      }));
+
+      const { error: insertError } = await supabase
+        .from("memo_tags")
+        .insert(insertData);
+
+      if (insertError) throw insertError;
+    }
+
+    return NextResponse.json({ success: true });
+
+  } catch (error: any) {
+    console.error("SYNC TAGS API ERROR:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error", message: error.message },
+      { status: 500 }
+    );
+  }
+}
+</file>
+
+<file path="src/app/login/page.tsx">
+import { AuthSection } from "@/components/auth/AuthSection";
+
+export default function LoginPage() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <AuthSection />
+    </div>
+  );
+}
+</file>
+
+<file path="src/components/auth/SidebarAuth.tsx">
+"use client";
+
+import type { User } from "@supabase/supabase-js";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/utils/supabase/client";
+
+export function SidebarAuth() {
+  const supabase = createClient();
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // 初回マウント時にセッションを確認
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      setLoading(false);
+    });
+
+    // ログイン状態の変化を監視
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
+
+  // 読み込み中は何も表示しない（チラつき防止）
+  if (loading) return <div className="h-10"></div>;
+
+  // --- ログイン済みの表示 ---
+  if (user) {
+    const avatarUrl = user.user_metadata?.avatar_url;
+    const userName =
+      user.user_metadata?.preferred_username ||
+      user.user_metadata?.full_name ||
+      user.email?.split("@")[0] ||
+      "ユーザー";
+
+    return (
+      <div className="flex items-center justify-between p-3 mt-auto">
+        <div className="flex items-center gap-2 overflow-hidden">
+          {avatarUrl && (
+            <Image
+              src={avatarUrl}
+              alt={userName}
+              width={24}
+              height={24}
+              className="rounded-full shrink-0"
+            />
+          )}
+          <span className="text-sm font-medium text-gray-700 truncate">
+            {userName}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="ml-2 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-red-50 hover:text-red-600 border border-transparent hover:border-red-200 transition-all shrink-0"
+        >
+          ログアウト
+        </button>
+      </div>
+    );
+  }
+
+  // --- 未ログインの表示 ---
+  return (
+    <div className="p-3 mt-auto">
+      <Link
+        href="/login"
+        className="block w-full text-center px-3 py-2 text-sm text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+      >
+        ログイン / 登録
+      </Link>
+    </div>
+  );
+}
+</file>
+
+<file path="src/types/search.ts">
+// メモ保存時にバックエンド内部で実行するベクトル化処理用
+export interface GenerateEmbeddingRequest {
+  content: string;
+}
+
+export interface GenerateEmbeddingResponse {
+  embedding: number[];
+}
+
+// 交流機能：指定した過去メモ(ID)に類似する、他ユーザーの公開メモを検索するAPI
+export interface CrossUserSearchRequest {
+  source_memo_id: string; // 検索の基準となる自分のメモID
+  limit?: number; // 取得する件数
+}
+
+export interface CrossUserSearchResponse {
+  related_memos: {
+    id: string;
+    title: string;
+    content: string;
+    similarity: number; // pgvectorで計算した類似度スコア
+    user_id: string; // 作成者のID
+  }[];
+}
+</file>
+
+<file path="src/utils/supabase/client.ts">
+import { createBrowserClient } from "@supabase/ssr";
+
+// ブラウザのCookieを使うための記述
+
+export function createClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabaseの環境変数が設定されていません。");
+  }
+
+  return createBrowserClient(supabaseUrl, supabaseAnonKey);
+}
+</file>
+
+<file path="src/utils/supabase/server.ts">
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+
+export async function createClient() {
+  const cookieStore = await cookies();
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabaseの環境変数が設定されていません。");
+  }
+
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
+    // cookiesに関数を渡している.
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // サーバーコンポーネントからCookieをセットしようとした際のエラーをキャッチします。
+          // ミドルウェアでセッションを更新するため、ここは安全に無視できます。
+        }
+      },
+    },
+  });
+}
+</file>
+
+<file path="supabase/migrations/20260310020255_add_rls_to_memos.sql">
+-- 既存のダミーデータをリセット（型変換エラーを防ぐため）
+TRUNCATE TABLE public.memos;
+
+-- 既存のテキスト型の user_id カラムを削除
+ALTER TABLE public.memos DROP COLUMN user_id;
+
+-- UUID型で auth.users に紐づく user_id カラムを再作成
+ALTER TABLE public.memos ADD COLUMN user_id uuid not null references auth.users(id) default auth.uid();
+
+-- RLSの有効化
+ALTER TABLE public.memos ENABLE ROW LEVEL SECURITY;
+
+-- ポリシーの作成
+CREATE POLICY "Users can view their own memos." ON public.memos FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own memos." ON public.memos FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own memos." ON public.memos FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own memos." ON public.memos FOR DELETE USING (auth.uid() = user_id);
+</file>
+
+<file path="supabase/migrations/20260312093227_create_user_settings.sql">
+-- ユーザー設定テーブルの作成
+CREATE TABLE public.user_settings (
+  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  default_is_public BOOLEAN DEFAULT false NOT NULL,
+  use_vim_mode BOOLEAN DEFAULT false NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+-- RLS（行単位セキュリティ）の有効化
+ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+
+-- ユーザーが自分の設定のみ閲覧できるポリシー
+CREATE POLICY "Users can view their own settings"
+  ON public.user_settings FOR SELECT
+  USING (auth.uid() = id);
+
+-- ユーザーが自分の設定のみ更新できるポリシー
+CREATE POLICY "Users can update their own settings"
+  ON public.user_settings FOR UPDATE
+  USING (auth.uid() = id);
+
+-- 新規ユーザー登録時に自動で設定レコードを作成する関数
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.user_settings (id)
+  VALUES (new.id);
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- トリガーの作成（auth.usersへのinsert後に実行）
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+</file>
+
+<file path="supabase/migrations/20260314074022_add_match_memos_rpc.sql">
+-- 類似度検索用のRPC関数
+create or replace function match_memos (
+  query_embedding vector(768),
+  match_threshold float,
+  match_count int
+)
+returns setof memos
+language sql
+as $$
+  -- <=> はコサイン距離。1 - 距離 = 類似度としてフィルタリング
+  select *
+  from memos
+  where memos.embedding <=> query_embedding < 1 - match_threshold
+  order by memos.embedding <=> query_embedding
+  limit match_count;
+$$;
+</file>
+
+<file path="supabase/migrations/20260314082909_add_match_memos_rpc.sql">
+-- 1. タグマスターテーブル
+create table public.tags (
+  id uuid default gen_random_uuid() primary key,
+  name text not null unique,
+  embedding vector(768), -- タグ名のベクトル
+  created_at timestamp with time zone default now()
+);
+
+-- 2. メモとタグの中間テーブル（多対多）
+create table public.memo_tags (
+  memo_id uuid references public.memos(id) on delete cascade,
+  tag_id uuid references public.tags(id) on delete cascade,
+  primary key (memo_id, tag_id)
+);
+
+-- 3. タグ検索用のRPC関数
+create or replace function match_tags (
+  query_embedding vector(768),
+  match_threshold float,
+  match_count int
+)
+returns setof tags
+language sql
+as $$
+  select *
+  from tags
+  where tags.embedding <=> query_embedding < 1 - match_threshold
+  order by tags.embedding <=> query_embedding
+  limit match_count;
+$$;
+</file>
+
+<file path="supabase/migrations/20260314083803_create_tags_table_and_functions.sql">
+-- 1. タグマスターテーブルの作成
+create table if not exists public.tags (
+  id uuid default gen_random_uuid() primary key,
+  name text not null unique,
+  embedding vector(768), -- 768次元のベクトル
+  created_at timestamp with time zone default now()
+);
+
+-- 2. メモとタグの中間テーブル（多対多）の作成
+-- これにより、1つのメモに複数のタグ、1つのタグを複数のメモに紐付けられます
+create table if not exists public.memo_tags (
+  memo_id uuid references public.memos(id) on delete cascade,
+  tag_id uuid references public.tags(id) on delete cascade,
+  primary key (memo_id, tag_id)
+);
+
+-- 3. タグ検索用のRPC関数
+-- メモの内容に近いタグを検索するために使用します
+create or replace function match_tags (
+  query_embedding vector(768),
+  match_threshold float,
+  match_count int
+)
+returns setof tags
+language sql
+as $$
+  select *
+  from tags
+  where tags.embedding <=> query_embedding < 1 - match_threshold
+  order by tags.embedding <=> query_embedding
+  limit match_count;
+$$;
+</file>
+
+<file path="supabase/migrations/20260314090251_update_match_memos_with_similarity.sql">
+-- 1. 古い関数を一度削除する（戻り値の型が変わるため必須）
+drop function if exists match_memos(vector(768), float, int);
+
+-- 2. 新しい関数を作成する（similarityを含める）
+create function match_memos (
+  query_embedding vector(768),
+  match_threshold float,
+  match_count int
+)
+returns table (
+  id uuid,
+  title text,
+  content text,
+  user_id uuid,
+  similarity float
+)
+language sql stable
+as $$
+  select
+    memos.id,
+    memos.title,
+    memos.content,
+    memos.user_id,
+    1 - (memos.embedding <=> query_embedding) as similarity
+  from memos
+  where memos.embedding <=> query_embedding < 1 - match_threshold
+  order by memos.embedding <=> query_embedding
+  limit match_count;
+$$;
+</file>
+
+<file path="middleware.ts">
+import { createServerClient } from "@supabase/ssr";
+import { type NextRequest, NextResponse } from "next/server";
+
+export async function middleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({
+    request,
+  });
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabaseの環境変数が設定されていません。");
+  }
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => {
+          request.cookies.set(name, value);
+        });
+        supabaseResponse = NextResponse.next({
+          request,
+        });
+        cookiesToSet.forEach(({ name, value, options }) => {
+          supabaseResponse.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
+
+  // 現在のセッションユーザーを取得
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  // 次に行こうとしているリンクを出すのがrequest.nextUrl.pathname.
+  const isAuthPage = request.nextUrl.pathname.startsWith("/login");
+
+  // 未ログインユーザーがログインページ以外（エディタ画面など）にアクセスした場合
+  if (!user && !isAuthPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  // ログイン済みユーザーがログインページにアクセスした場合
+  if (user && isAuthPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
+  return supabaseResponse;
+}
+
+// ミドルウェアを実行するパスの条件を指定
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
+};
+</file>
+
+<file path="next.config.ts">
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "avatars.githubusercontent.com",
+      },
+    ],
+  },
+};
+
+export default nextConfig;
+</file>
+
+<file path="src/app/api/memos/timeline/route.ts">
+import { NextResponse } from "next/server";
+import { createClient } from "@/utils/supabase/server";
+
+export async function GET() {
+  try {
+    const supabase = await createClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // 自分以外の公開メモを確実に取得
+    const { data: timelineMemos, error } = await supabase
+      .from("memos")
+      .select("id, title, content, updated_at, user_id, is_public")
+      .eq("is_public", true)
+      .neq("user_id", user.id) // DBレベルで自分を弾く
+      .order("updated_at", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error("Timeline DB Error:", error.message);
+      throw error;
+    }
+
+    return NextResponse.json({ timeline_memos: timelineMemos || [] });
+  } catch (error: any) {
+    console.error("TIMELINE API ERROR:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}
+</file>
+
+<file path="src/app/api/memos/title/auto/route.ts">
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { NextResponse } from "next/server";
+
+// タグ生成で成功しているキー名を使用
+const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+
+export async function POST(request: Request) {
+  try {
+    const { content } = await request.json();
+    
+    if (!content) {
+      return NextResponse.json({ title: "新しいメモ" });
+    }
+
+    if (!apiKey) {
+      return NextResponse.json({ error: "API key error" }, { status: 500 });
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    // モデルは 1.5-flash で統一
+    const chatModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+
+    // ★トークン節約：タイトル生成には冒頭2000文字あれば十分です
+    const truncatedContent = content.slice(0, 2000);
+
+    const prompt = `
+      以下のメモ内容を読み取り、内容を的確に表すタイトルを1つ作成してください。
+      
+      ルール:
+      - 15文字以内。
+      - タイトルの文字列のみを出力すること（「タイトル：」などは不要）。
+      - メモの内容が一目で把握できるようにしてください。技術、作家、などメモの主題を含めるよう心掛けてください。
+      - できるだけ文章で生成するようにし、単語の羅列は控えてください。
+      
+      メモ内容:
+      ${truncatedContent}
+    `;
+
+    const aiResult = await chatModel.generateContent(prompt);
+    const generatedTitle = aiResult.response.text().trim().replace(/^["'「]+|["'」]+$/g, '');
+
+    return NextResponse.json({ title: generatedTitle });
+
+  } catch (error: any) {
+    console.error("API ERROR:", error.message);
+
+    // 429 Too Many Requests (制限超過) の検知
+    if (error.status === 429 || error.message?.includes("429 Too Many Requests")) {
+      // エラー文から "retry in 57.56...s" の数字部分を抽出
+      const match = error.message.match(/retry in ([\d.]+)s/);
+      // 数字が見つかれば切り上げて秒数にする（見つからなければ安全のためデフォルト60秒）
+      const retryAfter = match ? Math.ceil(parseFloat(match[1])) : 60;
+      
+      return NextResponse.json(
+        { error: "Rate limit exceeded", retryAfter },
+        { status: 429 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Internal Server Error", message: error.message },
+      { status: 500 }
+    );
+  }
+}
+</file>
+
+<file path="src/components/auth/AuthSection.tsx">
+"use client";
+
+import type { Session } from "@supabase/supabase-js";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/utils/supabase/client"; // 新しいクライアントをインポート
+
+export function AuthSection() {
+  const supabase = createClient(); // コンポーネント内でクライアントを初期化
+  const router = useRouter();
+  const [session, setSession] = useState<Session | null>(null);
+
+  // メールアドレス認証用のState
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
+
+  // GitHubログイン処理
+  const handleGithubLogin = async () => {
+    setErrorMsg("");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo: "http://localhost:3000",
+      },
+    });
+    if (error) setErrorMsg(error.message);
+  };
+
+  // メールアドレスで新規登録 or ログイン処理
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+
+    if (isSignUp) {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (error) {
+        setErrorMsg(error.message);
+      } else {
+        router.push("/");
+        router.refresh();
+      }
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) {
+        setErrorMsg("ログインに失敗しました。認証情報を確認してください。");
+      } else {
+        router.push("/");
+        router.refresh();
+      }
+    }
+  };
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) console.error("ログアウトエラー:", error.message);
+  };
+
+  // --- ログイン済み（セッションあり）の表示 ---
+  if (session) {
+    const user = session.user;
+    const avatarUrl = user.user_metadata?.avatar_url;
+    const userName =
+      user.user_metadata?.preferred_username ||
+      user.user_metadata?.full_name ||
+      user.email?.split("@")[0] ||
+      "ユーザー";
+
+    return (
+      <div className="flex items-center gap-3">
+        {avatarUrl && (
+          <Image
+            src={avatarUrl}
+            alt={userName}
+            width={32}
+            height={32}
+            className="rounded-full border border-gray-200"
+          />
+        )}
+        <span className="text-sm font-medium text-gray-700">{userName}</span>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="px-3 py-1.5 text-xs text-red-600 border border-red-200 rounded-md hover:bg-red-50 transition-colors"
+        >
+          ログアウト
+        </button>
+      </div>
+    );
+  }
+
+  // --- 未ログイン（セッションなし）の表示 ---
+  return (
+    <div className="flex flex-col gap-4 p-4 border border-gray-200 rounded-md bg-white w-full max-w-sm">
+      <form onSubmit={handleEmailAuth} className="flex flex-col gap-3">
+        <input
+          type="email"
+          placeholder="メールアドレス"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          className="px-3 py-2 text-sm border border-gray-300 rounded-md outline-none focus:border-blue-500"
+        />
+        <input
+          type="password"
+          placeholder="パスワード (6文字以上)"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={6}
+          className="px-3 py-2 text-sm border border-gray-300 rounded-md outline-none focus:border-blue-500"
+        />
+        <button
+          type="submit"
+          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+        >
+          {isSignUp ? "新規登録" : "ログイン"}
+        </button>
+      </form>
+
+      <div className="text-center">
+        <button
+          type="button"
+          onClick={() => setIsSignUp(!isSignUp)}
+          className="text-xs text-blue-600 hover:underline"
+        >
+          {isSignUp
+            ? "すでにアカウントをお持ちの方はこちら"
+            : "アカウントをお持ちでない方はこちら"}
+        </button>
+      </div>
+
+      {errorMsg && (
+        <p className="text-xs text-red-600 text-center">{errorMsg}</p>
+      )}
+
+      <hr className="border-gray-200" />
+
+      <button
+        onClick={handleGithubLogin}
+        type="button"
+        className="px-4 py-2 bg-[#24292e] text-white text-sm rounded-md hover:bg-[#2f363d] transition-colors"
+      >
+        GitHubでログイン
+      </button>
+    </div>
+  );
+}
+</file>
+
+<file path="src/components/explore/ExploreViewer.tsx">
+"use client";
+
+import { useAtomValue } from "jotai";
+import { FileText } from "lucide-react";
+import { selectedSearchedMemoAtom } from "@/store/memoAtom"; // ← 追加
+
+export function ExploreViewer() {
+  // ダミーを消して、Jotaiのグローバル状態（選択された検索結果）を読み込む
+  const selectedSearchedMemo = useAtomValue(selectedSearchedMemoAtom);
+
+  return (
+    <div className="flex-1 flex flex-col h-full bg-white relative">
+      {selectedSearchedMemo ? (
+        <div className="flex-1 overflow-y-auto p-12 max-w-4xl mx-auto w-full">
+          <div className="mb-8 border-b pb-6">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              {/* 実際のタイトルを表示 */}
+              {selectedSearchedMemo.title || "無題のメモ"}
+            </h1>
+          </div>
+
+          <div className="prose prose-gray max-w-none text-gray-700 whitespace-pre-wrap">
+            {/* 実際の本文を表示 */}
+            {selectedSearchedMemo.content || "本文がありません。"}
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+          <FileText className="w-16 h-16 mb-4 opacity-20" />
+          <p>左のリストから気になるメモを選択してください</p>
+        </div>
+      )}
+    </div>
+  );
+}
+</file>
+
+<file path="src/store/models.ts">
+// src/store/models.ts
+export * from "./editorAtom";
+export * from "./memoAtom";
+export * from "./vim/core";
+export * from "./vim/edit";
+export * from "./vim/history";
+export * from "./vim/movement";
+</file>
+
+<file path="src/types/ai.ts">
+// 自動タイトル生成
+export interface GenerateTitleRequest {
+  content: string;
+}
+
+export interface GenerateTitleResponse {
+  title: string;
+}
+
+// 自動タグ生成
+export interface GenerateTagsRequest {
+  content: string;
+  existing_tags?: string[];
+}
+
+export interface GenerateTagsResponse {
+  tags: string[];
+}
+
+export async function suggestTags(
+  memoContent: string,
+  candidateTags: string[],
+) {
+  // Geminiに「候補の中から選ぶか、新しく作れ」と指示するプロンプト
+  const prompt = `
+    以下のメモ内容に最適なタグを3個以内で出力してください。
+    既存のタグ候補: [${candidateTags.join(", ")}]
+    
+    ルール:
+    1. 既存のタグに適切なものがあればそれを優先してください。
+    2. 既存のタグにない場合のみ、新しいタグを生成してください。
+    3. 出力はタグ名のみをカンマ区切りで返してください。
+    
+    メモ内容:
+    ${memoContent}
+  `;
+  // ... Gemini APIを叩く処理
+}
+</file>
+
+<file path="src/types/db.ts">
+import type { Tables, TablesInsert, TablesUpdate } from "./supabase";
+
+/**
+ * データベースの 'memos' テーブルに対応するメインモデル
+ */
+export type Memo = Tables<"memos">;
+
+/**
+ * 新規作成用（IDや日付が自動生成されるため、それらがオプショナルになった型）
+ */
+export type CreateMemoInput = TablesInsert<"memos">;
+
+/**
+ * 更新用（すべての項目が任意だが、安全のためにIDだけは必須とした型）
+ */
+export type UpdateMemoInput = TablesUpdate<"memos"> & { id: string };
+
+/**
+ * データベースの 'user_settings' テーブルに対応するメインモデル
+ */
+export type UserSettings = Tables<"user_settings">;
+
+/**
+ * ユーザー設定更新用（すべての項目が任意だが、安全のためにIDだけは必須とした型）
+ */
+export type UpdateUserSettingsInput = TablesUpdate<"user_settings"> & {
+  id: string;
+};
+
+// 今後、'users' や 'tags' テーブルをDBに追加したら、ここに同様の抽出コードを追記します。
+
+export interface Tag {
+  id: string;
+  name: string;
+}
+</file>
+
+<file path="supabase/migrations/20260312054957_add_public_and_vector_to_memos.sql">
+-- 1. pgvector拡張機能の有効化
+create extension if not exists vector with schema public;
+
+-- 2. memosテーブルにカラムを追加
+alter table public.memos
+add column is_public boolean not null default false,
+add column embedding vector(768);
+
+-- 3. 公開メモを誰でも閲覧できるようにするRLSポリシーの追加
+create policy "Public memos are viewable by everyone"
+on public.memos for select
+using ( is_public = true );
+</file>
+
+<file path="supabase/config.toml">
+# For detailed configuration reference documentation, visit:
+# https://supabase.com/docs/guides/local-development/cli/config
+# A string used to distinguish different Supabase projects on the same host. Defaults to the
+# working directory name when running `supabase init`.
+project_id = "apu-hakathon-project"
+
+[api]
+enabled = true
+# Port to use for the API URL.
+port = 54321
+# Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
+# endpoints. `public` and `graphql_public` schemas are included by default.
+schemas = ["public", "graphql_public"]
+# Extra schemas to add to the search_path of every request.
+extra_search_path = ["public", "extensions"]
+# The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
+# for accidental or malicious requests.
+max_rows = 1000
+
+[api.tls]
+# Enable HTTPS endpoints locally using a self-signed certificate.
+enabled = false
+# Paths to self-signed certificate pair.
+# cert_path = "../certs/my-cert.pem"
+# key_path = "../certs/my-key.pem"
+
+[db]
+# Port to use for the local database URL.
+port = 54322
+# Port used by db diff command to initialize the shadow database.
+shadow_port = 54320
+# Maximum amount of time to wait for health check when starting the local database.
+health_timeout = "2m"
+# The database major version to use. This has to be the same as your remote database's. Run `SHOW
+# server_version;` on the remote database to check.
+major_version = 17
+
+[db.pooler]
+enabled = false
+# Port to use for the local connection pooler.
+port = 54329
+# Specifies when a server connection can be reused by other clients.
+# Configure one of the supported pooler modes: `transaction`, `session`.
+pool_mode = "transaction"
+# How many server connections to allow per user/database pair.
+default_pool_size = 20
+# Maximum number of client connections allowed.
+max_client_conn = 100
+
+# [db.vault]
+# secret_key = "env(SECRET_VALUE)"
+
+[db.migrations]
+# If disabled, migrations will be skipped during a db push or reset.
+enabled = true
+# Specifies an ordered list of schema files that describe your database.
+# Supports glob patterns relative to supabase directory: "./schemas/*.sql"
+schema_paths = []
+
+[db.seed]
+# If enabled, seeds the database after migrations during a db reset.
+enabled = true
+# Specifies an ordered list of seed files to load during db reset.
+# Supports glob patterns relative to supabase directory: "./seeds/*.sql"
+sql_paths = ["./seed.sql"]
+
+[db.network_restrictions]
+# Enable management of network restrictions.
+enabled = false
+# List of IPv4 CIDR blocks allowed to connect to the database.
+# Defaults to allow all IPv4 connections. Set empty array to block all IPs.
+allowed_cidrs = ["0.0.0.0/0"]
+# List of IPv6 CIDR blocks allowed to connect to the database.
+# Defaults to allow all IPv6 connections. Set empty array to block all IPs.
+allowed_cidrs_v6 = ["::/0"]
+
+# Uncomment to reject non-secure connections to the database.
+# [db.ssl_enforcement]
+# enabled = true
+
+[realtime]
+enabled = true
+# Bind realtime via either IPv4 or IPv6. (default: IPv4)
+# ip_version = "IPv6"
+# The maximum length in bytes of HTTP request headers. (default: 4096)
+# max_header_length = 4096
+
+[studio]
+enabled = true
+# Port to use for Supabase Studio.
+port = 54323
+# External URL of the API server that frontend connects to.
+api_url = "http://127.0.0.1"
+# OpenAI API Key to use for Supabase AI in the Supabase Studio.
+openai_api_key = "env(OPENAI_API_KEY)"
+
+# Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
+# are monitored, and you can view the emails that would have been sent from the web interface.
+[inbucket]
+enabled = true
+# Port to use for the email testing server web interface.
+port = 54324
+# Uncomment to expose additional ports for testing user applications that send emails.
+# smtp_port = 54325
+# pop3_port = 54326
+# admin_email = "admin@email.com"
+# sender_name = "Admin"
+
+[storage]
+enabled = true
+# The maximum file size allowed (e.g. "5MB", "500KB").
+file_size_limit = "50MiB"
+
+# Uncomment to configure local storage buckets
+# [storage.buckets.images]
+# public = false
+# file_size_limit = "50MiB"
+# allowed_mime_types = ["image/png", "image/jpeg"]
+# objects_path = "./images"
+
+# Allow connections via S3 compatible clients
+[storage.s3_protocol]
+enabled = true
+
+# Image transformation API is available to Supabase Pro plan.
+# [storage.image_transformation]
+# enabled = true
+
+# Store analytical data in S3 for running ETL jobs over Iceberg Catalog
+# This feature is only available on the hosted platform.
+[storage.analytics]
+enabled = false
+max_namespaces = 5
+max_tables = 10
+max_catalogs = 2
+
+# Analytics Buckets is available to Supabase Pro plan.
+# [storage.analytics.buckets.my-warehouse]
+
+# Store vector embeddings in S3 for large and durable datasets
+# This feature is only available on the hosted platform.
+[storage.vector]
+enabled = false
+max_buckets = 10
+max_indexes = 5
+
+# Vector Buckets is available to Supabase Pro plan.
+# [storage.vector.buckets.documents-openai]
+
+[auth]
+enabled = true
+# The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
+# in emails.
+site_url = "http://localhost:3000"
+# A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
+additional_redirect_urls = ["http://localhost:3000"]
+# How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
+jwt_expiry = 3600
+# JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).
+# jwt_issuer = ""
+# Path to JWT signing key. DO NOT commit your signing keys file to git.
+# signing_keys_path = "./signing_keys.json"
+# If disabled, the refresh token will never expire.
+enable_refresh_token_rotation = true
+# Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.
+# Requires enable_refresh_token_rotation = true.
+refresh_token_reuse_interval = 10
+# Allow/disallow new user signups to your project.
+enable_signup = true
+# Allow/disallow anonymous sign-ins to your project.
+enable_anonymous_sign_ins = false
+# Allow/disallow testing manual linking of accounts
+enable_manual_linking = false
+# Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
+minimum_password_length = 6
+# Passwords that do not meet the following requirements will be rejected as weak. Supported values
+# are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
+password_requirements = ""
+
+[auth.rate_limit]
+# Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
+email_sent = 2
+# Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
+sms_sent = 30
+# Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
+anonymous_users = 30
+# Number of sessions that can be refreshed in a 5 minute interval per IP address.
+token_refresh = 150
+# Number of sign up and sign-in requests that can be made in a 5 minute interval per IP address (excludes anonymous users).
+sign_in_sign_ups = 30
+# Number of OTP / Magic link verifications that can be made in a 5 minute interval per IP address.
+token_verifications = 30
+# Number of Web3 logins that can be made in a 5 minute interval per IP address.
+web3 = 30
+
+# Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
+# [auth.captcha]
+# enabled = true
+# provider = "hcaptcha"
+# secret = ""
+
+[auth.email]
+# Allow/disallow new user signups via email to your project.
+enable_signup = true
+# If enabled, a user will be required to confirm any email change on both the old, and new email
+# addresses. If disabled, only the new email is required to confirm.
+double_confirm_changes = true
+# If enabled, users need to confirm their email address before signing in.
+enable_confirmations = false
+# If enabled, users will need to reauthenticate or have logged in recently to change their password.
+secure_password_change = false
+# Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
+max_frequency = "1s"
+# Number of characters used in the email OTP.
+otp_length = 6
+# Number of seconds before the email OTP expires (defaults to 1 hour).
+otp_expiry = 3600
+
+# Use a production-ready SMTP server
+# [auth.email.smtp]
+# enabled = true
+# host = "smtp.sendgrid.net"
+# port = 587
+# user = "apikey"
+# pass = "env(SENDGRID_API_KEY)"
+# admin_email = "admin@email.com"
+# sender_name = "Admin"
+
+# Uncomment to customize email template
+# [auth.email.template.invite]
+# subject = "You have been invited"
+# content_path = "./supabase/templates/invite.html"
+
+# Uncomment to customize notification email template
+# [auth.email.notification.password_changed]
+# enabled = true
+# subject = "Your password has been changed"
+# content_path = "./templates/password_changed_notification.html"
+
+[auth.sms]
+# Allow/disallow new user signups via SMS to your project.
+enable_signup = false
+# If enabled, users need to confirm their phone number before signing in.
+enable_confirmations = false
+# Template for sending OTP to users
+template = "Your code is {{ .Code }}"
+# Controls the minimum amount of time that must pass before sending another sms otp.
+max_frequency = "5s"
+
+# Use pre-defined map of phone number to OTP for testing.
+# [auth.sms.test_otp]
+# 4152127777 = "123456"
+
+# Configure logged in session timeouts.
+# [auth.sessions]
+# Force log out after the specified duration.
+# timebox = "24h"
+# Force log out if the user has been inactive longer than the specified duration.
+# inactivity_timeout = "8h"
+
+# This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
+# [auth.hook.before_user_created]
+# enabled = true
+# uri = "pg-functions://postgres/auth/before-user-created-hook"
+
+# This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
+# [auth.hook.custom_access_token]
+# enabled = true
+# uri = "pg-functions://<database>/<schema>/<hook_name>"
+
+# Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
+[auth.sms.twilio]
+enabled = false
+account_sid = ""
+message_service_sid = ""
+# DO NOT commit your Twilio auth token to git. Use environment variable substitution instead:
+auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
+
+# Multi-factor-authentication is available to Supabase Pro plan.
+[auth.mfa]
+# Control how many MFA factors can be enrolled at once per user.
+max_enrolled_factors = 10
+
+# Control MFA via App Authenticator (TOTP)
+[auth.mfa.totp]
+enroll_enabled = false
+verify_enabled = false
+
+# Configure MFA via Phone Messaging
+[auth.mfa.phone]
+enroll_enabled = false
+verify_enabled = false
+otp_length = 6
+template = "Your code is {{ .Code }}"
+max_frequency = "5s"
+
+# Configure MFA via WebAuthn
+# [auth.mfa.web_authn]
+# enroll_enabled = true
+# verify_enabled = true
+
+# Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
+# `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`,
+# `twitter`, `x`, `slack`, `spotify`, `workos`, `zoom`.
+[auth.external.apple]
+enabled = false
+client_id = ""
+# DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
+secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
+# Overrides the default auth redirectUrl.
+redirect_uri = ""
+# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
+# or any other third-party OIDC providers.
+url = ""
+# If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
+skip_nonce_check = false
+# If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
+email_optional = false
+
+# Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
+# You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.
+[auth.web3.solana]
+enabled = false
+
+# Use Firebase Auth as a third-party provider alongside Supabase Auth.
+[auth.third_party.firebase]
+enabled = false
+# project_id = "my-firebase-project"
+
+# Use Auth0 as a third-party provider alongside Supabase Auth.
+[auth.third_party.auth0]
+enabled = false
+# tenant = "my-auth0-tenant"
+# tenant_region = "us"
+
+# Use AWS Cognito (Amplify) as a third-party provider alongside Supabase Auth.
+[auth.third_party.aws_cognito]
+enabled = false
+# user_pool_id = "my-user-pool-id"
+# user_pool_region = "us-east-1"
+
+# Use Clerk as a third-party provider alongside Supabase Auth.
+[auth.third_party.clerk]
+enabled = false
+# Obtain from https://clerk.com/setup/supabase
+# domain = "example.clerk.accounts.dev"
+
+# OAuth server configuration
+[auth.oauth_server]
+# Enable OAuth server functionality
+enabled = false
+# Path for OAuth consent flow UI
+authorization_url_path = "/oauth/consent"
+# Allow dynamic client registration
+allow_dynamic_registration = false
+
+[edge_runtime]
+enabled = true
+# Supported request policies: `oneshot`, `per_worker`.
+# `per_worker` (default) — enables hot reload during local development.
+# `oneshot` — fallback mode if hot reload causes issues (e.g. in large repos or with symlinks).
+policy = "per_worker"
+# Port to attach the Chrome inspector for debugging edge functions.
+inspector_port = 8083
+# The Deno major version to use.
+deno_version = 2
+
+# [edge_runtime.secrets]
+# secret_key = "env(SECRET_VALUE)"
+
+[analytics]
+enabled = true
+port = 54327
+# Configure one of the supported backends: `postgres`, `bigquery`.
+backend = "postgres"
+
+# Experimental features may be deprecated any time
+[experimental]
+# Configures Postgres storage engine to use OrioleDB (S3)
+orioledb_version = ""
+# Configures S3 bucket URL, eg. <bucket_name>.s3-<region>.amazonaws.com
+s3_host = "env(S3_HOST)"
+# Configures S3 bucket region, eg. us-east-1
+s3_region = "env(S3_REGION)"
+# Configures AWS_ACCESS_KEY_ID for S3 bucket
+s3_access_key = "env(S3_ACCESS_KEY)"
+# Configures AWS_SECRET_ACCESS_KEY for S3 bucket
+s3_secret_key = "env(S3_SECRET_KEY)"
+[auth.external.github]
+enabled = true
+client_id = "env(GITHUB_CLIENT_ID)"
+secret = "env(GITHUB_CLIENT_SECRET)"
+redirect_uri = "http://localhost:54321/auth/v1/callback"
+</file>
+
+<file path="README.md">
+# Memovim
+
+ハッカソンテーマ「越境と交流：テクノロジーとアイデアで未来をつなぐ」に向けて開発された、知識を共有し拡張するためのメモアプリケーション。
+
+## プロジェクト概要
+
+個人の頭の中にあるアイデアや記録を、他者と共有し交流するためのプラットフォームです。自分のメモを公開設定にすることで、個人的な記録の境界を越えて他のユーザーの知識と繋がり、新しいアイデアの創出を支援します。また、AIによるベクトル検索を活用することで、過去の知識と現在の課題を交差させ、思考の枠を拡張する体験を提供します。
+
+## 主な機能
+
+* 知識の共有と公開: メモの公開設定により、自分のアイデアを他のユーザーへ発信し、交流のきっかけを作る。
+* AIによる文脈検索（実装中）: pgvectorを用いたベクトル検索により、単なるキーワードの一致という壁を越えて、文脈的に関連するメモを抽出し思考を繋ぐ。
+* 思考を妨げない入力体験: Jotaiを用いた高速な状態管理によるシームレスな記録。エンジニア向けのオプションとしてVimキーバインドの有効化も可能。
+* 安全なデータ管理: Supabase AuthとRow Level Security (RLS) による堅牢なユーザー認証とデータ保護。
+
+## 技術スタック
+
+* Frontend: Next.js (App Router), TypeScript
+* State Management: Jotai
+* Backend/DB: Supabase (PostgreSQL, pgvector, Auth, RLS)
+* Styling: Tailwind CSS
+* Icons: Lucide React
+
+## ディレクトリ構造
+```
+.
+├── public/               # 静的ファイル（ロゴ、アイコン等）
+├── src/                  # アプリケーションソースコード
+│   ├── app/              # App Router（ページ、レイアウト、ルーティング）
+│   ├── components/       # UIコンポーネント（エディタ、サイドバー等）
+│   ├── hooks/            # カスタムフック（Vimキーバインド処理等）
+│   ├── lib/              # 外部ライブラリ設定（AI処理、APIクライアント）
+│   ├── store/            # Jotaiによる状態管理（メモ、Vimの状態など）
+│   ├── types/            # TypeScript型定義
+│   └── utils/            # 汎用ユーティリティ（Supabase初期化等）
+├── supabase/             # データベース・バックエンド設定
+│   ├── migrations/       # SQLマイグレーションファイル
+│   ├── seed.sql          # ローカル開発用テストデータ
+│   └── config.toml       # Supabaseローカル設定
+├── middleware.ts         # 認証・リダイレクト制御
+├── .env.local.example    # 環境変数のサンプル
+└── package.json          # プロジェクトの依存関係とスクリプト
+```
+
+
+## 開発環境のセットアップ
+
+### 1. リポジトリのクローン
+
+git clone https://github.com/asi3946/apu-hackathon-project.git
+cd apu-hackathon-project
+
+### 2. 環境変数の設定
+
+プロジェクトのルートディレクトリに .env.local ファイルを作成し、以下の項目を設定してください。
+
+NEXT_PUBLIC_SUPABASE_URL=あなたのSupabaseプロジェクトURL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=あなたのSupabase Anon Key
+
+### 3. パッケージのインストール
+
+npm install
+
+### 4. データベースの構築（Supabase CLIを使用）
+
+npx supabase start
+npx supabase migration up
+npx supabase db reset
+
+### 5. 開発サーバーの起動
+
+npm run dev
+
+ブラウザで http://localhost:3000 を開いて確認してください。
+
+## ライセンス
+
+MIT License
+</file>
+
+<file path="src/app/api/embeddings/route.ts">
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { NextResponse } from "next/server";
+import type {
+  GenerateEmbeddingRequest,
+  GenerateEmbeddingResponse,
+} from "@/types/search";
+
+// 環境変数からAPIキーを取得
+const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+
+export async function POST(request: Request) {
+  try {
+    if (!apiKey) {
+      console.error("APIキーが設定されていません。");
+      return NextResponse.json(
+        { error: "API key not configured" },
+        { status: 500 },
+      );
+    }
+
+    // リクエストボディを型付きで取得だぜ
+    const body = (await request.json()) as GenerateEmbeddingRequest;
+
+    if (!body.content || body.content.trim() === "") {
+      return NextResponse.json(
+        { error: "Content is required" },
+        { status: 400 },
+      );
+    }
+
+    // Gemini APIの初期化とモデルの指定
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-embedding-001" }); // 最新モデルに変更
+    const result = await model.embedContent(body.content);
+
+    // 💡 魔法の1行：データベースの箱に合わせて先頭の768個だけを切り取る
+    const embedding = result.embedding.values.slice(0, 768);
+
+    // 型定義通りのレスポンスを作成
+    const response: GenerateEmbeddingResponse = { embedding };
+
+    return NextResponse.json(response);
+  } catch (error) {
+    console.error("ベクトル化エラー:", error);
+    return NextResponse.json(
+      { error: "Failed to generate embedding" },
+      { status: 500 },
+    );
+  }
+}
+</file>
+
+<file path="src/app/api/memos/tags/auto/route.ts">
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { NextResponse } from "next/server";
+import type { Database } from "@/types/supabase";
+import { createClient } from "@/utils/supabase/server";
+
+// 型定義が反映されるまでの安全策として any を許容する型指定
+type TagTable = Database["public"]["Tables"] extends { tags: any }
+  ? Database["public"]["Tables"]["tags"]["Row"]
+  : any;
+
+const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+
+export async function POST(request: Request) {
+  try {
+    const { content } = await request.json();
+    if (!content)
+      return NextResponse.json(
+        { error: "Content is required" },
+        { status: 400 },
+      );
+    if (!apiKey)
+      return NextResponse.json({ error: "API key error" }, { status: 500 });
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const embeddingModel = genAI.getGenerativeModel({
+      model: "gemini-embedding-001",
+    });
+    const supabase = await createClient();
+
+    // 1. メモ内容をベクトル化（★ここで計算したデータを後で再利用します）
+    const embResult = await embeddingModel.embedContent(content);
+    const queryEmbedding = embResult.embedding.values.slice(0, 768);
+
+    // 2. 関連タグ検索 (match_tags RPCを呼ぶ)
+    const { data: candidates, error: rpcError } = await supabase.rpc(
+      "match_tags",
+      {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.1,
+        match_count: 20,
+      },
+    );
+
+    if (rpcError) {
+      console.error("RPC Error (match_tags):", rpcError);
+    }
+
+    const candidateNames = (candidates as any[])?.map((t) => t.name) || [];
+
+    // 3. Geminiによる提案（★モデルを 2.5-flash に変更しました）
+    const chatModel = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+    });
+    const prompt = `
+      以下のメモ内容に最適なタグを3個以内で提案してください。
+      既存タグ候補: [${candidateNames.join(", ")}]
+      
+      ルール:
+      - 既存候補に適切なものがあればそれを優先。
+      - なければ新しいタグを生成。
+      - カンマ区切りのタグ名のみ出力してください（余計な説明は不要）。
+      
+      メモ: ${content}
+    `;
+
+    const aiResult = await chatModel.generateContent(prompt);
+    const aiText = aiResult.response.text();
+    const suggestedTagNames = aiText
+      .split(",")
+      .map((s) => s.trim().replace(/[#.]/g, ""))
+      .filter(Boolean);
+
+    // 4. タグの確定（DB照合 ＆ 新規作成）
+    const finalTags: any[] = [];
+
+    for (const tagName of suggestedTagNames) {
+      const { data: existingTag } = await supabase
+        .from("tags")
+        .select("*")
+        .eq("name", tagName)
+        .maybeSingle();
+
+      if (existingTag) {
+        finalTags.push(existingTag);
+      } else {
+        try {
+          const tagEmb = await embeddingModel.embedContent(tagName);
+          const { data: newTag, error: insErr } = await supabase
+            .from("tags")
+            .insert({
+              name: tagName,
+              embedding: tagEmb.embedding.values.slice(0, 768),
+            })
+            .select()
+            .single();
+
+          if (!insErr && newTag) finalTags.push(newTag);
+        } catch (e) {
+          console.error(`Failed to create new tag: ${tagName}`, e);
+        }
+      }
+    }
+
+    // ★ 変更点: suggestedTags に加えて、計算済みの embedding もフロントに返す！
+    return NextResponse.json({ 
+      suggestedTags: finalTags,
+      embedding: queryEmbedding 
+    });
+
+  } catch (error: any) {
+    console.error("API ERROR:", error.message);
+
+    if (error.status === 429 || error.message?.includes("429 Too Many Requests")) {
+      const match = error.message.match(/retry in ([\d.]+)s/);
+      const retryAfter = match ? Math.ceil(parseFloat(match[1])) : 60;
+      
+      return NextResponse.json(
+        { error: "Rate limit exceeded", retryAfter },
+        { status: 429 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Internal Server Error", message: error.message },
+      { status: 500 }
+    );
+  }
+}
+</file>
+
+<file path="src/app/page.tsx">
+"use client";
+
+import { useAtomValue } from "jotai";
+import { EditorRoot } from "@/components/editor/EditorRoot";
+import { ExploreViewer } from "@/components/explore/ExploreViewer";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { currentViewAtom } from "@/store/models";
+
+export default function Home() {
+  const currentView = useAtomValue(currentViewAtom);
+
+  return (
+    <main className="flex h-screen w-screen overflow-hidden bg-white">
+      <AppSidebar />
+      {/* timelineの時もExploreViewerを使い回す */}
+      {currentView === "timeline" && <ExploreViewer />}
+      {currentView === "explore" && <ExploreViewer />}
+      {currentView === "editor" && <EditorRoot />}
+    </main>
+  );
+}
+</file>
+
+<file path="src/types/editor.ts">
+export type VimMode = "normal" | "insert" | "visual" | "visualLine" | "command";
+export type CursorPosition = number;
+</file>
+
+<file path="supabase/seed.sql">
+-- テストユーザーの作成
+INSERT INTO auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, recovery_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token
+) VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  'df49e059-8950-47f2-8689-8a6f0711f1dd',
+  'authenticated',
+  'authenticated',
+  'test@example.com',
+  crypt('memovim123', gen_salt('bf')),
+  current_timestamp,
+  current_timestamp,
+  current_timestamp,
+  '{"provider":"email","providers":["email"]}',
+  '{}',
+  current_timestamp,
+  current_timestamp,
+  '',
+  '',
+  '',
+  ''
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- 認証情報の紐付け
+INSERT INTO auth.identities (
+  id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+) VALUES (
+  gen_random_uuid(),
+  'df49e059-8950-47f2-8689-8a6f0711f1dd',
+  'df49e059-8950-47f2-8689-8a6f0711f1dd',
+  format('{"sub":"%s","email":"%s"}', 'df49e059-8950-47f2-8689-8a6f0711f1dd', 'test@example.com')::jsonb,
+  'email',
+  current_timestamp,
+  current_timestamp,
+  current_timestamp
+);
+
+INSERT INTO public.memos (user_id, title, content, tags)
+VALUES
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'Vimの基本操作と設定方針', E'最近はNeovimをLuaで設定することに凝っている。\ninit.luaにLSPやTreesitterの設定を書くのは楽しいが、やりすぎると起動が遅くなるのが難点だ。\nMasonを使ってサーバーを管理しつつ、キーバインドはできるだけデフォルトの挙動を壊さないように工夫している。\n特にjkでのエスケープは手放せない。', ARRAY['Vim', 'Neovim', 'エディタ']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'レイトレーシングの数学的基礎', E'球体との交差判定には2次方程式の解の公式を利用する。\nベクトル演算が基本となるため、内積や外積の理解は必須だ。\nRay Tracing in One Weekendを読み進めているが、法線ベクトルを使ったライティングの実装で少し手こずった。\n反射光の計算にはランバート反射モデルを採用して、よりリアルな質感を追求したい。', ARRAY['グラフィックス', '数学', 'C++']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'Next.jsとSupabaseの連携', E'フロントエンドはNext.jsのApp Routerを採用し、サーバーサイドの処理を簡略化するためにSupabaseをバックエンドとして選定した。\nRow Level Securityの設定をしっかり行わないとセキュリティホールになるので注意が必要だ。\nJotaiを使った状態管理は直感的で、今回のエディタ開発にも非常にマッチしている。', ARRAY['React', 'Nextjs', 'データベース']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '三島由紀夫「金閣寺」の考察', E'美への執着と破滅がテーマとなっているこの作品は、文体が非常に緻密で美しい。\n主人公の吃音というコンプレックスが、金閣という絶対的な美に対してどのように作用していくのかを分析中。\n阿部公房の「砂の女」と対比させながら、実存主義的な視点で読み解くと非常に興味深い発見がある。', ARRAY['文学', '読書']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'ドイツ語の格変化と前置詞', E'ドイツ語には4つの格があり、前置詞によって支配される格が決まるのが非常に厄介だ。\n特に、場所の移動を表す場合は4格、静止している場合は3格という「2格支配の前置詞」の使い分けが難しい。\n大学の試験に向けて、不規則動詞の過去分詞形と一緒に毎日少しずつ暗記を進めている。', ARRAY['ドイツ語', '語学']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'N体シミュレーションの実装', E'C++を用いて重力相互作用による質点の運動を計算するプログラムを作成した。\nオイラー法では誤差が大きいため、ルンゲ＝クッタ法を導入して精度を向上させている。\n可視化にはOpenGLか、あるいはもっとシンプルにSFMLを使うか検討中。\n数万個の粒子をリアルタイムで動かすには空間分割法の導入が必要だ。', ARRAY['物理', 'プログラミング', 'C++']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'TypeScriptの型安全性について', E'ユニオン型やジェネリクスを駆使することで、実行時のエラーを劇的に減らすことができる。\n特にAPIのレスポンスに対してはZodを使ってスキーマバリデーションを行うのがモダンなやり方だ。\nPrismaの生成する型定義も非常に優秀で、データベース操作時の安心感が他のORMとは全く違う。', ARRAY['TypeScript', 'プログラミング']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '江戸川乱歩「押絵と旅する男」', E'この短編の幻想的な雰囲気は唯一無二だ。\n現実と虚構が混ざり合う境界線の描写が素晴らしく、乱歩特有の耽美的な世界観に引き込まれる。\nレンズを通した覗きから始まる物語の構成は、後のミステリー作品にも多大な影響を与えていると思う。\n視覚的なトリックが文字だけでこれほど表現できるのは驚きだ。', ARRAY['文学', 'ミステリー']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '線形代数における固有値の重要性', E'行列の固有値と固有ベクトルは、データの次元圧縮や物理学における振動解析など、多方面で応用されている。\n固有方程式を解く過程で現れる行列式の計算は、行列の大きさが3x3を超えると手計算では非常に困難になる。\n数値計算アルゴリズムとしてのべき乗法の仕組みについて、自主ゼミで発表する予定。', ARRAY['数学', '大学']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'Tailwind CSSの設計パターン', E'Tailwindは非常に便利だが、クラス名が長くなりがちなのが欠点だ。\nそこで、コンポーネント化を徹底し、共通のスタイルはshadcn/uiのように管理するのが効率的だと思う。\nカスタムカラーの定義をtailwind.config.tsに集約させることで、プロジェクト全体の色調を簡単に変更できる。', ARRAY['CSS', 'フロントエンド']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '朝のルーティンと集中力の維持', E'最近は朝食に冷凍ブルーベリーとヨーグルトを食べるようにしている。\n抗酸化作用のおかげか、午前中の集中力が以前より持続するようになった気がする。\nプログラミングは脳のエネルギー消費が激しいので、適切な栄養補給は欠かせない。\n作業の合間にはポモドーロ・テクニックを取り入れて休憩を挟んでいる。', ARRAY['健康', '生活']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '微積分学における極限の定義', E'イプシロン・デルタ論法による極限の定義は、直感的な理解を超えた厳密さを数学に与えている。\n最初は戸惑ったが、論理の組み立て方を理解すると、微分の定義がいかに巧妙に作られているかが分かる。\nテイラー展開を用いた関数の近似計算についても、プログラミングでの数値計算と結びつけて学習中。', ARRAY['数学', '大学']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'ブロックエディタのデータ構造', E'従来のテキストベースのエディタではなく、ブロック単位でデータを管理するエディタを設計している。\n各ブロックをJSON形式で保持することで、画像やコードブロックの埋め込みが容易になる。\nドラッグ＆ドロップによる並べ替え機能も実装したいが、状態管理が非常に複雑になりそうな予感がしている。', ARRAY['開発', 'React']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '江戸川乱歩のパノラマ島奇談', E'人工的な楽園を作り上げるという狂気的な美学に圧倒される。\n乱歩の作品の中でもスケールが大きく、描写が非常に色彩豊かだ。\n推理小説という枠を超えた、人間の欲望と狂気を描いた文学作品として評価されるべきだと思う。\n鏡やレンズといったガジェットの使い方が相変わらず巧みで面白い。', ARRAY['文学', 'ミステリー']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'ReactのServer Componentsの利点', E'Client Componentsとの使い分けを理解することで、バンドルサイズを劇的に削減できる。\nデータの取得はできるだけサーバーサイドで行い、インタラクティブな部分だけをクライアント側に任せるのがNext.js 13以降の王道だ。\n最初は戸惑ったが、この設計思想に慣れると開発効率が非常に高い。', ARRAY['React', 'Nextjs']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '離散数学とグラフ理論', E'最短経路問題やネットワークフローなど、グラフ理論はアルゴリズムの宝庫だ。\nダイクストラ法やベルマンフォード法の計算量について勉強している。\n競技プログラミングでもよく使われる知識なので、しっかり身につけておきたい。\n木構造の走査アルゴリズムも、ファイルシステムの設計に応用できる。', ARRAY['数学', '情報科学']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'ドイツの文化と歴史への関心', E'友人がドイツに留学しているので、現地の文化についてよく話を聞く。\nバウハウスのようなデザイン運動や、クラシック音楽の歴史には非常に興味がある。\nいつかドイツを訪れて、歴史的な建築物を自分の目で見てみたい。\nそのためにも、もっと流暢に会話ができるように語学学習を継続する必要がある。', ARRAY['ドイツ語', '歴史']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'フルスタック開発の難しさと楽しさ', E'データベースからUIまで一人で作り上げるのは大変だが、全体の構造を完全に把握できるのが最大の魅力だ。\nSupabaseのおかげでインフラ周りの構築コストが下がったため、よりプロダクトのロジックに集中できるようになった。\nフロントとバックをTypeScriptで統一できるのも、現代の開発の特権だ。', ARRAY['プログラミング', '開発']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '計算機システムとアセンブリ言語', E'高レイヤーの言語ばかり使っていると忘れがちだが、結局はCPUが命令を実行している。\nx86アセンブリを少し学ぶことで、メモリのスタックやヒープがどのように管理されているかの理解が深まった。\nレジスタの役割やシステムコールの仕組みを知ることは、パフォーマンス最適化の際にも役立つはずだ。', ARRAY['情報科学', '低レイヤー']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '三島由紀夫「沈める滝」の印象', E'ダム建設という無機質な近代化の象徴と、ドロドロとした人間関係の対比が印象的な作品だ。\n三島の作品に共通する「人工的な美」の追求がここでも見られる。\n自然という不確かなものを、人間の手で支配しようとする意志の強さを感じる。\n文体は冷徹だが、その奥にある情熱が読者に強く訴えかけてくる。', ARRAY['文学', '読書']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'ZustandとJotaiの比較検討', E'どちらも素晴らしいライブラリだが、今回のようなアトミックな状態管理にはJotaiが適していると感じた。\nZustandは1つの大きなストアを作るのに向いているが、Jotaiは個別の状態を細かく定義できるため、エディタのような複雑な依存関係がある場合には非常に扱いやすい。\n開発体験も非常に良い。', ARRAY['React', 'ライブラリ']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '物理エンジンの衝突検知アルゴリズム', E'AABB（軸平行境界ボックス）を使った大まかな判定から、より詳細な衝突地点の計算へと移るフェーズが面白い。\n摩擦や反発係数の計算を物理法則に基づいて実装することで、シミュレーションがぐっとリアルになる。\n剛体の回転運動まで考慮すると計算量が跳ね上がるので、四元数の理解が不可欠になる。', ARRAY['物理', 'プログラミング', 'C++']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '安部公房「他人の顔」について', E'仮面を被ることで自己のアイデンティティがどのように変化するかというテーマは、現代のSNS社会にも通じるものがある。\n安部公房の文体は非常に論理的で、まるで科学論文を読んでいるかのような冷徹さがあるが、それがかえって読者の想像力を刺激する。\n失われた顔を探す旅は、自己を見失った現代人の象徴だ。', ARRAY['文学', '読書']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'Rust言語への挑戦と期待', E'メモリ安全性を言語レベルで保証するRustに非常に興味がある。\n所有権や借用の概念は最初は難しいが、C++で発生しがちなメモリリークやセグフォをコンパイル時に防げるのは画期的だ。\n将来的には、今作っているレイトレーサーをRustで書き直して、どれくらいパフォーマンスが変わるか実験したい。', ARRAY['Rust', 'プログラミング']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'ハッカソンのチーム開発における交流', E'技術スタックを共有するだけでなく、お互いの得意分野を活かして1つのプロダクトを作り上げる過程は刺激的だ。\n今回はリーダーとして参加するが、メンバーの意見をうまく調整しながら、期限内に最高の成果物を出せるように努めたい。\n技術的な課題を議論することで、自分自身の知識も整理されていく。', ARRAY['ハッカソン', 'チーム開発']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'マークダウンパーサーの自作', E'正規表現を使ってテキストをHTMLに変換するシンプルなパーサーを書いてみた。\n見出し、強調、リストといった基本機能を実装するのはそれほど難しくないが、ネストした構造の処理になると途端に複雑になる。\n既存のライブラリがいかに高度なことをしているか痛感したが、自作することで仕組みがよく分かった。', ARRAY['開発', 'TypeScript']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'ドイツ語の試験に向けた勉強計画', E'試験まであと1ヶ月なので、単語の総復習と長文読解の練習に力を入れている。\nドイツ語のニュースサイトを毎日読んで、実際の語彙がどのように使われているかを確認するようにした。\nリスニング対策として、ポッドキャストを移動中に聞いている。\n文法だけでなく、文化背景を知ることも理解を助ける鍵だ。', ARRAY['ドイツ語', '大学']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '阿部公房「砂の女」の極限状態', E'砂という流動的なものに閉じ込められた男が、次第にその環境に適応していく過程が恐ろしくもあり、美しくもある。\n自由とは何か、定住とは何かという根源的な問いを突きつけてくる傑作だ。\n日常の裏側に潜む非日常を描く阿部公房の手法は、読者を不安にさせるが、それこそが文学の力だと再認識した。', ARRAY['文学', '読書']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'WSL2とUbuntuの開発環境構築', E'Windows上でLinuxが動くWSL2は、Web開発において非常に強力な武器になる。\nDockerとの親和性も高く、本番環境に近い状態で開発を進められるのが良い。\nNeovimの設定もWSL上のUbuntuで行っているが、クリップボードの共有など細かい設定を詰めることで、Macと遜色ない環境になった。', ARRAY['WSL', 'Linux', 'Vim']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '2Dキャンバスでの描画最適化', E'何千ものオブジェクトを描画する際、全ての描画命令を愚直に実行するとフレームレートが低下する。\nレイヤー分けを行ったり、画面外のオブジェクトを描画しない「カリング」を実装したりすることでパフォーマンスを向上させている。\nブラウザのレンダリングパイプラインを意識したコードを書くことが大切だ。', ARRAY['グラフィックス', 'フロントエンド', 'JavaScript']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'NeovimのLuaプラグイン開発', E'既存のプラグインを使うだけでなく、自分で必要な機能を作るのも勉強になる。\nLuaはシンプルで書きやすい言語なので、Vim scriptよりも直感的にAPIを叩ける。\nまずは簡単な文字数カウントのプラグインから自作してみる予定だ。', ARRAY['Vim', 'Neovim', '開発']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'C++でのポインタとメモリ管理', E'スマートポインタを活用することで、生のポインタによるメモリリークを防ぐことができる。\nstd::unique_ptrとstd::shared_ptrの使い分けは、オブジェクトの所有権を明確にする上で非常に重要だ。\n特にゲームエンジン開発においては、パフォーマンスと安全性のバランスが求められる。', ARRAY['C++', 'プログラミング']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '江戸川乱歩「陰獣」の二重構造', E'本格推理の枠組みを借りながら、読者を翻弄するメタフィクション的な仕掛けが秀逸。\n寒川と大江春泥の関係性が、そのまま作家と読者の関係を反映しているようにも読める。\nグロテスクな描写の中に潜む、計算し尽くされたプロットの美しさについて考察を深めたい。', ARRAY['文学', 'ミステリー', '読書']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '三島由紀夫の「仮面の告白」', E'自己分析の極致とも言える作品。\n内面的な衝動をこれほどまでに客観的かつ論理的に描写する筆力に圧倒される。\n社会的な規範と個人的な欲望の間の葛藤は、普遍的なテーマとして現代にも通じる。\n表現の正確さが、逆に感情の激しさを際立たせている。', ARRAY['文学', '読書']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'ドイツ語の接続法第2式', E'非現実の願望や仮定を表す接続法第2式は、会話でもよく使われる重要な文法だ。\nwürdeを使った迂言形と、動詞自体を変化させる形があり、最初は混乱した。\nもし～だったら、という表現の幅が広がるので、しっかり使いこなせるように練習している。', ARRAY['ドイツ語', '語学']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'SupabaseのEdge Functions', E'バックエンドのロジックをDenoで書いてエッジで実行できる機能。\nAPIのレスポンスを高速化したり、外部サービスとの連携をサーバーサイドで行ったりするのに便利だ。\nTypeScriptでそのまま書けるので、コンテキストスイッチが発生しないのが素晴らしい。', ARRAY['Supabase', 'TypeScript', 'バックエンド']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'Prismaのマイグレーション', E'スキーマファイルを変更した後のデータベースへの反映が非常にスムーズ。\nSQLを直接書くよりも、モデルの定義を見ればテーブル構造が一目でわかるのが利点だ。\n初期開発の段階ではスキーマの変更が頻繁に起こるため、この恩恵は計り知れない。', ARRAY['データベース', 'Prisma', 'ORM']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'Reactのカスタムフック', E'コンポーネント間でロジックを再利用するための強力なパターン。\nウィンドウサイズを監視するフックや、LocalStorageと同期するフックを作ってみた。\nUIとロジックを分離することで、コードの可読性が格段に上がり、テストも書きやすくなる。', ARRAY['React', 'フロントエンド']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '動的計画法とアルゴリズム', E'大きな問題を小さな部分問題に分割し、その結果をメモ化して再利用する手法。\nナップサック問題などで威力を発揮するが、状態の定義と遷移の漸化式を立てるのが難しい。\n紙に図を書いて状態の遷移を可視化するのが、理解への一番の近道だと感じた。', ARRAY['アルゴリズム', '情報科学']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '線形代数とコンピュータグラフィックス', E'3D空間でのオブジェクトの移動、回転、拡大縮小はすべて行列の掛け算で表現される。\n同次座標系を導入することで、平行移動も行列演算に含められるのは美しい。\n数学の理論が、画面上のピクセルの色として視覚化されるプロセスは非常に面白い。', ARRAY['数学', 'グラフィックス']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'ブルーベリーと眼精疲労', E'画面を見続ける時間が長いので、目に良いとされるアントシアニンを意識して摂取している。\n冷凍のものが保存もきき、ヨーグルトに混ぜて食べるのにちょうど良い。\n定期的に遠くを見るなど、物理的な目の休憩も合わせて行うようにしている。', ARRAY['健康', '生活']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'ハッカソンのプレゼン準備', E'技術的な優位性だけでなく、なぜそのプロダクトを作ったのかという背景のストーリーが重要だ。\nデモのシナリオを作り込み、想定されるトラブルへの対策も練っておく必要がある。\nスライドはシンプルに保ち、実際の動くアプリを見せることに時間を割きたい。', ARRAY['ハッカソン', 'チーム開発']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'WSL2のネットワーク設定', E'WSL側からホストのWindowsのポートにアクセスしたり、その逆を行ったりする際の設定。\nlocalhostでの解決がうまくいかない場合があるため、IPアドレスの指定などネットワークの基礎知識が必要になる。\n開発用サーバーの公開設定など、少しつまづきやすいポイントだ。', ARRAY['WSL', 'ネットワーク']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'TypeScriptのUtility Types', E'PickやOmit、Partialなどを使いこなすと、型定義の重複を大きく減らせる。\nデータベースのモデル型から、APIのレスポンス用の型を生成する際などに非常に役立つ。\n型のパズルを解いているような感覚があり、適切に型がついたときの爽快感は格別だ。', ARRAY['TypeScript', 'プログラミング']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '物理エンジンにおける剛体の力学', E'質点ではなく大きさを持った物体の運動をシミュレーションするためには、慣性モーメントの考慮が必要だ。\n力の加わる位置によってトルクが発生し、回転運動が引き起こされる。\nこの計算を正確に行うことで、ブロックが崩れるような自然なアニメーションが作れる。', ARRAY['物理', 'C++', 'プログラミング']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'Zustandのミドルウェア', E'persistミドルウェアを使うと、状態を自動的にLocalStorageに保存・復元してくれる。\nユーザーの設定や一時的な入力データを保持するのに非常に便利だ。\n複雑な設定なしに数行追加するだけで機能拡張できるのがZustandの強みだと思う。', ARRAY['React', 'ライブラリ']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'Tailwind CSSのカスタムプラグイン', E'プロジェクト固有の複雑なユーティリティクラスが必要な場合、プラグインとして切り出して定義できる。\nデザインシステムを厳密に適用したい場合に、標準のクラスだけでは足りない部分を補える。\nJavaScriptでスタイルを定義できる柔軟性が良い。', ARRAY['CSS', 'フロントエンド']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'Next.jsのキャッシュ制御', E'fetch関数のオプションで、データのキャッシュの有効期限や再検証のタイミングを細かく制御できる。\n静的サイトのパフォーマンスと、動的サイトの情報の鮮度を両立させるための要となる機能だ。\nキャッシュのパージ戦略は、アプリケーションの要件に合わせて慎重に設計する必要がある。', ARRAY['Nextjs', 'React']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', '離散数学の論理演算', E'命題論理や述語論理は、プログラミングにおける条件分岐の基礎となる。\nド・モルガンの法則などを意識してコードを書くことで、複雑なif文をシンプルにリファクタリングできる。\n真理値表を書いて論理の漏れや重複がないか確認する癖をつけておきたい。', ARRAY['数学', '情報科学']),
+  ('df49e059-8950-47f2-8689-8a6f0711f1dd', 'レイトレーシングでの屈折の計算', E'ガラスや水などの透明な物体を表現するためには、スネルの法則に基づいて光線の屈折方向を計算する。\n全反射の条件も考慮する必要があり、反射と屈折を組み合わせることでガラス玉のような美しいレンダリング結果が得られる。\n物理法則の数式がそのままコードに落ちていく感覚が楽しい。', ARRAY['グラフィックス', '物理', '数学']);
+</file>
+
+<file path="package.json">
+{
+  "name": "apu-hakathon-project",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "biome check",
+    "format": "biome format --write"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/ssr": "^0.9.0",
+    "@supabase/supabase-js": "^2.99.0",
+    "clsx": "^2.1.1",
+    "dotenv": "^17.3.1",
+    "jotai": "^2.18.0",
+    "lucide-react": "^0.576.0",
+    "next": "16.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwind-merge": "^3.5.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.2.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "supabase": "^2.76.17",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
+<file path="src/app/api/memos/search/route.ts">
+import { NextResponse } from "next/server";
+import type {
+  CrossUserSearchRequest,
+  CrossUserSearchResponse,
+} from "@/types/search";
+import { createClient } from "@/utils/supabase/server";
+
+export async function POST(request: Request) {
+  try {
+    // 1. 型定義通りにリクエストを受け取る
+    const body = (await request.json()) as CrossUserSearchRequest;
+    const { source_memo_id, limit = 5 } = body; // limitがない場合はデフォルト5件
+
+    if (!source_memo_id) {
+      return NextResponse.json(
+        { error: "source_memo_id is required" },
+        { status: 400 },
+      );
+    }
+
+    const supabase = await createClient();
+
+    // 2. 検索元のメモのベクトルを取得
+    const { data: sourceMemo, error: fetchError } = await supabase
+      .from("memos")
+      .select("embedding")
+      .eq("id", source_memo_id)
+      .single();
+
+    if (fetchError || !sourceMemo?.embedding) {
+      return NextResponse.json(
+        { error: "Source memo not found or has no embedding" },
+        { status: 404 },
+      );
+    }
+
+    // 3. pgvectorで類似検索（自分自身が含まれるので limit + 1 件取得する）
+    const { data: matchedMemos, error: rpcError } = await supabase.rpc(
+      "match_memos",
+      {
+        query_embedding: sourceMemo.embedding,
+        match_threshold: 0.67, // 閾値(しきち)
+        match_count: limit + 1,
+      },
+    );
+
+    if (rpcError) throw rpcError;
+
+    // 4. 型定義に合わせてデータを整形する
+    const related_memos = (matchedMemos || [])
+      .filter((memo: any) => memo.id !== source_memo_id) // 自分自身を除外
+      .slice(0, limit) // 指定された件数に絞る
+      .map((memo: any) => ({
+        id: memo.id,
+        title: memo.title,
+        content: memo.content,
+        // SQL側で計算した similarity が無ければ 0 を入れる安全対策
+        similarity: typeof memo.similarity === "number" ? memo.similarity : 0,
+        user_id: memo.user_id,
+      }));
+
+    // 5. レスポンスを返す
+    const response: CrossUserSearchResponse = { related_memos };
+    return NextResponse.json(response);
+  } catch (error: any) {
+    console.error("SEARCH API ERROR:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error", message: error.message },
+      { status: 500 },
+    );
+  }
+}
+</file>
+
+<file path="src/store/vim/movement.ts">
+import { atom } from "jotai";
+import {
+  activeTextAtom,
+  cursorAtom,
+  getLineLength,
+  getLineStart,
+  modeAtom,
+} from "./core";
+
+// --- Vim Logic (Actions) ---
+
+// j (下移動)
+export const moveDownAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const currentPos = get(cursorAtom);
+  const mode = get(modeAtom);
+  const lineStart = getLineStart(text, currentPos);
+  // カーソルが左から何番目かを示す.
+  const col = currentPos - lineStart;
+
+  const nextNewLine = text.indexOf("\n", currentPos);
+  if (nextNewLine === -1) return; // 次の行がない
+
+  // '\n'の次の位置.
+  const nextLineStart = nextNewLine + 1;
+  const nextLineLength = getLineLength(text, nextLineStart);
+
+  // ノーマルモードの場合、移動先の行が空行でなければ最後の文字（長さ-1）で止める
+  // 空行の時はmax(0,-1)となるため、maxColに0が入る.
+  // visualモードの時は改行を含めたいため,nextLineLengthをそのまま採用.
+  const maxCol =
+    mode === "normal" ? Math.max(0, nextLineLength - 1) : nextLineLength;
+
+  // 次の行のどの位置に動くかをminで判定.col採用の時はそのまま下.maxColの時は次の行の一番後ろにカーソルが来る.
+  set(cursorAtom, nextLineStart + Math.min(col, maxCol));
+});
+
+// k (上移動)
+export const moveUpAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const currentPos = get(cursorAtom);
+  const mode = get(modeAtom);
+  const lineStart = getLineStart(text, currentPos);
+  const col = currentPos - lineStart;
+
+  if (lineStart === 0) return; // 1行目なら何もしない
+
+  const prevLineStart = getLineStart(text, lineStart - 1);
+  const prevLineLength = getLineLength(text, prevLineStart);
+
+  // ノーマルモードの場合、移動先の行が空行でなければ最後の文字（長さ-1）で止める
+  const maxCol =
+    mode === "normal" ? Math.max(0, prevLineLength - 1) : prevLineLength;
+
+  set(cursorAtom, prevLineStart + Math.min(col, maxCol));
+});
+
+// h (左移動)
+export const moveLeftAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const current = get(cursorAtom);
+  const lineStart = getLineStart(text, current);
+  // 行をまたいで移動しないための記述.
+  if (current > lineStart) {
+    set(cursorAtom, current - 1);
+  }
+});
+
+// l (右移動)
+export const moveRightAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const current = get(cursorAtom);
+  const mode = get(modeAtom);
+
+  // 次の改行位置を求める.
+  const nextNewLine = text.indexOf("\n", current);
+  const lineEnd = nextNewLine === -1 ? text.length : nextNewLine;
+
+  // ノーマルモードなら、行末の1文字手前が限界
+  const maxPos = mode === "normal" ? Math.max(0, lineEnd - 1) : lineEnd;
+
+  if (current < maxPos) {
+    set(cursorAtom, current + 1);
+  }
+});
+
+// 0 (行頭へジャンプ)
+export const jumpToLineStartAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const current = get(cursorAtom);
+  set(cursorAtom, getLineStart(text, current));
+});
+
+// $ (行末へジャンプ)
+export const jumpToLineEndAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const current = get(cursorAtom);
+  const mode = get(modeAtom);
+  const lineStart = getLineStart(text, current);
+  const length = getLineLength(text, lineStart);
+
+  // ノーマルモードなら1文字手前
+  const target =
+    mode === "normal"
+      ? // Math.maxの第一引数はlengthが0のとき-1の位置に行くのを防ぐ.
+        Math.max(lineStart, lineStart + length - 1)
+      : lineStart + length;
+
+  set(cursorAtom, target);
+});
+</file>
+
+<file path="src/store/vim/core.ts">
+import { atom } from "jotai";
+import type { CursorPosition, VimMode } from "@/types/models";
+import {
+  activeEditorAtom,
+  editorContentAtom,
+  editorTagInputAtom,
+  editorTitleAtom,
+} from "../editorAtom";
+
+// --- 各エディタごとに独立した状態（直接触ることはない裏側のAtom） ---
+
+export const contentModeAtom = atom<VimMode>("normal");
+export const titleModeAtom = atom<VimMode>("normal");
+export const tagModeAtom = atom<VimMode>("normal");
+
+export const contentCursorAtom = atom<CursorPosition>(0);
+export const titleCursorAtom = atom<CursorPosition>(0);
+export const tagCursorAtom = atom<CursorPosition>(0);
+
+export const contentVisualStartAtom = atom<number | null>(null);
+export const titleVisualStartAtom = atom<number | null>(null);
+export const tagVisualStartAtom = atom<number | null>(null);
+
+// --- ルーティング用（派生）Atom ---
+// ロジック側は、以下のAtomだけを読み書きすれば、対象が自動で切り替わる
+
+// 1. アクティブなエディタのモード
+export const modeAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleModeAtom);
+    if (active === "tags") return get(tagModeAtom);
+    return get(contentModeAtom);
+  },
+  (get, set, newMode: VimMode) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") set(titleModeAtom, newMode);
+    else if (active === "tags") set(tagModeAtom, newMode);
+    else set(contentModeAtom, newMode);
+  },
+);
+
+// 2. アクティブなエディタのカーソル位置
+export const cursorAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleCursorAtom);
+    if (active === "tags") return get(tagCursorAtom);
+    return get(contentCursorAtom);
+  },
+  (get, set, update: number | ((prev: number) => number)) => {
+    const active = get(activeEditorAtom);
+    const targetAtom =
+      active === "title"
+        ? titleCursorAtom
+        : active === "tags"
+          ? tagCursorAtom
+          : contentCursorAtom;
+
+    const newValue =
+      typeof update === "function" ? update(get(targetAtom)) : update;
+    set(targetAtom, newValue);
+  },
+);
+
+// 3. アクティブなエディタのビジュアルモード開始位置
+export const visualStartAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleVisualStartAtom);
+    if (active === "tags") return get(tagVisualStartAtom);
+    return get(contentVisualStartAtom);
+  },
+  (get, set, newStart: number | null) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") set(titleVisualStartAtom, newStart);
+    else if (active === "tags") set(tagVisualStartAtom, newStart);
+    else set(contentVisualStartAtom, newStart);
+  },
+);
+
+// 4. アクティブなエディタのテキスト本体
+export const activeTextAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(editorTitleAtom);
+    if (active === "tags") return get(editorTagInputAtom);
+    return get(editorContentAtom);
+  },
+  (get, set, update: string | ((prev: string) => string)) => {
+    const active = get(activeEditorAtom);
+    const targetAtom =
+      active === "title"
+        ? editorTitleAtom
+        : active === "tags"
+          ? editorTagInputAtom
+          : editorContentAtom;
+
+    const newValue =
+      typeof update === "function" ? update(get(targetAtom)) : update;
+    set(targetAtom, newValue);
+  },
+);
+
+// 行の情報取得.
+
+export const getLineStart = (text: string, pos: number) => {
+  // もしposが'\n'だった時lastIndexOfはpos自身に反応する.
+  // そのため、一つ引いてpos以前の文を探索するようにしている.
+  const searchPos = pos - 1;
+  if (searchPos < 0) return 0;
+  // lastIndexOfは目的のものがなかった時-1を返す.
+  // lastIndexOfは第二引数の数を減らしながら最初の"\n"の位置をかえす.
+  const lastNewLine = text.lastIndexOf("\n", searchPos);
+  // 返値はその行の最初の文字の位置.
+  return lastNewLine === -1 ? 0 : lastNewLine + 1;
+};
+
+// 新しく追加：行の末尾（改行文字の位置、またはEOF）を取得する
+export const getLineEnd = (text: string, pos: number) => {
+  const nextNewLine = text.indexOf("\n", pos);
+  // trueの時はtext自体が1行しかない.
+  // 例えば"やあ\nこんにちは\n"というtextの時、二行目の'こ'にいる際、posは3.
+  // nextNewlineは8となる.8-3で5となり、正しい.
+  // "やあ\nこんにちは"の時、二行目の'こ'にいるとき、posは3,nextNewLineは-1で
+  // text.lenghtにより8が返され、8-3で5となり正しい.
+  return nextNewLine === -1 ? text.length : nextNewLine;
+};
+
+export const getLineLength = (text: string, lineStart: number) => {
+  const lineEnd = getLineEnd(text, lineStart);
+  return lineEnd - lineStart;
+};
+
+export const commandTextAtom = atom<string>("");
+</file>
+
+<file path="src/store/vim/history.ts">
+import { atom } from "jotai";
+import { activeEditorAtom } from "../editorAtom";
+import { activeTextAtom, cursorAtom } from "./core";
+
+export interface HistoryRecord {
+  text: string;
+  cursor: number;
+}
+
+// 履歴の配列と、現在のインデックス（-1は初期状態）
+// --- 個別の履歴ステート ---
+const contentHistoryAtom = atom<HistoryRecord[]>([]);
+const contentHistoryIndexAtom = atom<number>(-1);
+
+const titleHistoryAtom = atom<HistoryRecord[]>([]);
+const titleHistoryIndexAtom = atom<number>(-1);
+
+const tagHistoryAtom = atom<HistoryRecord[]>([]);
+const tagHistoryIndexAtom = atom<number>(-1);
+
+// --- ルーティング用履歴Atom ---
+export const historyAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleHistoryAtom);
+    if (active === "tags") return get(tagHistoryAtom);
+    return get(contentHistoryAtom);
+  },
+  (get, set, newHistory: HistoryRecord[]) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") set(titleHistoryAtom, newHistory);
+    else if (active === "tags") set(tagHistoryAtom, newHistory);
+    else set(contentHistoryAtom, newHistory);
+  },
+);
+
+export const historyIndexAtom = atom(
+  (get) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") return get(titleHistoryIndexAtom);
+    if (active === "tags") return get(tagHistoryIndexAtom);
+    return get(contentHistoryIndexAtom);
+  },
+  (get, set, newIndex: number) => {
+    const active = get(activeEditorAtom);
+    if (active === "title") set(titleHistoryIndexAtom, newIndex);
+    else if (active === "tags") set(tagHistoryIndexAtom, newIndex);
+    else set(contentHistoryIndexAtom, newIndex);
+  },
+);
+
+// --- Actions ---
+
+// 現在の状態を履歴に積む
+export const saveHistoryAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const cursor = get(cursorAtom);
+  const history = get(historyAtom);
+  const currentIndex = get(historyIndexAtom);
+
+  // 連続で同じ内容が保存されるのを防ぐ
+  if (currentIndex >= 0 && history[currentIndex].text === text) {
+    return;
+  }
+
+  // もしUndoして過去に戻っている状態で新しい操作をしたら、それ以降の未来（Redo履歴）は捨てる
+  const newHistory = history.slice(0, currentIndex + 1);
+  newHistory.push({ text, cursor });
+
+  // メモリ肥大化を防ぐため最大100件に制限
+  if (newHistory.length > 100) {
+    newHistory.shift();
+  }
+
+  set(historyAtom, newHistory);
+  // lengthは0以上だからIndexに合わせるため、-1.
+  set(historyIndexAtom, newHistory.length - 1);
+});
+
+// u (Undo)
+export const undoAtom = atom(null, (get, set) => {
+  const history = get(historyAtom);
+  const currentIndex = get(historyIndexAtom);
+
+  // 1つ以上過去の履歴がある場合のみ戻る
+  if (currentIndex > 0) {
+    const prevIndex = currentIndex - 1;
+    const record = history[prevIndex];
+
+    set(historyIndexAtom, prevIndex);
+    set(activeTextAtom, record.text);
+    set(cursorAtom, record.cursor);
+  }
+});
+
+// Ctrl+R (Redo)
+export const redoAtom = atom(null, (get, set) => {
+  const history = get(historyAtom);
+  const currentIndex = get(historyIndexAtom);
+
+  // 現在より未来の履歴がある場合のみ進む
+  if (currentIndex < history.length - 1) {
+    const nextIndex = currentIndex + 1;
+    const record = history[nextIndex];
+
+    set(historyIndexAtom, nextIndex);
+    set(activeTextAtom, record.text);
+    set(cursorAtom, record.cursor);
+  }
+});
+</file>
+
+<file path="src/types/supabase.ts">
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+  public: {
+    Tables: {
+      memo_tags: {
+        Row: {
+          memo_id: string
+          tag_id: string
+        }
+        Insert: {
+          memo_id: string
+          tag_id: string
+        }
+        Update: {
+          memo_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memo_tags_memo_id_fkey"
+            columns: ["memo_id"]
+            isOneToOne: false
+            referencedRelation: "memos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memo_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memos: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          is_public: boolean
+          tags: string[]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          is_public?: boolean
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          is_public?: boolean
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tags: {
+        Row: {
+          created_at: string | null
+          embedding: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          created_at: string
+          default_is_public: boolean
+          id: string
+          updated_at: string
+          use_vim_mode: boolean
+        }
+        Insert: {
+          created_at?: string
+          default_is_public?: boolean
+          id: string
+          updated_at?: string
+          use_vim_mode?: boolean
+        }
+        Update: {
+          created_at?: string
+          default_is_public?: boolean
+          id?: string
+          updated_at?: string
+          use_vim_mode?: boolean
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      match_memos: {
+        Args: {
+          match_count: number
+          match_threshold: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          similarity: number
+          title: string
+          user_id: string
+        }[]
+      }
+      match_tags: {
+        Args: {
+          match_count: number
+          match_threshold: number
+          query_embedding: string
+        }
+        Returns: {
+          created_at: string | null
+          embedding: string | null
+          id: string
+          name: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tags"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
+  public: {
+    Enums: {},
+  },
+} as const
+</file>
+
+<file path="src/components/editor/EditorRoot.tsx">
+"use client";
+
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useEffect, useRef } from "react";
+import {
+  allTagsAtom,
+  createMemoAtom,
+  currentMemoAtom,
+  editorContentAtom,
+  editorIsPublicAtom,
+  editorSettingsAtom,
+  editorTagsAtom,
+  editorTitleAtom,
+  saveMemoAtom,
+} from "@/store/models";
+import { commandTextAtom, modeAtom } from "@/store/vim/core";
+import { EditorHeader } from "./EditorHeader";
+import { SimpleEditor } from "./SimpleEditor";
+
+export function EditorRoot() {
+  const currentMemo = useAtomValue(currentMemoAtom);
+  const setEditorContent = useSetAtom(editorContentAtom);
+  const setEditorTitle = useSetAtom(editorTitleAtom);
+  const setEditorTags = useSetAtom(editorTagsAtom);
+  const setEditorIsPublic = useSetAtom(editorIsPublicAtom);
+
+  const allTags = useAtomValue(allTagsAtom);
+
+  const [vimMode, setVimMode] = useAtom(modeAtom);
+  const [commandText, setCommandText] = useAtom(commandTextAtom);
+  const settings = useAtomValue(editorSettingsAtom);
+
+  const saveMemo = useSetAtom(saveMemoAtom);
+  const createMemo = useSetAtom(createMemoAtom);
+
+  // ★ 鉄壁の保護：現在読み込み済みのメモIDを記録し、意図しないリセットを防ぐ
+  const loadedMemoIdRef = useRef<string | null>(null);
+
+  // ★ 修正：Biome(リンター)の警告を解消しつつ、入力データが消えないようにロックをかける
+  useEffect(() => {
+    if (!currentMemo) {
+      if (loadedMemoIdRef.current !== null) {
+        setEditorContent("");
+        setEditorTitle("");
+        setEditorTags([]);
+        loadedMemoIdRef.current = null;
+      }
+      return;
+    }
+
+    // メモを「切り替えた瞬間」だけDBからデータを画面にセットする
+    if (currentMemo.id !== loadedMemoIdRef.current) {
+      setEditorContent(currentMemo.content || "");
+      setEditorTitle(currentMemo.title || "");
+
+      const memoTags = currentMemo.tags || [];
+      const tagsAsObjects = memoTags.map((t: any) => {
+        const nameStr = typeof t === "string" ? t : t?.name || "";
+        const found = allTags.find((tag) => tag.name === nameStr);
+        return found ? found : { id: nameStr, name: nameStr };
+      });
+
+      setEditorTags(tagsAsObjects);
+
+      // ★ 追加：DBの値をエディタに反映！(undefined対策で !! をつけてboolean化)
+      setEditorIsPublic(!!currentMemo.is_public);
+
+      loadedMemoIdRef.current = currentMemo.id; // ロックをかける
+    }
+    // ★ 追加：依存配列の一番最後に setEditorIsPublic を追加
+  }, [
+    currentMemo,
+    allTags,
+    setEditorContent,
+    setEditorTitle,
+    setEditorTags,
+    setEditorIsPublic,
+  ]);
+
+  const isVim = settings.type === "vim";
+
+  const handleCommandKeyDown = async (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setVimMode("normal");
+      setCommandText("");
+      document.querySelector("textarea")?.focus();
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const cmd = commandText.trim();
+
+      if (cmd === "w") {
+        await saveMemo();
+      } else if (cmd === "e") {
+        await createMemo();
+      } else if (cmd === "wq") {
+        await saveMemo();
+        // 終了や一覧へ戻る処理が必要な場合はここに追加します
+      }
+
+      setVimMode("normal");
+      setCommandText("");
+      document.querySelector("textarea")?.focus();
+    }
+  };
+
+  return (
+    <div className="flex-1 h-screen flex flex-col bg-white relative overflow-hidden">
+      {/* ★ 追加：エディター領域の一番左上にアプリロゴを配置 ★ */}
+      <img
+        src="/images/app-logo.png"
+        alt="アプリロゴ"
+        className="absolute top-8 left-8 w-12 h-12 rounded-xl object-cover shadow-sm z-10"
+      />
+
+      <div className="w-full max-w-4xl ml-auto mr-50 px-8 pt-12 mb-6">
+        <EditorHeader />
+      </div>
+      <div className="flex-1 overflow-y-auto px-8 pb-8 max-w-4xl ml-auto mr-50 w-full relative [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <SimpleEditor />
+      </div>
+
+      {isVim && vimMode === "command" ? (
+        <div className="absolute bottom-0 left-0 right-0 bg-gray-800 text-white px-4 py-1 flex items-center font-mono text-sm z-50">
+          <span className="mr-1">:</span>
+          <input
+            id="vim-command-input"
+            type="text"
+            value={commandText}
+            onChange={(e) => setCommandText(e.target.value)}
+            onKeyDown={handleCommandKeyDown}
+            className="bg-transparent outline-none flex-1"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+      ) : (
+        isVim && (
+          <div className="absolute bottom-4 right-4 px-3 py-1 rounded-full text-xs font-mono font-bold shadow-md transition-colors bg-gray-800 text-white z-50">
+            {vimMode.toUpperCase()}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+</file>
+
+<file path="src/hooks/useVimEditor.ts">
+import { useAtom, useAtomValue } from "jotai";
+import { useEffect, useRef } from "react";
+import {
+  cursorAtom,
+  editorContentAtom,
+  editorSettingsAtom,
+  modeAtom,
+  selectedMemoIdAtom,
+  visualStartAtom,
+} from "@/store/models";
+import { getLineEnd, getLineStart } from "@/store/vim/core"; // パスはディレクトリ構成に合わせて調整してください
+import { useVimKeyHandler } from "./useVimKeyHandler";
+
+export function useVimEditor() {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // プログラムによる変更時に、誤った select イベントを無視するためのフラグ
+  const ignoreSelectRef = useRef(false);
+
+  const [content, setContent] = useAtom(editorContentAtom);
+  const [vimMode] = useAtom(modeAtom);
+  const [cursor, setCursor] = useAtom(cursorAtom);
+  const settings = useAtomValue(editorSettingsAtom);
+  const [visualStart] = useAtom(visualStartAtom);
+
+  const selectedId = useAtomValue(selectedMemoIdAtom);
+
+  // 切り出したカスタムフックを呼び出す
+  const { handleKeyDown } = useVimKeyHandler(textareaRef, ignoreSelectRef);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea && settings.type === "vim") {
+      if (vimMode === "normal") {
+        // 一番端にカーソルが来たとき文字を囲えないから.minを使って判定.
+        // 現在のコードだとnomalモードでカーソルが端に来ることはないはず.
+        const endPos = Math.min(cursor + 1, content.length);
+        textarea.setSelectionRange(cursor, endPos);
+      } else if (
+        (vimMode === "visual" || vimMode === "visualLine") &&
+        visualStart !== null
+      ) {
+        if (vimMode === "visual") {
+          const start = Math.min(visualStart, cursor);
+          const end = Math.max(visualStart, cursor) + 1;
+          textarea.setSelectionRange(start, end);
+        } else {
+          // visualLine モード
+          const pos1 = Math.min(visualStart, cursor);
+          const pos2 = Math.max(visualStart, cursor);
+
+          const start = getLineStart(content, pos1);
+
+          const lineEndPos = getLineEnd(content, pos2);
+          const end =
+            lineEndPos === content.length ? content.length : lineEndPos + 1;
+
+          textarea.setSelectionRange(start, end);
+        }
+      } else {
+        textarea.setSelectionRange(cursor, cursor);
+      }
+
+      // 正しい選択範囲の適用が終わったら、フラグを解除して通常操作を受け付ける
+      ignoreSelectRef.current = false;
+    }
+  }, [cursor, vimMode, settings.type, content, visualStart]);
+
+  useEffect(() => {
+    if (selectedId) {
+      setCursor(0);
+
+      // DOMの描画が少し遅れるケースを考慮して、わずかな遅延（非同期）でフォーカスを当てる
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }, 0);
+    }
+  }, [selectedId, setCursor]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value);
+    setCursor(e.target.selectionStart);
+  };
+
+  // vimモードでマウスを使ったときにAtomに変更が渡されるようにするための記述.
+  const handleSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    // プログラムで変更処理中の一瞬は、ブラウザネイティブの誤ったSelectイベントを無視する
+    if (ignoreSelectRef.current) return;
+    // visualモードの時はブラウザネイティブのイベントを無視.
+    if (
+      settings.type === "vim" &&
+      (vimMode === "visual" || vimMode === "visualLine")
+    )
+      return;
+    // ブラウザネイティブのイベントを受け入れ.
+    setCursor(e.currentTarget.selectionStart);
+  };
+
+  return {
+    textareaRef,
+    content,
+    vimMode,
+    settings,
+    handleChange,
+    handleSelect,
+    handleKeyDown,
+  };
+}
+</file>
+
+<file path="src/hooks/useVimKeyHandler.ts">
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useRef, useState } from "react";
+import {
+  cursorAtom,
+  deleteCharAtom,
+  deleteLineAtom,
+  deleteVisualSelectionAtom,
+  editorSettingsAtom,
+  getLineTextAtom,
+  getVisualSelectionTextAtom,
+  insertNewLineAboveAtom,
+  insertNewLineBelowAtom,
+  jumpToLineEndAtom,
+  jumpToLineStartAtom,
+  modeAtom,
+  moveDownAtom,
+  moveLeftAtom,
+  moveRightAtom,
+  moveUpAtom,
+  redoAtom,
+  saveHistoryAtom,
+  undoAtom,
+  visualStartAtom,
+} from "@/store/models";
+// activeTextAtom は core.ts から読み込むように変更
+import { activeTextAtom, commandTextAtom } from "@/store/vim/core";
+
+export function useVimKeyHandler(
+  // textarea だけでなく、title や tag 用の input も受け取れるように型を拡張
+  elementRef: React.RefObject<HTMLTextAreaElement | HTMLInputElement | null>,
+  ignoreSelectRef: React.RefObject<boolean>,
+  // 入力欄の上下移動用のコールバックを追加
+  onNavigate?: (direction: "up" | "down") => void,
+) {
+  // editorContentAtom ではなく、現在アクティブな入力欄のテキストを自動で引っ張ってくる activeTextAtom を使用
+  const [content, setContent] = useAtom(activeTextAtom);
+  const [vimMode, setVimMode] = useAtom(modeAtom);
+  const [cursor, setCursor] = useAtom(cursorAtom);
+  const settings = useAtomValue(editorSettingsAtom);
+
+  const deleteChar = useSetAtom(deleteCharAtom);
+  const deleteLine = useSetAtom(deleteLineAtom);
+  const saveHistory = useSetAtom(saveHistoryAtom);
+  const undo = useSetAtom(undoAtom);
+  const redo = useSetAtom(redoAtom);
+  const setVisualStart = useSetAtom(visualStartAtom);
+  const deleteVisualSelection = useSetAtom(deleteVisualSelectionAtom);
+  const getVisualSelectionText = useSetAtom(getVisualSelectionTextAtom);
+  const getLineText = useSetAtom(getLineTextAtom);
+  const insertNewLineBelow = useSetAtom(insertNewLineBelowAtom);
+  const insertNewLineAbove = useSetAtom(insertNewLineAboveAtom);
+  const setCommandText = useSetAtom(commandTextAtom);
+
+  const moveDown = useSetAtom(moveDownAtom);
+  const moveUp = useSetAtom(moveUpAtom);
+  const moveLeft = useSetAtom(moveLeftAtom);
+  const moveRight = useSetAtom(moveRightAtom);
+  const jumpStart = useSetAtom(jumpToLineStartAtom);
+  const jumpEnd = useSetAtom(jumpToLineEndAtom);
+
+  const [pendingCommand, setPendingCommand] = useState<string>("");
+  const [insertPending, setInsertPending] = useState<string>("");
+
+  const jkTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // インサートモード用の処理
+  const handleInsertMode = (
+    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+    element: HTMLTextAreaElement | HTMLInputElement | null,
+  ) => {
+    if (e.key === "Escape") {
+      if (jkTimeoutRef.current) clearTimeout(jkTimeoutRef.current);
+      // e.preventDefaultはデフォルトの操作を止める.
+      e.preventDefault();
+      ignoreSelectRef.current = true; // vimモードによる変更を開始
+
+      if (element) {
+        const currentCursor = element.selectionStart || 0;
+        const currentContent = element.value;
+        // 行の先頭（直前が改行か、0文字目）なら左に戻らない
+        const isLineStart =
+          currentCursor === 0 ||
+          currentContent.charAt(currentCursor - 1) === "\n";
+        setCursor(isLineStart ? currentCursor : Math.max(0, currentCursor - 1));
+      } else {
+        if (cursor > 0) setCursor(cursor - 1);
+      }
+
+      setVimMode("normal");
+      saveHistory();
+      setInsertPending("");
+      // 直前のキーがjの時かつkが来たとき.
+    } else if (e.key === "k" && insertPending === "j") {
+      if (jkTimeoutRef.current) clearTimeout(jkTimeoutRef.current);
+      e.preventDefault();
+
+      if (element) {
+        ignoreSelectRef.current = true; // vimモードによる変更を開始
+        // textarea.selectionStartは標準機能.選択カーソルの最初をかえす.
+        const currentCursor = element.selectionStart || 0;
+        // textarea.valueは内容.
+        const currentContent = element.value;
+
+        if (currentContent.charAt(currentCursor - 1) === "j") {
+          // currentCursor-1以降を取得した後、currentContextから始まる部分を取るとき、
+          // "ABCDjEF"でjの後ろにカーソルがある,つまりEが選択中.currentCursorは5.
+          // 0以上4未満を取り出し、ABCD.その後、5以上の部分を取り出し、EF.
+          // 4であるjだけが消去される.
+          const newText =
+            currentContent.slice(0, currentCursor - 1) +
+            currentContent.slice(currentCursor);
+          setContent(newText);
+          // nomalモードに戻るため,-2。ただし行の先頭（jの直前が改行、または0文字目）にいる場合は-1にとどめる。
+          const isLineStart =
+            currentCursor - 1 === 0 ||
+            currentContent.charAt(currentCursor - 2) === "\n";
+          setCursor(
+            Math.max(0, isLineStart ? currentCursor - 1 : currentCursor - 2),
+          );
+        } else {
+          // 行の先頭（直前が改行か、0文字目）なら左に戻らない
+          const isLineStart =
+            currentCursor === 0 ||
+            currentContent.charAt(currentCursor - 1) === "\n";
+          setCursor(
+            Math.max(0, isLineStart ? currentCursor : currentCursor - 1),
+          );
+        }
+      }
+
+      setVimMode("normal");
+      saveHistory();
+      setInsertPending("");
+      // jが押されたときここが実行される.
+    } else if (e.key === "j") {
+      if (jkTimeoutRef.current) clearTimeout(jkTimeoutRef.current);
+      setInsertPending("j");
+
+      // 300ミリ秒後に j の保留状態を解除するタイマーをセット
+      jkTimeoutRef.current = setTimeout(() => {
+        setInsertPending("");
+      }, 300);
+    } else {
+      if (jkTimeoutRef.current) clearTimeout(jkTimeoutRef.current);
+      setInsertPending("");
+    }
+  };
+
+  // ノーマル・ビジュアルモード用の処理
+  const handleNormalVisualMode = (
+    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+  ) => {
+    e.preventDefault();
+    ignoreSelectRef.current = true; // ノーマル/ビジュアルモードのキーボード操作も全てフラグで保護
+
+    if (e.ctrlKey && e.key.toLowerCase() === "r") {
+      redo();
+      setPendingCommand("");
+      // visualとかの時はnomalに戻す.VisualStartをnullにする処理を書かなきゃいけない.
+      if (vimMode === "visual" || vimMode === "visualLine") {
+        setVimMode("normal");
+        setVisualStart(null);
+      }
+      return;
+    }
+
+    if (e.key === "Escape") {
+      setPendingCommand("");
+      if (vimMode === "visual" || vimMode === "visualLine") {
+        setVimMode("normal");
+        setVisualStart(null);
+      }
+      return;
+    }
+
+    // 次のpendingCommandの状態を保持する変数。基本はリセット（空文字）.
+    let nextPending = "";
+
+    switch (e.key) {
+      case "h":
+        // movement.ts側でactiveTextAtomを自動取得するようになったため引数は不要
+        moveLeft();
+        break;
+      case "j":
+        moveDown();
+        break;
+      case "k":
+        moveUp();
+        break;
+      case "l":
+        moveRight();
+        break;
+      case "0":
+        jumpStart();
+        break;
+      case "$":
+        jumpEnd();
+        break;
+      case "v":
+        if (vimMode === "normal" || vimMode === "visualLine") {
+          setVimMode("visual");
+          setVisualStart(cursor);
+        } else {
+          setVimMode("normal");
+          setVisualStart(null);
+        }
+        break;
+      case "V":
+        if (vimMode === "normal" || vimMode === "visual") {
+          setVimMode("visualLine");
+          setVisualStart(cursor);
+        } else {
+          setVimMode("normal");
+          setVisualStart(null);
+        }
+        break;
+      case "i":
+        setVimMode("insert");
+        break;
+      case "a":
+        setCursor(cursor + 1);
+        setVimMode("insert");
+        break;
+      case "A":
+        setVimMode("insert");
+        jumpEnd();
+        break;
+      case "o":
+        saveHistory();
+        insertNewLineBelow();
+        break;
+      case "O":
+        saveHistory();
+        insertNewLineAbove();
+        break;
+      // xまたはdの時という記述.
+      case "x":
+      case "d":
+        if (vimMode === "visual" || vimMode === "visualLine") {
+          saveHistory();
+          deleteVisualSelection();
+          saveHistory();
+        } else if (e.key === "x") {
+          saveHistory();
+          deleteChar();
+          saveHistory();
+        } else if (pendingCommand === "d") {
+          saveHistory();
+          deleteLine();
+          saveHistory();
+        } else {
+          // dが1回押された時だけ、保留として状態をセットする
+          nextPending = "d";
+        }
+        break;
+      case "y":
+        if (vimMode === "visual" || vimMode === "visualLine") {
+          const textToCopy = getVisualSelectionText();
+          if (textToCopy) navigator.clipboard.writeText(textToCopy);
+        } else if (pendingCommand === "y") {
+          const textToCopy = getLineText();
+          if (textToCopy) navigator.clipboard.writeText(textToCopy);
+        } else {
+          // yが1回押された時だけ、保留として状態をセットする
+          nextPending = "y";
+        }
+        break;
+      case "p":
+      case "P":
+        navigator.clipboard
+          .readText()
+          .then((clipText) => {
+            if (!clipText) return;
+
+            saveHistory();
+
+            // 小文字のpならカーソルの後ろ(右)、大文字のPならカーソルの前(左)
+            const insertPos =
+              e.key === "p" && content.length > 0 ? cursor + 1 : cursor;
+
+            // リンター対策のため、テンプレートリテラルで結合
+            const newText = `${content.slice(0, insertPos)}${clipText}${content.slice(insertPos)}`;
+            setContent(newText);
+
+            // カーソル位置はペーストした文字列の最後の文字に合わせる
+            setCursor(Math.max(0, insertPos + clipText.length - 1));
+            saveHistory();
+          })
+          .catch((err) => {
+            console.error("クリップボードの読み取りに失敗しました", err);
+          });
+        break;
+      case "u":
+        undo();
+        break;
+      case "K":
+        e.preventDefault();
+        // コンポーネント側から onNavigate が渡されていればそれを実行し、なければフォールバック
+        if (onNavigate) {
+          onNavigate("up");
+        } else {
+          document.getElementById("memo-tag-input")?.focus();
+        }
+        break;
+      case "J":
+        e.preventDefault();
+        if (onNavigate) {
+          onNavigate("down");
+        }
+        break;
+      case "H":
+        e.preventDefault();
+        document.getElementById("app-sidebar")?.focus();
+        break;
+      case ":":
+        e.preventDefault();
+        setCommandText("");
+        setVimMode("command");
+        // レンダリング後にinputへフォーカスを移す
+        setTimeout(() => {
+          document.getElementById("vim-command-input")?.focus();
+        }, 0);
+        break;
+      default:
+        break;
+    }
+    // switch文を抜けた後、1回だけ状態を更新する
+    setPendingCommand(nextPending);
+  };
+
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>,
+  ) => {
+    if (e.nativeEvent.isComposing) return;
+    if (settings.type === "standard") return;
+
+    const element = elementRef.current;
+
+    if (vimMode === "insert") {
+      handleInsertMode(e, element);
+    } else if (
+      vimMode === "normal" ||
+      vimMode === "visual" ||
+      vimMode === "visualLine"
+    ) {
+      handleNormalVisualMode(e);
+    }
+  };
+
+  return { handleKeyDown };
+}
+</file>
+
+<file path="src/store/vim/edit.ts">
+import { atom } from "jotai";
+import { activeEditorAtom } from "../editorAtom";
+import {
+  activeTextAtom,
+  cursorAtom,
+  getLineEnd,
+  getLineLength,
+  getLineStart,
+  modeAtom,
+  visualStartAtom,
+} from "./core";
+
+// x (1文字削除)
+export const deleteCharAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const pos = get(cursorAtom);
+
+  // pos >= text.lengthの状況になることはvimではないが、
+  // reactで問題が起きる可能性があるため、
+  if (text.length === 0 || pos >= text.length) return;
+
+  // Vimの仕様：'x' は改行コード(\n)を削除して行を繋げることはしない.
+  // 空行の上にカーソルがあるときにこれが必要.
+  if (text[pos] === "\n") return;
+
+  // カーソル位置の文字を1つ抜いて結合
+  // sliceは第一引数の位置から第二引数の手前までを取り出す.
+  // 第一引数しかないときは、第一引数から最後まで.
+  const newText = text.slice(0, pos) + text.slice(pos + 1);
+  set(activeTextAtom, newText);
+
+  // 行末の文字を消した場合、カーソルが「無い文字」の上に取り残されるのを防ぐため左へずらす.
+  const lineStart = getLineStart(newText, pos);
+  const lineLength = getLineLength(newText, lineStart);
+
+  // pos > lineStartはpos = 0,lineStart + lineLength = 0 + 0の時
+  // set (cursorAtom, - 1)となる事態を防ぐ.
+  // pos >= lineStart + lineLengthの>=の理由は行末の文字を消したとき、
+  // lineStartとlineLengthの値とposは等しくなるから.===でも成り立ちはする.
+  if (pos > lineStart && pos >= lineStart + lineLength) {
+    set(cursorAtom, pos - 1);
+  }
+});
+
+// dd (1行削除)
+export const deleteLineAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const pos = get(cursorAtom);
+
+  if (text.length === 0) return;
+
+  const lineStart = getLineStart(text, pos);
+  const nextNewLine = text.indexOf("\n", lineStart);
+
+  let newText = "";
+  let newCursor = 0;
+
+  if (nextNewLine === -1) {
+    // 最終行の場合
+    if (lineStart === 0) {
+      // ファイル全体が1行しかない場合は全消去
+      newText = "";
+      newCursor = 0;
+    } else {
+      // 1つ前の改行コードから最後までを削除
+      newText = text.slice(0, lineStart - 1);
+      // 前の行の文字（lineStart - 2）を基準にして、その行の「先頭」へカーソルを移動
+      newCursor = getLineStart(newText, lineStart - 2);
+    }
+  } else {
+    // 途中の行の場合（行頭から改行コードまでを削除）
+    newText = text.slice(0, lineStart) + text.slice(nextNewLine + 1);
+    // 下の行が自動的に上がってくるため、CursorはlineStartにすればよい.
+    newCursor = lineStart;
+  }
+
+  set(activeTextAtom, newText);
+  set(cursorAtom, newCursor);
+});
+
+// Visual / VisualLine モードの選択範囲を削除する
+export const deleteVisualSelectionAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const cursor = get(cursorAtom);
+  const visualStart = get(visualStartAtom);
+  const vimMode = get(modeAtom);
+
+  if (visualStart === null) return;
+
+  let start = 0;
+  let end = 0;
+
+  if (vimMode === "visual") {
+    start = Math.min(visualStart, cursor);
+    end = Math.max(visualStart, cursor) + 1;
+  } else if (vimMode === "visualLine") {
+    // pos1 = visualStart,pos2=cursorとしないのは、
+    // cursorが右、下ではなく、左、上のようにうごくことがあるから.
+    const pos1 = Math.min(visualStart, cursor);
+    const pos2 = Math.max(visualStart, cursor);
+
+    start = getLineStart(text, pos1);
+
+    const lineEndPos = getLineEnd(text, pos2);
+    // visualLineの削除やコピーでは「改行文字(\n)」も含める必要があるため、
+    // ファイル末尾(text.length)でなければ +1 して改行文字を範囲に含める
+    end = lineEndPos === text.length ? text.length : lineEndPos + 1;
+  } else {
+    return;
+  }
+
+  const newText = text.slice(0, start) + text.slice(end);
+
+  set(activeTextAtom, newText);
+  set(cursorAtom, start);
+  set(visualStartAtom, null);
+  set(modeAtom, "normal");
+});
+
+// Visual / VisualLine モードの選択範囲のテキストを取得してNormalモードに戻る (y用)
+export const getVisualSelectionTextAtom = atom(null, (get, set) => {
+  const text = get(activeTextAtom);
+  const cursor = get(cursorAtom);
+  const visualStart = get(visualStartAtom);
+  const vimMode = get(modeAtom);
+
+  if (visualStart === null) return "";
+
+  let start = 0;
+  let end = 0;
+
+  if (vimMode === "visual") {
+    start = Math.min(visualStart, cursor);
+    end = Math.max(visualStart, cursor) + 1;
+  } else if (vimMode === "visualLine") {
+    const pos1 = Math.min(visualStart, cursor);
+    const pos2 = Math.max(visualStart, cursor);
+
+    start = getLineStart(text, pos1);
+
+    const lineEndPos = getLineEnd(text, pos2);
+    end = lineEndPos === text.length ? text.length : lineEndPos + 1;
+  }
+
+  set(visualStartAtom, null);
+  set(modeAtom, "normal");
+
+  return text.slice(start, end);
+});
+
+// Normalモードの1行分のテキストを取得する (yy用)
+export const getLineTextAtom = atom(null, (get, _set) => {
+  const text = get(activeTextAtom);
+  const cursor = get(cursorAtom);
+
+  // core.ts の関数を使って行の先頭と末尾を取得
+  const lineStart = getLineStart(text, cursor);
+  const lineEndPos = getLineEnd(text, cursor);
+
+  // yy は改行文字も含めてコピーするため、ファイル末尾でなければ +1 する
+  const end = lineEndPos === text.length ? text.length : lineEndPos + 1;
+
+  return text.slice(lineStart, end);
+});
+
+// o (下の行にインサート)
+export const insertNewLineBelowAtom = atom(null, (get, set) => {
+  const activeEditor = get(activeEditorAtom);
+  // タイトルやタグ等の1行エディタでは改行させない
+  if (activeEditor !== "content") {
+    set(modeAtom, "insert");
+    return;
+  }
+
+  const text = get(activeTextAtom);
+  const currentPos = get(cursorAtom);
+
+  const insertPos = getLineEnd(text, currentPos);
+  // "ABCDEF"という文字列でinsertPos=3の時、
+  // 最初のtext.sliceでCまで切り取り、\nが追加.\nの添字が3となる.
+  // Dの添字が4となり、"ABC\nDEF"という文字列となる.
+  const newText = `${text.slice(0, insertPos)}\n${text.slice(insertPos)}`;
+
+  set(activeTextAtom, newText);
+  set(cursorAtom, insertPos + 1);
+  set(modeAtom, "insert");
+});
+
+// O (上の行にインサート)
+export const insertNewLineAboveAtom = atom(null, (get, set) => {
+  const activeEditor = get(activeEditorAtom);
+  // タイトルやタグ等の1行エディタでは改行させない
+  if (activeEditor !== "content") {
+    set(modeAtom, "insert");
+    return;
+  }
+
+  const text = get(activeTextAtom);
+  const currentPos = get(cursorAtom);
+
+  const insertPos = getLineStart(text, currentPos);
+
+  const newText = `${text.slice(0, insertPos)}\n${text.slice(insertPos)}`;
+
+  set(activeTextAtom, newText);
+  set(cursorAtom, insertPos);
+  set(modeAtom, "insert");
+});
+</file>
+
+<file path="src/components/editor/SimpleEditor.tsx">
+"use client";
+
+import { useSetAtom } from "jotai";
+import { useVimEditor } from "@/hooks/useVimEditor";
+import { cn } from "@/lib/utils";
+import { activeEditorAtom } from "@/store/editorAtom";
+
+export function SimpleEditor() {
+  const {
+    textareaRef,
+    content,
+    vimMode,
+    settings,
+    handleChange,
+    handleSelect,
+    handleKeyDown,
+  } = useVimEditor();
+
+  const setActiveEditor = useSetAtom(activeEditorAtom);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={content}
+      onChange={handleChange}
+      onSelect={handleSelect}
+      onKeyDown={handleKeyDown}
+      onFocus={() => setActiveEditor("content")}
+      placeholder="ここにメモを入力..."
+      className={cn(
+        "w-full h-full resize-none outline-none bg-transparent",
+        "font-mono text-lg leading-relaxed",
+        "text-gray-800 placeholder:text-gray-300",
+        settings.type === "vim" &&
+          vimMode === "normal" &&
+          "selection:bg-gray-800 selection:text-white",
+      )}
+      spellCheck={false}
+    />
+  );
+}
+</file>
+
+<file path="src/store/editorAtom.ts">
+import { atom } from "jotai";
+import type { Tag } from "@/types/db";
+import { createClient } from "@/utils/supabase/client";
+
+export type EditorType = "standard" | "vim";
+
+export interface EditorSettings {
+  type: EditorType;
+  defaultIsPublic: boolean;
+}
+
+// 画面のモード
+// ViewMode の定義をしっかり export
+export type ViewMode = "editor" | "explore" | "timeline";
+
+// ★ <ViewMode> を明示的に指定して、"editor" 以外の文字列も入ることを教える
+export const currentViewAtom = atom<ViewMode>("editor");
+
+export type ActiveEditor = "title" | "tags" | "content";
+export const activeEditorAtom = atom<ActiveEditor>("content");
+
+export const editorContentAtom = atom<string>("");
+export const editorTitleAtom = atom<string>("");
+export const editorTagsAtom = atom<Tag[]>([]);
+
+// ★ 追加：現在開いているメモの公開状態を管理する
+export const editorIsPublicAtom = atom<boolean>(false);
+
+export const allTagsAtom = atom<Tag[]>([]);
+export const editorTagInputAtom = atom<string>("");
+
+// タグ検索用のステート
+export const tagSearchQueryAtom = atom<string>("");
+export const isTagSearchingAtom = atom<boolean>(false);
+
+// ユーザー全体のデフォルト設定
+export const editorSettingsAtom = atom<EditorSettings>({
+  type: "standard",
+  defaultIsPublic: false,
+});
+
+// AIコスト削減のためのベクトルキャッシュ
+export const editorEmbeddingCacheAtom = atom<{
+  text: string;
+  embedding: number[];
+} | null>(null);
+
+// --- DB連携用のアクション ---
+
+export const fetchUserSettingsAtom = atom(null, async (get, set) => {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const { data, error } = await supabase
+    .from("user_settings")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  if (error) {
+    console.error("設定の取得に失敗しました:", error);
+    return;
+  }
+
+  if (data) {
+    set(editorSettingsAtom, {
+      type: data.use_vim_mode ? "vim" : "standard",
+      defaultIsPublic: data.default_is_public,
+    });
+  }
+});
+
+export const updateUserSettingsAtom = atom(
+  null,
+  async (get, set, update: Partial<EditorSettings>) => {
+    const current = get(editorSettingsAtom);
+    const next = { ...current, ...update };
+
+    set(editorSettingsAtom, next);
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("user_settings")
+      .update({
+        use_vim_mode: next.type === "vim",
+        default_is_public: next.defaultIsPublic,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("設定の保存に失敗しました:", error);
+      set(editorSettingsAtom, current);
+    }
+  },
+);
+</file>
+
+<file path="src/components/editor/EditorHeader.tsx">
+"use client";
+
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import {
+  Check,
+  Globe,
+  Hourglass,
+  Loader2,
+  Lock,
+  Plus,
+  Save,
+  Search,
+  Sparkles,
+  Tag as TagIcon,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useVimKeyHandler } from "@/hooks/useVimKeyHandler";
+import { cn } from "@/lib/utils";
+import {
+  activeEditorAtom,
+  allTagsAtom,
+  editorContentAtom,
+  editorEmbeddingCacheAtom,
+  editorIsPublicAtom,
+  editorTagInputAtom,
+  isTagSearchingAtom,
+  tagSearchQueryAtom,
+} from "@/store/editorAtom";
+import {
+  fetchAllTagsAtom,
+  saveMemoAtom,
+  searchTagsSemanticAtom,
+} from "@/store/memoAtom";
+import {
+  editorSettingsAtom,
+  editorTagsAtom,
+  editorTitleAtom,
+  selectedMemoIdAtom,
+} from "@/store/models";
+import { cursorAtom, modeAtom, visualStartAtom } from "@/store/vim/core";
+import type { Tag } from "@/types/db";
+
+export function EditorHeader() {
+  const [title, setTitle] = useAtom(editorTitleAtom);
+  const [tags, setTags] = useAtom(editorTagsAtom);
+  const [tagInput, setTagInput] = useAtom(editorTagInputAtom);
+  const [activeEditor, setActiveEditor] = useAtom(activeEditorAtom);
+
+  const allTags = useAtomValue(allTagsAtom);
+  const content = useAtomValue(editorContentAtom);
+  const fetchAllTags = useSetAtom(fetchAllTagsAtom);
+
+  const [tagSearchQuery, setTagSearchQuery] = useAtom(tagSearchQueryAtom);
+  const isTagSearching = useAtomValue(isTagSearchingAtom);
+  const searchTags = useSetAtom(searchTagsSemanticAtom);
+
+  const [isPublic, setIsPublic] = useAtom(editorIsPublicAtom);
+  const setEmbeddingCache = useSetAtom(editorEmbeddingCacheAtom);
+
+  const selectedId = useAtomValue(selectedMemoIdAtom);
+  const saveMemo = useSetAtom(saveMemoAtom);
+  const settings = useAtomValue(editorSettingsAtom);
+  const vimMode = useAtomValue(modeAtom);
+  const cursor = useAtomValue(cursorAtom);
+  const visualStart = useAtomValue(visualStartAtom);
+  const setCursor = useSetAtom(cursorAtom);
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [isTitleAiLoading, setIsTitleAiLoading] = useState(false);
+  const [isTagAiLoading, setIsTagAiLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [showTagList, setShowTagList] = useState(false);
+
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const tagInputRef = useRef<HTMLInputElement>(null);
+  const ignoreSelectRef = useRef(false);
+  const tagContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
+
+  useEffect(() => {
+    fetchAllTags();
+  }, [fetchAllTags]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        tagContainerRef.current &&
+        !tagContainerRef.current.contains(event.target as Node)
+      ) {
+        setShowTagList(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (activeEditor !== "tags") setShowTagList(false);
+  }, [activeEditor]);
+
+  const handleSave = useCallback(async () => {
+    if (selectedId && !isSaving) {
+      setIsSaving(true);
+      await saveMemo();
+      setTimeout(() => setIsSaving(false), 500);
+    }
+  }, [selectedId, isSaving, saveMemo]);
+
+  const togglePublic = async () => {
+    const nextPublic = !isPublic;
+    setIsPublic(nextPublic);
+    setTimeout(() => handleSave(), 50);
+  };
+
+  const saveRef = useRef(handleSave);
+  useEffect(() => {
+    saveRef.current = handleSave;
+  }, [handleSave]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        saveRef.current();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const handleAutoTag = async () => {
+    if (!content || isTagAiLoading || cooldown > 0) return;
+    setIsTagAiLoading(true);
+    try {
+      const res = await fetch("/api/memos/tags/auto", {
+        method: "POST",
+        body: JSON.stringify({ content }),
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.status === 429) {
+        const data = await res.json();
+        setCooldown(data.retryAfter || 60);
+        return;
+      }
+      const data = await res.json();
+      if (data.suggestedTags) {
+        setTags(data.suggestedTags);
+        fetchAllTags();
+        if (data.embedding)
+          setEmbeddingCache({ text: content, embedding: data.embedding });
+        setTimeout(() => saveRef.current(), 100);
+      }
+    } catch (err) {
+      console.error("AI Auto-tag failed:", err);
+    } finally {
+      setIsTagAiLoading(false);
+    }
+  };
+
+  const handleAutoTitle = async () => {
+    if (!content || isTitleAiLoading || cooldown > 0) return;
+    setIsTitleAiLoading(true);
+    try {
+      const res = await fetch("/api/memos/title/auto", {
+        method: "POST",
+        body: JSON.stringify({ content }),
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.status === 429) {
+        const data = await res.json();
+        setCooldown(data.retryAfter || 60);
+        return;
+      }
+      const data = await res.json();
+      if (data.title) {
+        setTitle(data.title);
+        setTimeout(() => saveRef.current(), 100);
+      }
+    } catch (err) {
+      console.error("AI Auto-title failed:", err);
+    } finally {
+      setIsTitleAiLoading(false);
+    }
+  };
+
+  const toggleTag = (tag: Tag) => {
+    const isExists = tags.find((t) => t.id === tag.id);
+    if (isExists) {
+      setTags(tags.filter((t) => t.id !== tag.id));
+    } else {
+      setTags([...tags, tag]);
+    }
+  };
+
+  const removeTag = (tagId: string) =>
+    setTags(tags.filter((t) => t.id !== tagId));
+
+  const { handleKeyDown: handleTitleKeyDown } = useVimKeyHandler(
+    titleInputRef,
+    ignoreSelectRef,
+    (direction) => {
+      if (direction === "down")
+        document.getElementById("memo-tag-input")?.focus();
+    },
+  );
+
+  const { handleKeyDown: handleTagKeyDown } = useVimKeyHandler(
+    tagInputRef,
+    ignoreSelectRef,
+    (direction) => {
+      if (direction === "up")
+        document.getElementById("memo-title-input")?.focus();
+      else if (direction === "down")
+        document.querySelector("textarea")?.focus();
+    },
+  );
+
+  useEffect(() => {
+    if (settings.type === "standard") return;
+    const input =
+      activeEditor === "title"
+        ? titleInputRef.current
+        : activeEditor === "tags"
+          ? tagInputRef.current
+          : null;
+    if (!input) return;
+    const value =
+      activeEditor === "title"
+        ? title
+        : activeEditor === "tags"
+          ? tagInput
+          : "";
+    if (vimMode === "visual" && visualStart !== null) {
+      input.setSelectionRange(
+        Math.min(visualStart, cursor),
+        Math.max(visualStart, cursor) + 1,
+      );
+    } else if (vimMode === "normal") {
+      input.setSelectionRange(
+        cursor,
+        value.length === 0 ? 0 : Math.min(cursor + 1, value.length),
+      );
+    } else {
+      input.setSelectionRange(cursor, cursor);
+    }
+    ignoreSelectRef.current = false;
+  }, [
+    cursor,
+    vimMode,
+    title,
+    tagInput,
+    visualStart,
+    settings.type,
+    activeEditor,
+  ]);
+
+  return (
+    <div className="flex flex-col gap-4 w-full group">
+      <div className="flex justify-between items-center gap-4">
+        <input
+          id="memo-title-input"
+          ref={titleInputRef}
+          type="text"
+          value={title}
+          readOnly={
+            settings.type === "vim" &&
+            activeEditor === "title" &&
+            (vimMode === "normal" || vimMode === "visual")
+          }
+          onFocus={() => setActiveEditor("title")}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setCursor(e.target.selectionStart || 0);
+          }}
+          onKeyDown={(e) => {
+            if (settings.type === "standard") {
+              if (e.key === "Enter" || e.key === "Escape") {
+                e.preventDefault();
+                document.querySelector("textarea")?.focus();
+              }
+            } else handleTitleKeyDown(e);
+          }}
+          placeholder="no title"
+          className={cn(
+            "text-4xl font-bold text-gray-800 placeholder:text-gray-200 outline-none flex-1 transition-all rounded-md px-2 -ml-2 bg-transparent",
+            "border border-transparent hover:border-gray-200 hover:bg-gray-100 focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-200",
+            settings.type === "vim" &&
+              activeEditor === "title" &&
+              (vimMode === "normal" || vimMode === "visual")
+              ? "caret-transparent selection:bg-gray-800 selection:text-white"
+              : "",
+          )}
+        />
+
+        <div className="flex items-center gap-2">
+          {/* 1. AIタイトルボタン */}
+          <button
+            type="button"
+            onClick={handleAutoTitle}
+            disabled={!content || isTitleAiLoading || cooldown > 0}
+            className={cn(
+              // whitespace-nowrap（改行禁止）と shrink-0（縮小禁止）を追加
+              "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap shrink-0",
+              isTitleAiLoading || cooldown > 0
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:border-blue-300",
+            )}
+          >
+            {isTitleAiLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : cooldown > 0 ? (
+              <Hourglass className="w-4 h-4" />
+            ) : (
+              <Sparkles className="w-4 h-4" />
+            )}
+            <span>{cooldown > 0 ? `${cooldown}秒` : "AIタイトル"}</span>
+          </button>
+
+          {/* 2. 保存ボタン */}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!selectedId || isSaving}
+            className={cn(
+              "p-2 rounded-full transition-all duration-200 shrink-0", // ここにも shrink-0 を追加
+              selectedId
+                ? "text-gray-400 hover:bg-blue-50 hover:text-blue-600"
+                : "text-gray-200 cursor-not-allowed",
+            )}
+            title="保存 (Ctrl+S)"
+          >
+            {isSaving ? (
+              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+            ) : (
+              <Save className="w-6 h-6" />
+            )}
+          </button>
+
+          {/* 3. 個別公開ボタン */}
+          <button
+            type="button"
+            onClick={togglePublic}
+            disabled={!selectedId}
+            className={cn(
+              // whitespace-nowrap（改行禁止）を追加
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm whitespace-nowrap shrink-0",
+              !selectedId
+                ? "opacity-30 cursor-not-allowed"
+                : isPublic
+                  ? "bg-green-50 text-green-600 border-green-200 hover:bg-green-100"
+                  : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100",
+            )}
+          >
+            {isPublic ? (
+              <>
+                <Globe className="w-3.5 h-3.5" /> 公開中
+              </>
+            ) : (
+              <>
+                <Lock className="w-3.5 h-3.5" /> 未公開
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 min-h-8">
+        {tags.length > 0 ? (
+          tags.map((tag) => (
+            <div
+              key={tag.id}
+              className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-sm rounded-md border border-gray-200 cursor-default group/tag"
+            >
+              <TagIcon className="w-3 h-3 opacity-70" />
+              <span>{tag.name}</span>
+              <button
+                type="button"
+                onClick={() => removeTag(tag.id)}
+                className="opacity-0 group-hover/tag:opacity-100 hover:text-red-500 transition-opacity ml-1"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))
+        ) : (
+          <span className="text-sm text-gray-300 italic">タグなし</span>
+        )}
+
+        <div className="relative flex items-center" ref={tagContainerRef}>
+          <Plus className="absolute left-2 w-3 h-3 text-gray-400 pointer-events-none" />
+          <input
+            id="memo-tag-input"
+            ref={tagInputRef}
+            type="text"
+            value={showTagList ? "選択中..." : tagInput}
+            readOnly
+            onClick={() => setShowTagList(true)}
+            onFocus={() => {
+              setActiveEditor("tags");
+              setShowTagList(true);
+            }}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (settings.type === "standard") {
+                if (e.key === "Escape" || e.key === "Enter") {
+                  e.preventDefault();
+                  setShowTagList(false);
+                  document.querySelector("textarea")?.focus();
+                }
+              } else handleTagKeyDown(e);
+            }}
+            placeholder="Select Tag"
+            className={cn(
+              "pl-6 pr-2 py-0.5 text-sm text-gray-600 placeholder:text-gray-400 border border-transparent rounded-md outline-none w-28 transition-all bg-transparent hover:border-gray-200 hover:bg-gray-100 focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-200 cursor-pointer",
+              settings.type === "vim" &&
+                activeEditor === "tags" &&
+                (vimMode === "normal" || vimMode === "visual")
+                ? "caret-transparent selection:bg-gray-800 selection:text-white"
+                : "",
+            )}
+          />
+
+          {showTagList && (
+            <div className="absolute top-full left-0 mt-1 w-56 max-h-80 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg z-50 flex flex-col">
+              <div className="sticky top-0 bg-white border-b border-gray-100 p-2 z-10">
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={tagSearchQuery}
+                    onChange={(e) => setTagSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        searchTags();
+                      }
+                    }}
+                    placeholder="意味でタグを検索..."
+                    className="w-full pl-8 pr-12 py-1.5 text-xs text-gray-900 placeholder:text-gray-400 bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 shadow-sm"
+                  />
+                  <Search className="absolute left-2.5 w-3.5 h-3.5 text-gray-400" />
+                  <button
+                    type="button"
+                    onClick={searchTags}
+                    disabled={isTagSearching}
+                    className="absolute right-1 px-2 py-1 text-[10px] font-bold text-blue-600 hover:bg-blue-100 rounded disabled:text-gray-300"
+                  >
+                    {isTagSearching ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      "検索"
+                    )}
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1">
+                <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  {tagSearchQuery ? "関連度の高いタグ" : "すべてのタグ"}
+                </div>
+                {allTags.length === 0 ? (
+                  <div className="px-3 py-6 text-xs text-center text-gray-400">
+                    タグが見つかりません
+                  </div>
+                ) : (
+                  allTags.map((tag) => (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        toggleTag(tag);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors text-left"
+                    >
+                      <span>{tag.name}</span>
+                      {tags.find((t) => t.id === tag.id) && (
+                        <Check className="w-4 h-4 text-blue-500" />
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleAutoTag}
+          disabled={!content || isTagAiLoading || cooldown > 0}
+          className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all ml-1",
+            isTagAiLoading || cooldown > 0
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-purple-50 text-purple-600 border border-purple-200 hover:bg-purple-100 hover:border-purple-300",
+          )}
+          title="AIにタグを提案してもらう"
+        >
+          {isTagAiLoading ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : cooldown > 0 ? (
+            <Hourglass className="w-3.5 h-3.5" />
+          ) : (
+            <Sparkles className="w-3.5 h-3.5" />
+          )}
+          <span>{cooldown > 0 ? `${cooldown}秒` : "AI自動タグ"}</span>
+        </button>
+      </div>
+
+      <hr className="border-gray-100 mt-2 w-full" />
+    </div>
+  );
+}
+</file>
+
+<file path="src/store/memoAtom.ts">
+import { atom } from "jotai";
+import type { Memo, Tag } from "@/types/models";
+import { createClient } from "@/utils/supabase/client";
+import {
+  allTagsAtom,
+  editorContentAtom,
+  editorTagsAtom,
+  editorTitleAtom,
+  editorEmbeddingCacheAtom,
+  tagSearchQueryAtom,
+  isTagSearchingAtom,
+  editorSettingsAtom,
+  editorIsPublicAtom, // ★ 追加
+} from "./editorAtom";
+
+// 検索結果専用の型を定義
+export interface SearchedMemo extends Memo {
+  similarity: number;
+}
+
+export const isExploreModeAtom = atom(false);
+
+export const searchedMemosAtom = atom<SearchedMemo[]>([]);
+export const selectedSearchedMemoAtom = atom<SearchedMemo | null>(null);
+
+const supabase = createClient();
+
+export const memoListAtom = atom<Memo[]>([]);
+export const selectedMemoIdAtom = atom<string | null>(null);
+
+export const currentMemoAtom = atom((get) => {
+  const memos = get(memoListAtom);
+  const selectedId = get(selectedMemoIdAtom);
+  return memos.find((m) => m.id === selectedId) || null;
+});
+
+// --- Actions (非同期処理) ---
+
+export const fetchAllTagsAtom = atom(null, async (get, set) => {
+  const { data, error } = await supabase
+    .from("tags")
+    .select("id, name")
+    .order("name");
+
+  if (!error && data) {
+    set(allTagsAtom, data);
+  }
+});
+
+export const searchTagsSemanticAtom = atom(null, async (get, set) => {
+  const query = get(tagSearchQueryAtom);
+
+  if (!query.trim()) {
+    set(isTagSearchingAtom, false);
+    const { data } = await supabase
+      .from("tags")
+      .select("id, name")
+      .order("name");
+    if (data) set(allTagsAtom, data);
+    return;
+  }
+
+  set(isTagSearchingAtom, true);
+
+  try {
+    const res = await fetch("/api/embeddings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: query }),
+    });
+
+    if (!res.ok) throw new Error("Embedding failed");
+    const { embedding } = await res.json();
+
+    const { data, error } = await supabase.rpc("match_tags", {
+      query_embedding: embedding,
+      match_threshold: 0.1,
+      match_count: 50,
+    });
+
+    if (error) throw error;
+    if (data) set(allTagsAtom, data as Tag[]);
+  } catch (err) {
+    console.error("Tag semantic search failed:", err);
+  } finally {
+    set(isTagSearchingAtom, false);
+  }
+});
+
+// メモ一覧取得：選択したメモの公開状態もAtomに反映させる
+export const fetchMemosAtom = atom(null, async (get, set) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data, error } = await supabase
+    .from("memos")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching memos:", error);
+    return;
+  }
+
+  if (data) {
+    const memoData = data as Memo[];
+    set(memoListAtom, memoData);
+    
+    // 選択中のメモがあれば、その公開状態をセット
+    const selectedId = get(selectedMemoIdAtom) || (memoData.length > 0 ? memoData[0].id : null);
+    if (selectedId) {
+      if (!get(selectedMemoIdAtom)) set(selectedMemoIdAtom, selectedId);
+      const current = memoData.find((m) => m.id === selectedId);
+      if (current) set(editorIsPublicAtom, !!current.is_public);
+    }
+  }
+});
+
+export const saveMemoAtom = atom(null, async (get, set) => {
+  const id = get(selectedMemoIdAtom);
+  const title = get(editorTitleAtom);
+  const content = get(editorContentAtom);
+  const tags = get(editorTagsAtom);
+  const isPublic = get(editorIsPublicAtom); // ★ 追加
+  const cache = get(editorEmbeddingCacheAtom);
+
+  if (!id) return;
+
+  try {
+    let currentEmbedding: number[] = [];
+
+    if (cache && cache.text === content) {
+      currentEmbedding = cache.embedding;
+    } else {
+      const res = await fetch("/api/embeddings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: `${title}\n${content}` }),
+      });
+
+      if (!res.ok) throw new Error("Failed to fetch embedding");
+      const data = await res.json();
+      currentEmbedding = data.embedding;
+    }
+
+    const updated_at = new Date().toISOString();
+    const tagNames = tags.map((t: Tag) => t.name);
+
+    const { error } = await supabase
+      .from("memos")
+      .update({
+        title,
+        content,
+        tags: tagNames,
+        is_public: isPublic, // ★ 追加
+        updated_at,
+        embedding: currentEmbedding,
+      })
+      .eq("id", id);
+
+    if (error) return;
+
+    set(memoListAtom, (prev) =>
+      prev.map((memo) =>
+        memo.id === id
+          ? {
+              ...memo,
+              title,
+              content,
+              tags: tagNames,
+              is_public: isPublic, // ★ 追加
+              updated_at,
+              embedding: JSON.stringify(currentEmbedding),
+            }
+          : memo,
+      ),
+    );
+
+    await fetch("/api/memos/tags/sync", {
+      method: "POST",
+      body: JSON.stringify({
+        memo_id: id,
+        tag_ids: tags.map((t: Tag) => t.id),
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("Error in saveMemoAtom:", err);
+  }
+});
+
+export const createMemoAtom = atom(null, async (get, set) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const settings = get(editorSettingsAtom);
+
+  const { data, error } = await supabase
+    .from("memos")
+    .insert([{ 
+      user_id: user.id,
+      title: "",
+      content: "",
+      tags: [],
+      is_public: settings.defaultIsPublic // ★ デフォルト設定を適用
+    }])
+    .select()
+    .single();
+
+  if (!error && data) {
+    const newMemo = data as Memo;
+    const currentList = get(memoListAtom);
+    set(memoListAtom, [newMemo, ...currentList]);
+    set(selectedMemoIdAtom, newMemo.id);
+    set(editorIsPublicAtom, !!newMemo.is_public); // ★ 新規作成時の状態を反映
+  }
+});
+
+export const deleteMemoAtom = atom(null, async (get, set, memoId: string) => {
+  const { error } = await supabase.from("memos").delete().eq("id", memoId);
+  if (error) return;
+
+  const currentList = get(memoListAtom);
+  set(memoListAtom, currentList.filter((memo) => memo.id !== memoId));
+
+  if (get(selectedMemoIdAtom) === memoId) {
+    set(selectedMemoIdAtom, null);
+  }
+});
+
+export type TimelineMemo = Pick<
+  Memo,
+  "id" | "title" | "content" | "updated_at" | "user_id"
+>;
+
+export const timelineMemosAtom = atom<TimelineMemo[]>([]);
+
+// fetchTimelineMemosAtom の部分のみ差し替え
+export const fetchTimelineMemosAtom = atom(null, async (get, set) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  try {
+    const response = await fetch("/api/memos/timeline");
+    if (response.ok) {
+      const data = await response.json();
+      
+      if (data.timeline_memos) {
+        // APIから返ってきたメモのうち、自分以外のものを厳密に抽出
+        const othersMemos = data.timeline_memos.filter((m: any) => {
+          // user_id が存在し、かつ自分のものではないことを確認
+          const memoUserId = String(m.user_id);
+          const currentUserId = String(user.id);
+          return memoUserId !== currentUserId;
+        });
+
+        console.log("📱 タイムライン表示対象（他人のメモ）:", othersMemos.length);
+        set(timelineMemosAtom, othersMemos);
+      }
+    }
+  } catch (error) {
+    console.error("Timeline fetch error:", error);
+  }
+});
+</file>
+
+<file path="src/components/layout/AppSidebar.tsx">
+"use client";
+
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import {
+  ArrowLeft,
+  Compass,
+  FileText,
+  Globe,
+  Loader2,
+  Plus,
+  Search,
+  Settings,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { SidebarAuth } from "@/components/auth/SidebarAuth";
+import { cn } from "@/lib/utils";
+import {
+  currentViewAtom,
+  editorSettingsAtom,
+  fetchUserSettingsAtom,
+  updateUserSettingsAtom,
+} from "@/store/editorAtom";
+import {
+  createMemoAtom,
+  deleteMemoAtom,
+  fetchMemosAtom,
+  fetchTimelineMemosAtom,
+  memoListAtom,
+  searchedMemosAtom,
+  selectedMemoIdAtom,
+  selectedSearchedMemoAtom,
+  timelineMemosAtom,
+} from "@/store/memoAtom";
+
+export function AppSidebar() {
+  const [settings] = useAtom(editorSettingsAtom);
+  const updateSettings = useSetAtom(updateUserSettingsAtom);
+  const fetchUserSettings = useSetAtom(fetchUserSettingsAtom);
+
+  const [memos] = useAtom(memoListAtom);
+  const [selectedId, setSelectedId] = useAtom(selectedMemoIdAtom);
+  const fetchMemos = useSetAtom(fetchMemosAtom);
+  const createMemo = useSetAtom(createMemoAtom);
+  const deleteMemo = useSetAtom(deleteMemoAtom);
+
+  // 型エラー対策: 明示的に ViewMode として扱う
+  const [currentView, setCurrentView] = useAtom(currentViewAtom);
+
+  const [searchedMemos] = useAtom(searchedMemosAtom);
+  const [selectedSearchedMemo, setSelectedSearchedMemo] = useAtom(
+    selectedSearchedMemoAtom,
+  );
+  const [isSearching, setIsSearching] = useState(false);
+
+  // タイムライン（自分以外）のデータ
+  const timelineMemos = useAtomValue(timelineMemosAtom);
+  const fetchTimeline = useSetAtom(fetchTimelineMemosAtom);
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetchMemos();
+    fetchUserSettings();
+  }, [fetchMemos, fetchUserSettings]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        settingsRef.current &&
+        !settingsRef.current.contains(event.target as Node)
+      ) {
+        setIsSettingsOpen(false);
+      }
+    };
+    if (isSettingsOpen)
+      document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isSettingsOpen]);
+
+  const toggleVimMode = () => {
+    updateSettings({ type: settings.type === "standard" ? "vim" : "standard" });
+  };
+
+  const toggleDefaultPublic = () => {
+    updateSettings({ defaultIsPublic: !settings.defaultIsPublic });
+  };
+
+  const handleCreateMemo = async () => {
+    setCurrentView("editor");
+    await createMemo();
+  };
+
+  return (
+    <aside className="w-77 h-screen bg-[#e9eef6] flex flex-col border-r border-gray-200 text-gray-600 outline-none shrink-0">
+      <div className="p-4 space-y-4">
+        <SidebarAuth />
+
+        {/* 戻るボタンの表示 */}
+        {currentView !== "editor" && (
+          <button
+            type="button"
+            onClick={() => setCurrentView("editor")}
+            className="flex items-center gap-2 hover:bg-gray-200 text-gray-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full border border-gray-300 bg-white shadow-sm"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>自分のメモに戻る</span>
+          </button>
+        )}
+
+        {/* メインナビゲーション (editorモードの時だけ表示) */}
+        {currentView === "editor" && (
+          <div className="space-y-1">
+            <div className="relative group mb-2">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="検索"
+                className="w-full bg-transparent border border-transparent hover:bg-white focus:bg-white focus:border-blue-200 rounded-full py-2 pl-10 pr-4 text-sm outline-none transition-all"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCreateMemo}
+              className="flex items-center gap-2 hover:bg-gray-200 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
+            >
+              <Plus className="w-5 h-5 text-blue-500" />
+              <span>メモを新規作成</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCurrentView("explore")}
+              className="flex items-center gap-2 hover:bg-blue-50 text-blue-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
+            >
+              <Compass className="w-5 h-5" />
+              <span>関連する公開メモを探す</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentView("timeline");
+                fetchTimeline();
+              }}
+              className="flex items-center gap-2 hover:bg-green-50 text-green-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
+            >
+              <Globe className="w-5 h-5" />
+              <span>公開タイムライン</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* リスト表示部分の出し分け */}
+        {currentView === "explore" ? (
+          <div className="space-y-1">
+            <div className="text-xs font-medium px-4 mb-2 text-blue-600">
+              検索結果
+            </div>
+            {isSearching ? (
+              <div className="flex flex-col items-center py-10 text-gray-400">
+                <Loader2 className="w-6 h-6 animate-spin mb-4" />
+                <span>検索中...</span>
+              </div>
+            ) : (
+              searchedMemos.map((memo) => (
+                <button
+                  key={memo.id}
+                  type="button"
+                  onClick={() => setSelectedSearchedMemo(memo)}
+                  className={cn(
+                    "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left",
+                    selectedSearchedMemo?.id === memo.id
+                      ? "bg-blue-50 border-blue-200"
+                      : "bg-white border-transparent hover:border-gray-200",
+                  )}
+                >
+                  <div className="text-[10px] text-blue-600 mb-1 font-bold">
+                    MATCH {Math.round(memo.similarity * 100)}%
+                  </div>
+                  <div className="truncate text-sm font-medium text-gray-800">
+                    {memo.title || "無題のメモ"}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        ) : currentView === "timeline" ? (
+          <div className="space-y-1">
+            <div className="text-xs font-medium px-4 mb-2 text-green-600">
+              タイムライン (他人の公開メモ)
+            </div>
+            {timelineMemos.map((memo) => (
+              <button
+                key={memo.id}
+                type="button"
+                onClick={() => setSelectedSearchedMemo(memo as any)}
+                className={cn(
+                  "w-full rounded-2xl flex flex-col p-3 transition-colors border text-left",
+                  selectedSearchedMemo?.id === memo.id
+                    ? "bg-green-50 border-green-200"
+                    : "bg-white border-transparent hover:border-gray-200",
+                )}
+              >
+                <div className="text-[10px] text-green-600 mb-1 font-bold">
+                  {new Date(memo.updated_at).toLocaleDateString()}
+                </div>
+                <div className="truncate text-sm font-medium text-gray-800">
+                  {memo.title || "無題のメモ"}
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <div className="text-xs font-medium px-4 mb-2">自分のメモ</div>
+            {memos.map((memo) => (
+              <div
+                key={memo.id}
+                className={cn(
+                  "w-full rounded-full flex items-center transition-colors group px-2",
+                  selectedId === memo.id && currentView === "editor"
+                    ? "bg-blue-100 text-[#0e42a0]"
+                    : "hover:bg-[#d3e3fd]",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(memo.id);
+                    setCurrentView("editor");
+                  }}
+                  className="flex-1 min-w-0 flex items-center gap-2 pl-4 py-2 text-left outline-none"
+                >
+                  <FileText className="w-4 h-4 opacity-50 shrink-0" />
+                  <span className="truncate text-sm font-medium">
+                    {memo.title || "無題のメモ"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteMemo(memo.id);
+                  }}
+                  className="hidden group-hover:flex shrink-0 text-red-400 pr-3 pl-2 py-2 hover:text-red-600"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div
+        className="p-4 mt-auto border-t border-gray-200 relative"
+        ref={settingsRef}
+      >
+        {isSettingsOpen && (
+          <div className="absolute bottom-full left-4 mb-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-50">
+            <h3 className="text-sm font-semibold text-gray-800 mb-4">
+              エディタ設定
+            </h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">デフォルトで公開</span>
+                <button
+                  type="button"
+                  onClick={toggleDefaultPublic}
+                  className={cn(
+                    "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                    settings.defaultIsPublic ? "bg-blue-500" : "bg-gray-300",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-white transition duration-200",
+                      settings.defaultIsPublic
+                        ? "translate-x-4"
+                        : "translate-x-0",
+                    )}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+          className={cn(
+            "flex items-center gap-3 w-full p-2 text-xs rounded-lg transition-colors",
+            isSettingsOpen
+              ? "bg-[#d3e3fd] text-[#0e42a0]"
+              : "text-gray-500 hover:text-gray-900 hover:bg-[#e1e5ea]",
+          )}
+        >
+          <Settings className="w-4 h-4" />
+          <span>設定</span>
+        </button>
+      </div>
+    </aside>
+  );
+}
+</file>
+
+</files>
