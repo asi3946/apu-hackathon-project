@@ -3,6 +3,7 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   Check,
+  Hourglass,
   Loader2,
   Plus,
   Save,
@@ -18,6 +19,7 @@ import {
   allTagsAtom,
   editorContentAtom,
   editorTagInputAtom,
+  editorEmbeddingCacheAtom, // ★追加：キャッシュ用のAtomをインポート
 } from "@/store/editorAtom";
 import { fetchAllTagsAtom, saveMemoAtom } from "@/store/memoAtom";
 import {
@@ -38,6 +40,9 @@ export function EditorHeader() {
   const allTags = useAtomValue(allTagsAtom);
   const content = useAtomValue(editorContentAtom);
   const fetchAllTags = useSetAtom(fetchAllTagsAtom);
+  
+  // ★追加：ベクトルをキャッシュ（記憶）するための関数
+  const setEmbeddingCache = useSetAtom(editorEmbeddingCacheAtom);
 
   const selectedId = useAtomValue(selectedMemoIdAtom);
   const saveMemo = useSetAtom(saveMemoAtom);
@@ -49,9 +54,10 @@ export function EditorHeader() {
 
   const [isSaving, setIsSaving] = useState(false);
   
-  // ★重要：ローディング状態を分離して、ボタンが連動しないようにします
   const [isTitleAiLoading, setIsTitleAiLoading] = useState(false);
   const [isTagAiLoading, setIsTagAiLoading] = useState(false);
+  
+  const [cooldown, setCooldown] = useState(0);
   
   const [showTagList, setShowTagList] = useState(false);
 
@@ -60,6 +66,14 @@ export function EditorHeader() {
   const ignoreSelectRef = useRef(false);
 
   const tagContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   useEffect(() => {
     fetchAllTags();
@@ -114,7 +128,7 @@ export function EditorHeader() {
 
   // AI自動タグ付け機能
   const handleAutoTag = async () => {
-    if (!content || isTagAiLoading) return;
+    if (!content || isTagAiLoading || cooldown > 0) return;
     setIsTagAiLoading(true);
     try {
       const res = await fetch("/api/memos/tags/auto", {
@@ -122,10 +136,27 @@ export function EditorHeader() {
         body: JSON.stringify({ content }),
         headers: { "Content-Type": "application/json" },
       });
+
+      if (res.status === 429) {
+        const data = await res.json();
+        setCooldown(data.retryAfter || 60);
+        return;
+      }
+
       const data = await res.json();
       if (data.suggestedTags) {
         setTags(data.suggestedTags);
         fetchAllTags();
+        
+        // ★追加：APIから返ってきたベクトルをキャッシュに保存！
+        if (data.embedding) {
+          setEmbeddingCache({ text: content, embedding: data.embedding });
+        }
+        
+        // ★追加：タグ設定後、自動で保存を走らせる（State反映待ちのため100ms遅らせる）
+        setTimeout(() => {
+          saveRef.current();
+        }, 100);
       }
     } catch (err) {
       console.error("AI Auto-tag failed:", err);
@@ -136,7 +167,7 @@ export function EditorHeader() {
 
   // AI自動タイトル生成機能
   const handleAutoTitle = async () => {
-    if (!content || isTitleAiLoading) return;
+    if (!content || isTitleAiLoading || cooldown > 0) return;
     setIsTitleAiLoading(true);
     try {
       const res = await fetch("/api/memos/title/auto", {
@@ -144,9 +175,21 @@ export function EditorHeader() {
         body: JSON.stringify({ content }),
         headers: { "Content-Type": "application/json" },
       });
+
+      if (res.status === 429) {
+        const data = await res.json();
+        setCooldown(data.retryAfter || 60);
+        return;
+      }
+
       const data = await res.json();
       if (data.title) {
         setTitle(data.title);
+        
+        // ★追加：タイトル設定後、自動で保存を走らせる
+        setTimeout(() => {
+          saveRef.current();
+        }, 100);
       }
     } catch (err) {
       console.error("AI Auto-title failed:", err);
@@ -296,24 +339,26 @@ export function EditorHeader() {
         />
 
         <div className="flex items-center gap-2">
-          {/* AIタイトル生成ボタン（独立したローディング状態を使用） */}
+          {/* AIタイトル生成ボタン */}
           <button
             type="button"
             onClick={handleAutoTitle}
-            disabled={!content || isTitleAiLoading}
+            disabled={!content || isTitleAiLoading || cooldown > 0}
             className={cn(
               "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-bold transition-all",
-              isTitleAiLoading
-                ? "bg-gray-100 text-gray-400 cursor-wait"
+              isTitleAiLoading || cooldown > 0
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : "bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:border-blue-300",
             )}
           >
             {isTitleAiLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
+            ) : cooldown > 0 ? (
+              <Hourglass className="w-4 h-4" />
             ) : (
               <Sparkles className="w-4 h-4" />
             )}
-            <span>AI タイトル生成</span>
+            <span>{cooldown > 0 ? `制限中 (${cooldown}秒)` : "AI タイトル生成"}</span>
           </button>
 
           <button
@@ -338,7 +383,7 @@ export function EditorHeader() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 min-h-8">
-        {/* タグ表示...中略... */}
+        {/* タグ表示 */}
         {tags.length > 0 ? (
           tags.map((tag) => (
             <div
@@ -422,25 +467,27 @@ export function EditorHeader() {
           )}
         </div>
 
-        {/* AI自動タグボタン（独立したローディング状態を使用） */}
+        {/* AI自動タグボタン */}
         <button
           type="button"
           onClick={handleAutoTag}
-          disabled={!content || isTagAiLoading}
+          disabled={!content || isTagAiLoading || cooldown > 0}
           className={cn(
             "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all ml-1",
-            isTagAiLoading
-              ? "bg-gray-100 text-gray-400 cursor-wait"
+            isTagAiLoading || cooldown > 0
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
               : "bg-purple-50 text-purple-600 border border-purple-200 hover:bg-purple-100 hover:border-purple-300",
           )}
           title="AIにタグを提案してもらう"
         >
           {isTagAiLoading ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : cooldown > 0 ? (
+            <Hourglass className="w-3.5 h-3.5" />
           ) : (
             <Sparkles className="w-3.5 h-3.5" />
           )}
-          <span>AI 自動タグ付け</span>
+          <span>{cooldown > 0 ? `制限中 (${cooldown}秒)` : "AI 自動タグ付け"}</span>
         </button>
       </div>
 
