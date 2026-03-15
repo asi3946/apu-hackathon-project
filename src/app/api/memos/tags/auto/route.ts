@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     });
     const supabase = await createClient();
 
-    // 1. メモ内容をベクトル化
+    // 1. メモ内容をベクトル化（★ここで計算したデータを後で再利用します）
     const embResult = await embeddingModel.embedContent(content);
     const queryEmbedding = embResult.embedding.values.slice(0, 768);
 
@@ -43,14 +43,13 @@ export async function POST(request: Request) {
 
     if (rpcError) {
       console.error("RPC Error (match_tags):", rpcError);
-      // RPCが未定義でも次に進めるように空配列をセット
     }
 
     const candidateNames = (candidates as any[])?.map((t) => t.name) || [];
 
-    // 3. Geminiによる提案
+    // 3. Geminiによる提案（★モデルを 2.5-flash に変更しました）
     const chatModel = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash-lite",
+      model: "gemini-2.5-flash",
     });
     const prompt = `
       以下のメモ内容に最適なタグを3個以内で提案してください。
@@ -66,7 +65,6 @@ export async function POST(request: Request) {
 
     const aiResult = await chatModel.generateContent(prompt);
     const aiText = aiResult.response.text();
-    // AIが余計な文字を返した場合に備えてクリーニング
     const suggestedTagNames = aiText
       .split(",")
       .map((s) => s.trim().replace(/[#.]/g, ""))
@@ -76,7 +74,6 @@ export async function POST(request: Request) {
     const finalTags: any[] = [];
 
     for (const tagName of suggestedTagNames) {
-      // 既存チェック
       const { data: existingTag } = await supabase
         .from("tags")
         .select("*")
@@ -86,7 +83,6 @@ export async function POST(request: Request) {
       if (existingTag) {
         finalTags.push(existingTag);
       } else {
-        // 新規作成
         try {
           const tagEmb = await embeddingModel.embedContent(tagName);
           const { data: newTag, error: insErr } = await supabase
@@ -105,13 +101,28 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ suggestedTags: finalTags });
+    // ★ 変更点: suggestedTags に加えて、計算済みの embedding もフロントに返す！
+    return NextResponse.json({ 
+      suggestedTags: finalTags,
+      embedding: queryEmbedding 
+    });
+
   } catch (error: any) {
-    // 500エラーの詳細をサーバーログに出力
-    console.error("AUTO TAG API ERROR:", error);
+    console.error("API ERROR:", error.message);
+
+    if (error.status === 429 || error.message?.includes("429 Too Many Requests")) {
+      const match = error.message.match(/retry in ([\d.]+)s/);
+      const retryAfter = match ? Math.ceil(parseFloat(match[1])) : 60;
+      
+      return NextResponse.json(
+        { error: "Rate limit exceeded", retryAfter },
+        { status: 429 }
+      );
+    }
+
     return NextResponse.json(
       { error: "Internal Server Error", message: error.message },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
