@@ -31,6 +31,8 @@ import {
   selectedMemoIdAtom,
   selectedSearchedMemoAtom,
   timelineMemosAtom,
+  isSearchingAtom,       // ★ 新規追加
+  fetchRelatedMemosAtom  // ★ 新規追加
 } from "@/store/memoAtom";
 
 export function AppSidebar() {
@@ -44,16 +46,17 @@ export function AppSidebar() {
   const createMemo = useSetAtom(createMemoAtom);
   const deleteMemo = useSetAtom(deleteMemoAtom);
 
-  // 型エラー対策: 明示的に ViewMode として扱う
   const [currentView, setCurrentView] = useAtom(currentViewAtom);
 
   const [searchedMemos] = useAtom(searchedMemosAtom);
   const [selectedSearchedMemo, setSelectedSearchedMemo] = useAtom(
     selectedSearchedMemoAtom,
   );
-  const [isSearching, setIsSearching] = useState(false);
+  
+  // ★ 検索状態と検索実行アクションの取得
+  const isSearching = useAtomValue(isSearchingAtom);
+  const fetchRelated = useSetAtom(fetchRelatedMemosAtom);
 
-  // タイムライン（自分以外）のデータ
   const timelineMemos = useAtomValue(timelineMemosAtom);
   const fetchTimeline = useSetAtom(fetchTimelineMemosAtom);
 
@@ -79,10 +82,6 @@ export function AppSidebar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isSettingsOpen]);
 
-  const toggleVimMode = () => {
-    updateSettings({ type: settings.type === "standard" ? "vim" : "standard" });
-  };
-
   const toggleDefaultPublic = () => {
     updateSettings({ defaultIsPublic: !settings.defaultIsPublic });
   };
@@ -97,7 +96,6 @@ export function AppSidebar() {
       <div className="p-4 space-y-4">
         <SidebarAuth />
 
-        {/* 戻るボタンの表示 */}
         {currentView !== "editor" && (
           <button
             type="button"
@@ -109,7 +107,6 @@ export function AppSidebar() {
           </button>
         )}
 
-        {/* メインナビゲーション (editorモードの時だけ表示) */}
         {currentView === "editor" && (
           <div className="space-y-1">
             <div className="relative group mb-2">
@@ -132,7 +129,10 @@ export function AppSidebar() {
 
             <button
               type="button"
-              onClick={() => setCurrentView("explore")}
+              onClick={() => {
+                setCurrentView("explore");
+                fetchRelated(); // ★ ボタンを押した時に検索処理を実行！
+              }}
               className="flex items-center gap-2 hover:bg-blue-50 text-blue-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
             >
               <Compass className="w-5 h-5" />
@@ -155,7 +155,6 @@ export function AppSidebar() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {/* リスト表示部分の出し分け */}
         {currentView === "explore" ? (
           <div className="space-y-1">
             <div className="text-xs font-medium px-4 mb-2 text-blue-600">
@@ -163,9 +162,11 @@ export function AppSidebar() {
             </div>
             {isSearching ? (
               <div className="flex flex-col items-center py-10 text-gray-400">
-                <Loader2 className="w-6 h-6 animate-spin mb-4" />
-                <span>検索中...</span>
+                <Loader2 className="w-6 h-6 animate-spin mb-4 text-blue-500" />
+                <span className="text-xs font-bold text-blue-500">思考を解析中...</span>
               </div>
+            ) : searchedMemos.length === 0 ? (
+              <div className="text-center py-10 text-gray-400 text-xs">関連する他人のメモが見つかりません</div>
             ) : (
               searchedMemos.map((memo) => (
                 <button
