@@ -20,16 +20,26 @@ export function AuthSection() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      // ★ 追加：ログイン済みならトップページへ移動
+      if (session) {
+        router.push("/");
+        router.refresh();
+      }
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      // ★ 追加：ログイン状態が変化したときもトップページへ移動
+      if (session) {
+        router.push("/");
+        router.refresh();
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase.auth]);
+  }, [supabase.auth, router]); // ← ★ routerを依存配列に追加
 
   // GitHubログイン処理
   const handleGithubLogin = async () => {
@@ -37,6 +47,7 @@ export function AuthSection() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
+        // ★ 確認：クォーテーションなしの変数になっているので完璧です！
         redirectTo: window.location.origin,
       },
     });
