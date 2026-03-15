@@ -188,3 +188,29 @@ export const deleteMemoAtom = atom(null, async (get, set, memoId: string) => {
     set(selectedMemoIdAtom, null);
   }
 });
+
+// 取得するカラムに合わせた専用の型を定義
+export type TimelineMemo = Pick<
+  Memo,
+  "id" | "title" | "content" | "updated_at" | "user_id"
+>;
+
+// anyを排除し、作成したTimelineMemoの配列として定義
+export const timelineMemosAtom = atom<TimelineMemo[]>([]);
+
+export const fetchTimelineMemosAtom = atom(null, async (get, set) => {
+  try {
+    const response = await fetch("/api/memos/timeline");
+    if (response.ok) {
+      const data = await response.json();
+      if (data.timeline_memos) {
+        set(timelineMemosAtom, data.timeline_memos as TimelineMemo[]);
+      }
+    } else {
+      console.error("Timeline API error:", await response.text());
+    }
+  } catch (error) {
+    console.error("Timeline fetch error:", error);
+  }
+});
+});

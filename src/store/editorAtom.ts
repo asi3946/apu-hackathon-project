@@ -1,5 +1,7 @@
 import { atom } from "jotai";
+import type { Tag } from "@/types/db"; // ← 追加：データベースのTag型を読み込む
 import { createClient } from "@/utils/supabase/client";
+
 import { Tag } from "@/types/db";
 
 export type EditorType = "standard" | "vim";
@@ -8,6 +10,9 @@ export interface EditorSettings {
   type: EditorType;
   defaultIsPublic: boolean;
 }
+// 画面の
+export type ViewMode = "editor" | "explore" | "timeline";
+export const currentViewAtom = atom<ViewMode>("editor");
 
 export type ActiveEditor = "title" | "tags" | "content";
 export const activeEditorAtom = atom<ActiveEditor>("content");

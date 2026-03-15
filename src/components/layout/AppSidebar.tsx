@@ -1,10 +1,11 @@
 "use client";
 
-import { useAtom, useSetAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   ArrowLeft,
   Compass,
   FileText,
+  Globe,
   Loader2,
   Plus,
   Search,
@@ -14,13 +15,15 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { SidebarAuth } from "@/components/auth/SidebarAuth";
 import { cn } from "@/lib/utils";
+// 先ほど作成したタイムライン用のAtomをインポート
+import { fetchTimelineMemosAtom, timelineMemosAtom } from "@/store/memoAtom";
 import {
   createMemoAtom,
+  currentViewAtom,
   deleteMemoAtom,
   editorSettingsAtom,
   fetchMemosAtom,
   fetchUserSettingsAtom,
-  isExploreModeAtom,
   memoListAtom,
   searchedMemosAtom,
   selectedMemoIdAtom,
@@ -39,13 +42,17 @@ export function AppSidebar() {
   const createMemo = useSetAtom(createMemoAtom);
   const deleteMemo = useSetAtom(deleteMemoAtom);
 
-  const [isExploreMode, setIsExploreMode] = useAtom(isExploreModeAtom);
+  const [currentView, setCurrentView] = useAtom(currentViewAtom);
 
   const [searchedMemos, setSearchedMemos] = useAtom(searchedMemosAtom);
   const [selectedSearchedMemo, setSelectedSearchedMemo] = useAtom(
     selectedSearchedMemoAtom,
   );
   const [isSearching, setIsSearching] = useState(false);
+
+  // タイムライン用の状態を取得
+  const timelineMemos = useAtomValue(timelineMemosAtom);
+  const fetchTimeline = useSetAtom(fetchTimelineMemosAtom);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -72,8 +79,9 @@ export function AppSidebar() {
     };
   }, [isSettingsOpen]);
 
+  // Exploreモードの通信
   useEffect(() => {
-    if (!isExploreMode) return;
+    if (currentView !== "explore") return;
 
     const fetchRelatedMemos = async () => {
       if (!selectedId) {
@@ -112,7 +120,15 @@ export function AppSidebar() {
     };
 
     fetchRelatedMemos();
-  }, [isExploreMode, selectedId, setSearchedMemos, setSelectedSearchedMemo]);
+  }, [currentView, selectedId, setSearchedMemos, setSelectedSearchedMemo]);
+
+  // Timelineモードの通信
+  useEffect(() => {
+    if (currentView === "timeline") {
+      fetchTimeline();
+      setSelectedSearchedMemo(null); // 切り替えた時は一旦画面をクリア
+    }
+  }, [currentView, fetchTimeline, setSelectedSearchedMemo]);
 
   const toggleVimMode = () => {
     updateSettings({ type: settings.type === "standard" ? "vim" : "standard" });
@@ -123,7 +139,7 @@ export function AppSidebar() {
   };
 
   const handleCreateMemo = async () => {
-    setIsExploreMode(false);
+    setCurrentView("editor");
     await createMemo();
   };
 
@@ -191,11 +207,10 @@ export function AppSidebar() {
       <div className="p-4 space-y-4">
         <SidebarAuth></SidebarAuth>
 
-        {/* モードによって上部のボタンを切り替え */}
-        {isExploreMode ? (
+        {currentView !== "editor" ? (
           <button
             type="button"
-            onClick={() => setIsExploreMode(false)}
+            onClick={() => setCurrentView("editor")}
             className="flex items-center gap-2 hover:bg-gray-200 text-gray-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full border border-gray-300 bg-white"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -223,19 +238,27 @@ export function AppSidebar() {
 
             <button
               type="button"
-              onClick={() => setIsExploreMode(true)}
+              onClick={() => setCurrentView("explore")}
               className="flex items-center gap-2 hover:bg-blue-100 text-blue-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
             >
               <Compass className="w-5 h-5" />
               <span className="pr-2">関連する公開メモを探す</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCurrentView("timeline")}
+              className="flex items-center gap-2 hover:bg-green-100 text-green-700 pl-6 py-3 rounded-full transition-colors font-medium text-sm w-full"
+            >
+              <Globe className="w-5 h-5" />
+              <span className="pr-2">公開タイムライン</span>
             </button>
           </>
         )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {/* モードによってリストの中身を切り替え */}
-        {isExploreMode ? (
+        {currentView === "explore" ? (
           <>
             <div className="text-xs font-medium px-4 mb-2 text-blue-600">
               検索結果
@@ -252,11 +275,11 @@ export function AppSidebar() {
                 </div>
               ) : (
                 searchedMemos.map((memo) => (
-                  <button // ← buttonに変更
+                  <button
                     key={memo.id}
-                    type="button" // ← 追加
+                    type="button"
                     className={cn(
-                      "w-full rounded-2xl flex flex-col p-3 transition-colors cursor-pointer border text-left", // ← text-left を追加
+                      "w-full rounded-2xl flex flex-col p-3 transition-colors cursor-pointer border text-left",
                       selectedSearchedMemo?.id === memo.id
                         ? "bg-blue-50 border-blue-200"
                         : "bg-white border-transparent hover:border-gray-200",
@@ -269,7 +292,50 @@ export function AppSidebar() {
                     <div className="truncate text-sm font-medium text-gray-800">
                       {memo.title || "無題のメモ"}
                     </div>
-                  </button> // ← 閉じタグもbutton
+                  </button>
+                ))
+              )}
+            </div>
+          </>
+        ) : currentView === "timeline" ? (
+          <>
+            <div className="text-xs font-medium px-4 mb-2 text-green-600">
+              タイムライン
+            </div>
+            <div className="space-y-1">
+              {timelineMemos.length === 0 ? (
+                <div className="text-center py-10 text-gray-400 text-sm">
+                  公開メモがありません
+                </div>
+              ) : (
+                timelineMemos.map((memo) => (
+                  <button
+                    key={memo.id}
+                    type="button"
+                    className={cn(
+                      "w-full rounded-2xl flex flex-col p-3 transition-colors cursor-pointer border text-left",
+                      selectedSearchedMemo?.id === memo.id
+                        ? "bg-green-50 border-green-200"
+                        : "bg-white border-transparent hover:border-gray-200",
+                    )}
+                    onClick={() =>
+                      setSelectedSearchedMemo({
+                        ...memo,
+                        similarity: 0,
+                        created_at: memo.updated_at,
+                        embedding: null,
+                        is_public: true,
+                        tags: [],
+                      })
+                    }
+                  >
+                    <div className="text-xs text-green-600 mb-1 font-medium">
+                      {new Date(memo.updated_at).toLocaleDateString()}
+                    </div>
+                    <div className="truncate text-sm font-medium text-gray-800">
+                      {memo.title || "無題のメモ"}
+                    </div>
+                  </button>
                 ))
               )}
             </div>
@@ -285,7 +351,7 @@ export function AppSidebar() {
                   key={memo.id}
                   className={cn(
                     "w-full rounded-full flex items-center transition-colors group relative",
-                    selectedId === memo.id && !isExploreMode
+                    selectedId === memo.id && currentView === "editor"
                       ? "bg-blue-100 text-[#0e42a0] font-medium"
                       : "hover:bg-[#d3e3fd] text-gray-700",
                     "focus-within:ring-2 focus-within:ring-blue-400",
@@ -294,10 +360,12 @@ export function AppSidebar() {
                   <button
                     type="button"
                     data-memo-btn="true"
-                    data-active={selectedId === memo.id && !isExploreMode}
+                    data-active={
+                      selectedId === memo.id && currentView === "editor"
+                    }
                     onClick={() => {
                       setSelectedId(memo.id);
-                      setIsExploreMode(false);
+                      setCurrentView("editor");
                     }}
                     className="flex-1 min-w-0 flex items-center gap-2 pl-8 py-2 rounded-l-full text-left outline-none"
                   >

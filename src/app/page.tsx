@@ -4,15 +4,18 @@ import { useAtomValue } from "jotai";
 import { EditorRoot } from "@/components/editor/EditorRoot";
 import { ExploreViewer } from "@/components/explore/ExploreViewer";
 import { AppSidebar } from "@/components/layout/AppSidebar";
-import { isExploreModeAtom } from "@/store/models";
+import { currentViewAtom } from "@/store/models";
 
 export default function Home() {
-  const isExploreMode = useAtomValue(isExploreModeAtom);
+  const currentView = useAtomValue(currentViewAtom);
 
   return (
     <main className="flex h-screen w-screen overflow-hidden bg-white">
       <AppSidebar />
-      {isExploreMode ? <ExploreViewer /> : <EditorRoot />}
+      {/* timelineの時もExploreViewerを使い回す */}
+      {currentView === "timeline" && <ExploreViewer />}
+      {currentView === "explore" && <ExploreViewer />}
+      {currentView === "editor" && <EditorRoot />}
     </main>
   );
 }
