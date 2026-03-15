@@ -37,7 +37,7 @@ export function AuthSection() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
-        redirectTo: "http://localhost:3000",
+        redirectTo: "window.location.origin",
       },
     });
     if (error) setErrorMsg(error.message);
