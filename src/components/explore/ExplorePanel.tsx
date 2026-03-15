@@ -1,7 +1,7 @@
 "use client";
 
 import { useAtomValue } from "jotai";
-import { CheckCircle2, FileText, Loader2, User } from "lucide-react";
+import { CheckCircle2, FileText, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { editorContentAtom, editorTitleAtom } from "@/store/editorAtom";
@@ -126,10 +126,6 @@ export function ExplorePanel() {
               <h1 className="text-3xl font-bold text-gray-900 mb-4">
                 {selectedMemo.title || "無題のメモ"}
               </h1>
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <User className="w-4 h-4" />
-                <span>ユーザーID: {selectedMemo.user_id}</span>
-              </div>
             </div>
 
             <div className="prose prose-gray max-w-none text-gray-700 whitespace-pre-wrap">
