@@ -32,7 +32,8 @@ import {
   selectedSearchedMemoAtom,
   timelineMemosAtom,
   isSearchingAtom,
-  fetchRelatedMemosAtom
+  fetchRelatedMemosAtom,
+  currentMemoAtom, // ★ 追加
 } from "@/store/memoAtom";
 
 export function AppSidebar() {
@@ -59,10 +60,12 @@ export function AppSidebar() {
   const timelineMemos = useAtomValue(timelineMemosAtom);
   const fetchTimeline = useSetAtom(fetchTimelineMemosAtom);
 
+  // ★ 追加: 現在開いている自分のメモを取得
+  const currentMemo = useAtomValue(currentMemoAtom);
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
 
-  // ★ 新規追加: 検索キーワードを保存するステート
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -93,11 +96,9 @@ export function AppSidebar() {
     await createMemo();
   };
 
-  // ★ 新規追加: 検索キーワードで自分のメモを絞り込む
   const filteredMemos = memos.filter((memo) => {
-    if (!searchQuery) return true; // 検索文字がない場合はすべて表示
+    if (!searchQuery) return true;
     const title = memo.title || "無題のメモ";
-    // 大文字・小文字を区別せずに部分一致検索を行う
     return title.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
@@ -123,8 +124,8 @@ export function AppSidebar() {
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
               <input
                 type="text"
-                value={searchQuery} // ★ 追加: ステートと入力を紐付け
-                onChange={(e) => setSearchQuery(e.target.value)} // ★ 追加: 入力されるたびにステートを更新
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="自分のメモを検索..."
                 className="w-full bg-transparent border border-transparent hover:bg-white focus:bg-white focus:border-blue-200 rounded-full py-2 pl-10 pr-4 text-sm outline-none transition-all"
               />
@@ -169,9 +170,18 @@ export function AppSidebar() {
       <div className="flex-1 overflow-y-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {currentView === "explore" ? (
           <div className="space-y-1">
-            <div className="text-xs font-medium px-4 mb-2 text-blue-600">
-              検索結果
+            {/* ★ 修正: おおもとのメモのタイトルを表示するヘッダーを追加 */}
+            <div className="px-4 mb-2">
+              <div className="text-[10px] uppercase tracking-wider text-blue-500 font-bold">
+                Related to
+              </div>
+              <div className="text-xs font-bold text-gray-800 truncate">
+                {currentMemo?.title || "無題のメモ"}
+              </div>
             </div>
+
+            <div className="h-px bg-gray-200 mx-4 my-2" /> {/* 区切り線 */}
+
             {isSearching ? (
               <div className="flex flex-col items-center py-10 text-gray-400">
                 <Loader2 className="w-6 h-6 animate-spin mb-4 text-blue-500" />
@@ -232,7 +242,6 @@ export function AppSidebar() {
           <div className="space-y-1">
             <div className="text-xs font-medium px-4 mb-2">自分のメモ</div>
             
-            {/* ★ 変更: memos を filteredMemos に変えて、検索結果が0件の時の表示も追加 */}
             {filteredMemos.length === 0 ? (
               <div className="text-center py-6 text-gray-400 text-xs">
                 メモが見つかりません
