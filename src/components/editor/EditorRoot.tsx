@@ -7,6 +7,7 @@ import {
   createMemoAtom,
   currentMemoAtom,
   editorContentAtom,
+  editorIsPublicAtom,
   editorSettingsAtom,
   editorTagsAtom,
   editorTitleAtom,
@@ -21,6 +22,7 @@ export function EditorRoot() {
   const setEditorContent = useSetAtom(editorContentAtom);
   const setEditorTitle = useSetAtom(editorTitleAtom);
   const setEditorTags = useSetAtom(editorTagsAtom);
+  const setEditorIsPublic = useSetAtom(editorIsPublicAtom);
 
   const allTags = useAtomValue(allTagsAtom);
 
@@ -53,16 +55,27 @@ export function EditorRoot() {
 
       const memoTags = currentMemo.tags || [];
       const tagsAsObjects = memoTags.map((t: any) => {
-        // ★ 修正：タグが「文字」でも「オブジェクト」でも絶対に文字を取り出す安全処理（空っぽタグ防止）
         const nameStr = typeof t === "string" ? t : t?.name || "";
         const found = allTags.find((tag) => tag.name === nameStr);
         return found ? found : { id: nameStr, name: nameStr };
       });
 
       setEditorTags(tagsAsObjects);
+
+      // ★ 追加：DBの値をエディタに反映！(undefined対策で !! をつけてboolean化)
+      setEditorIsPublic(!!currentMemo.is_public);
+
       loadedMemoIdRef.current = currentMemo.id; // ロックをかける
     }
-  }, [currentMemo, allTags, setEditorContent, setEditorTitle, setEditorTags]);
+    // ★ 追加：依存配列の一番最後に setEditorIsPublic を追加
+  }, [
+    currentMemo,
+    allTags,
+    setEditorContent,
+    setEditorTitle,
+    setEditorTags,
+    setEditorIsPublic,
+  ]);
 
   const isVim = settings.type === "vim";
 

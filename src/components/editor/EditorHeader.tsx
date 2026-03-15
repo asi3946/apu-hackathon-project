@@ -3,16 +3,16 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   Check,
+  Globe,
   Hourglass,
   Loader2,
+  Lock,
   Plus,
   Save,
+  Search,
   Sparkles,
   Tag as TagIcon,
   X,
-  Search,
-  Globe, // ★ 追加
-  Lock,  // ★ 追加
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVimKeyHandler } from "@/hooks/useVimKeyHandler";
@@ -21,16 +21,16 @@ import {
   activeEditorAtom,
   allTagsAtom,
   editorContentAtom,
-  editorTagInputAtom,
   editorEmbeddingCacheAtom,
-  tagSearchQueryAtom,
+  editorIsPublicAtom,
+  editorTagInputAtom,
   isTagSearchingAtom,
-  editorIsPublicAtom, // ★ 追加
+  tagSearchQueryAtom,
 } from "@/store/editorAtom";
-import { 
-  fetchAllTagsAtom, 
+import {
+  fetchAllTagsAtom,
   saveMemoAtom,
-  searchTagsSemanticAtom 
+  searchTagsSemanticAtom,
 } from "@/store/memoAtom";
 import {
   editorSettingsAtom,
@@ -50,14 +50,12 @@ export function EditorHeader() {
   const allTags = useAtomValue(allTagsAtom);
   const content = useAtomValue(editorContentAtom);
   const fetchAllTags = useSetAtom(fetchAllTagsAtom);
-  
+
   const [tagSearchQuery, setTagSearchQuery] = useAtom(tagSearchQueryAtom);
   const isTagSearching = useAtomValue(isTagSearchingAtom);
   const searchTags = useSetAtom(searchTagsSemanticAtom);
 
-  // ★ 個別公開状態の管理
   const [isPublic, setIsPublic] = useAtom(editorIsPublicAtom);
-
   const setEmbeddingCache = useSetAtom(editorEmbeddingCacheAtom);
 
   const selectedId = useAtomValue(selectedMemoIdAtom);
@@ -101,35 +99,25 @@ export function EditorHeader() {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
-    if (activeEditor !== "tags") {
-      setShowTagList(false);
-    }
+    if (activeEditor !== "tags") setShowTagList(false);
   }, [activeEditor]);
 
   const handleSave = useCallback(async () => {
     if (selectedId && !isSaving) {
       setIsSaving(true);
       await saveMemo();
-      setTimeout(() => {
-        setIsSaving(false);
-      }, 500);
+      setTimeout(() => setIsSaving(false), 500);
     }
   }, [selectedId, isSaving, saveMemo]);
 
-  // ★ 公開状態を切り替える
   const togglePublic = async () => {
     const nextPublic = !isPublic;
     setIsPublic(nextPublic);
-    // 状態を確実に反映させてから保存を走らせる
-    setTimeout(() => {
-      handleSave();
-    }, 50);
+    setTimeout(() => handleSave(), 50);
   };
 
   const saveRef = useRef(handleSave);
@@ -157,25 +145,18 @@ export function EditorHeader() {
         body: JSON.stringify({ content }),
         headers: { "Content-Type": "application/json" },
       });
-
       if (res.status === 429) {
         const data = await res.json();
         setCooldown(data.retryAfter || 60);
         return;
       }
-
       const data = await res.json();
       if (data.suggestedTags) {
         setTags(data.suggestedTags);
         fetchAllTags();
-        
-        if (data.embedding) {
+        if (data.embedding)
           setEmbeddingCache({ text: content, embedding: data.embedding });
-        }
-        
-        setTimeout(() => {
-          saveRef.current();
-        }, 100);
+        setTimeout(() => saveRef.current(), 100);
       }
     } catch (err) {
       console.error("AI Auto-tag failed:", err);
@@ -193,20 +174,15 @@ export function EditorHeader() {
         body: JSON.stringify({ content }),
         headers: { "Content-Type": "application/json" },
       });
-
       if (res.status === 429) {
         const data = await res.json();
         setCooldown(data.retryAfter || 60);
         return;
       }
-
       const data = await res.json();
       if (data.title) {
         setTitle(data.title);
-        
-        setTimeout(() => {
-          saveRef.current();
-        }, 100);
+        setTimeout(() => saveRef.current(), 100);
       }
     } catch (err) {
       console.error("AI Auto-title failed:", err);
@@ -224,17 +200,15 @@ export function EditorHeader() {
     }
   };
 
-  const removeTag = (tagId: string) => {
+  const removeTag = (tagId: string) =>
     setTags(tags.filter((t) => t.id !== tagId));
-  };
 
   const { handleKeyDown: handleTitleKeyDown } = useVimKeyHandler(
     titleInputRef,
     ignoreSelectRef,
     (direction) => {
-      if (direction === "down") {
+      if (direction === "down")
         document.getElementById("memo-tag-input")?.focus();
-      }
     },
   );
 
@@ -242,11 +216,10 @@ export function EditorHeader() {
     tagInputRef,
     ignoreSelectRef,
     (direction) => {
-      if (direction === "up") {
+      if (direction === "up")
         document.getElementById("memo-title-input")?.focus();
-      } else if (direction === "down") {
+      else if (direction === "down")
         document.querySelector("textarea")?.focus();
-      }
     },
   );
 
@@ -259,25 +232,22 @@ export function EditorHeader() {
           ? tagInputRef.current
           : null;
     if (!input) return;
-
     const value =
       activeEditor === "title"
         ? title
         : activeEditor === "tags"
           ? tagInput
           : "";
-
     if (vimMode === "visual" && visualStart !== null) {
-      const start = Math.min(visualStart, cursor);
-      const end = Math.max(visualStart, cursor) + 1;
-      input.setSelectionRange(start, end);
+      input.setSelectionRange(
+        Math.min(visualStart, cursor),
+        Math.max(visualStart, cursor) + 1,
+      );
     } else if (vimMode === "normal") {
-      const endPos = Math.min(cursor + 1, value.length);
-      if (value.length === 0) {
-        input.setSelectionRange(0, 0);
-      } else {
-        input.setSelectionRange(cursor, endPos);
-      }
+      input.setSelectionRange(
+        cursor,
+        value.length === 0 ? 0 : Math.min(cursor + 1, value.length),
+      );
     } else {
       input.setSelectionRange(cursor, cursor);
     }
@@ -291,28 +261,6 @@ export function EditorHeader() {
     settings.type,
     activeEditor,
   ]);
-
-  const handleTitleSelect = (e: React.SyntheticEvent<HTMLInputElement>) => {
-    if (
-      ignoreSelectRef.current ||
-      settings.type === "standard" ||
-      vimMode !== "insert" ||
-      activeEditor !== "title"
-    )
-      return;
-    setCursor(e.currentTarget.selectionStart || 0);
-  };
-
-  const handleTagSelect = (e: React.SyntheticEvent<HTMLInputElement>) => {
-    if (
-      ignoreSelectRef.current ||
-      settings.type === "standard" ||
-      vimMode !== "insert" ||
-      activeEditor !== "tags"
-    )
-      return;
-    setCursor(e.currentTarget.selectionStart || 0);
-  };
 
   return (
     <div className="flex flex-col gap-4 w-full group">
@@ -338,11 +286,8 @@ export function EditorHeader() {
                 e.preventDefault();
                 document.querySelector("textarea")?.focus();
               }
-            } else {
-              handleTitleKeyDown(e);
-            }
+            } else handleTitleKeyDown(e);
           }}
-          onSelect={handleTitleSelect}
           placeholder="no title"
           className={cn(
             "text-4xl font-bold text-gray-800 placeholder:text-gray-200 outline-none flex-1 transition-all rounded-md px-2 -ml-2 bg-transparent",
@@ -356,32 +301,14 @@ export function EditorHeader() {
         />
 
         <div className="flex items-center gap-2">
-          {/* ★ 個別公開ボタン */}
-          <button
-            type="button"
-            onClick={togglePublic}
-            disabled={!selectedId}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm",
-              !selectedId ? "opacity-30 cursor-not-allowed" :
-              isPublic 
-                ? "bg-green-50 text-green-600 border-green-200 hover:bg-green-100" 
-                : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
-            )}
-          >
-            {isPublic ? (
-              <><Globe className="w-3.5 h-3.5" /> 公開中</>
-            ) : (
-              <><Lock className="w-3.5 h-3.5" /> 未公開</>
-            )}
-          </button>
-
+          {/* 1. AIタイトルボタン */}
           <button
             type="button"
             onClick={handleAutoTitle}
             disabled={!content || isTitleAiLoading || cooldown > 0}
             className={cn(
-              "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-bold transition-all",
+              // whitespace-nowrap（改行禁止）と shrink-0（縮小禁止）を追加
+              "flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap shrink-0",
               isTitleAiLoading || cooldown > 0
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : "bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:border-blue-300",
@@ -397,12 +324,13 @@ export function EditorHeader() {
             <span>{cooldown > 0 ? `${cooldown}秒` : "AIタイトル"}</span>
           </button>
 
+          {/* 2. 保存ボタン */}
           <button
             type="button"
             onClick={handleSave}
             disabled={!selectedId || isSaving}
             className={cn(
-              "p-2 rounded-full transition-all duration-200",
+              "p-2 rounded-full transition-all duration-200 shrink-0", // ここにも shrink-0 を追加
               selectedId
                 ? "text-gray-400 hover:bg-blue-50 hover:text-blue-600"
                 : "text-gray-200 cursor-not-allowed",
@@ -413,6 +341,32 @@ export function EditorHeader() {
               <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
             ) : (
               <Save className="w-6 h-6" />
+            )}
+          </button>
+
+          {/* 3. 個別公開ボタン */}
+          <button
+            type="button"
+            onClick={togglePublic}
+            disabled={!selectedId}
+            className={cn(
+              // whitespace-nowrap（改行禁止）を追加
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shadow-sm whitespace-nowrap shrink-0",
+              !selectedId
+                ? "opacity-30 cursor-not-allowed"
+                : isPublic
+                  ? "bg-green-50 text-green-600 border-green-200 hover:bg-green-100"
+                  : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100",
+            )}
+          >
+            {isPublic ? (
+              <>
+                <Globe className="w-3.5 h-3.5" /> 公開中
+              </>
+            ) : (
+              <>
+                <Lock className="w-3.5 h-3.5" /> 未公開
+              </>
             )}
           </button>
         </div>
@@ -461,11 +415,8 @@ export function EditorHeader() {
                   setShowTagList(false);
                   document.querySelector("textarea")?.focus();
                 }
-              } else {
-                handleTagKeyDown(e);
-              }
+              } else handleTagKeyDown(e);
             }}
-            onSelect={handleTagSelect}
             placeholder="Select Tag"
             className={cn(
               "pl-6 pr-2 py-0.5 text-sm text-gray-600 placeholder:text-gray-400 border border-transparent rounded-md outline-none w-28 transition-all bg-transparent hover:border-gray-200 hover:bg-gray-100 focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-200 cursor-pointer",
@@ -479,7 +430,6 @@ export function EditorHeader() {
 
           {showTagList && (
             <div className="absolute top-full left-0 mt-1 w-56 max-h-80 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg z-50 flex flex-col">
-              
               <div className="sticky top-0 bg-white border-b border-gray-100 p-2 z-10">
                 <div className="relative flex items-center">
                   <input
@@ -496,7 +446,6 @@ export function EditorHeader() {
                     className="w-full pl-8 pr-12 py-1.5 text-xs text-gray-900 placeholder:text-gray-400 bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 shadow-sm"
                   />
                   <Search className="absolute left-2.5 w-3.5 h-3.5 text-gray-400" />
-                  
                   <button
                     type="button"
                     onClick={searchTags}
@@ -511,12 +460,10 @@ export function EditorHeader() {
                   </button>
                 </div>
               </div>
-
               <div className="flex-1">
                 <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                   {tagSearchQuery ? "関連度の高いタグ" : "すべてのタグ"}
                 </div>
-
                 {allTags.length === 0 ? (
                   <div className="px-3 py-6 text-xs text-center text-gray-400">
                     タグが見つかりません
@@ -524,8 +471,8 @@ export function EditorHeader() {
                 ) : (
                   allTags.map((tag) => (
                     <button
-                      type="button"
                       key={tag.id}
+                      type="button"
                       onMouseDown={(e) => {
                         e.preventDefault();
                         toggleTag(tag);
